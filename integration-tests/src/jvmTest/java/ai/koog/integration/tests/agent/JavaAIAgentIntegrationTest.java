@@ -114,6 +114,7 @@ public class JavaAIAgentIntegrationTest extends KoogJavaTestBase {
     public void integration_ShouldFailOnMaxIterationsExhaustion(LLModel model) {
         Models.assumeAvailable(model.getProvider());
         assumeTrue(model.supports(LLMCapability.Tools.INSTANCE), "Model must support tools");
+        assumeNoGoogleToolCalling(model);
 
         NumberTools numberTools = new NumberTools();
         AtomicInteger errors = new AtomicInteger(0);
@@ -146,6 +147,7 @@ public class JavaAIAgentIntegrationTest extends KoogJavaTestBase {
     public void integration_ShouldCallNoArgToolWithoutParams(LLModel model) {
         Models.assumeAvailable(model.getProvider());
         assumeTrue(model.supports(LLMCapability.Tools.INSTANCE), "Model must support tools");
+        assumeNoGoogleToolCalling(model);
 
         NumberTools tools = new NumberTools();
         ToolRegistry registry = ToolRegistry.builder().tools(tools).build();
@@ -222,6 +224,7 @@ public class JavaAIAgentIntegrationTest extends KoogJavaTestBase {
     public void integration_SubgraphToolShouldReuseAgentTools(LLModel model) {
         Models.assumeAvailable(model.getProvider());
         assumeTrue(model.supports(LLMCapability.Tools.INSTANCE), "Model must support tools");
+        assumeNoGoogleToolCalling(model);
 
         NumberTools numberTools = new NumberTools();
         ToolRegistry toolRegistry = ToolRegistry.builder().tools(numberTools).build();
@@ -333,6 +336,7 @@ public class JavaAIAgentIntegrationTest extends KoogJavaTestBase {
     public void integration_HistoryCompressionSupportsBeforeAndAfterToolResult(LLModel model) {
         Models.assumeAvailable(model.getProvider());
         assumeTrue(model.supports(LLMCapability.Tools.INSTANCE), "Model must support tools");
+        assumeNoGoogleToolCalling(model);
 
         NumberTools numberTools = new NumberTools();
         AtomicInteger errors = new AtomicInteger(0);
@@ -383,6 +387,13 @@ public class JavaAIAgentIntegrationTest extends KoogJavaTestBase {
         assertThat(historyAfterCompression.get().stream().anyMatch(m -> m instanceof Message.System))
             .as("History should preserve system message after compression around tool result")
             .isTrue();
+    }
+
+    private static void assumeNoGoogleToolCalling(LLModel model) {
+        assumeTrue(
+            !"google".equalsIgnoreCase(model.getProvider().getId()),
+            "Skipping Google models until thought_signature support is fixed (KG-722/KG-596)"
+        );
     }
 
     @ParameterizedTest
