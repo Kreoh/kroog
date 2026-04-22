@@ -7,6 +7,7 @@ data class SettingsUiState(
     val openAiToken: String = "",
     val anthropicToken: String = "",
     val geminiToken: String = "",
+    val ollamaUrl: String = "",
     val selectedOption: SelectedOption = SelectedOption.OpenAI,
     val isLoading: Boolean = true
 )

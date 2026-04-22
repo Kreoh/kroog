@@ -15,6 +15,7 @@ internal class DataStoreAppSettings(prefPathProvider: PrefPathProvider) : AppSet
         val OPENAI_TOKEN_KEY = stringPreferencesKey("openai_token")
         val ANTHROPIC_TOKEN_KEY = stringPreferencesKey("anthropic_token")
         val GEMINI_TOKEN_KEY = stringPreferencesKey("gemini_token")
+        val OLLAMA_URL_KEY = stringPreferencesKey("ollama_url")
         val SELECTED_PROVIDER_KEY = stringPreferencesKey("selected_provider")
     }
 
@@ -29,10 +30,12 @@ internal class DataStoreAppSettings(prefPathProvider: PrefPathProvider) : AppSet
             openAiToken = preferences[OPENAI_TOKEN_KEY].orEmpty(),
             anthropicToken = preferences[ANTHROPIC_TOKEN_KEY].orEmpty(),
             geminiToken = preferences[GEMINI_TOKEN_KEY].orEmpty(),
+            ollamaUrl = preferences[OLLAMA_URL_KEY] ?: "http://10.0.2.2:11434",
             selectedOption = when (preferences[SELECTED_PROVIDER_KEY]) {
                 SelectedOption.OpenAI.title -> SelectedOption.OpenAI
                 SelectedOption.Anthropic.title -> SelectedOption.Anthropic
                 SelectedOption.Gemini.title -> SelectedOption.Gemini
+                SelectedOption.Ollama.title -> SelectedOption.Ollama
                 else -> SelectedOption.OpenAI
             }
         )
@@ -43,6 +46,7 @@ internal class DataStoreAppSettings(prefPathProvider: PrefPathProvider) : AppSet
             preferences[OPENAI_TOKEN_KEY] = settings.openAiToken
             preferences[ANTHROPIC_TOKEN_KEY] = settings.anthropicToken
             preferences[GEMINI_TOKEN_KEY] = settings.geminiToken
+            preferences[OLLAMA_URL_KEY] = settings.ollamaUrl
             preferences[SELECTED_PROVIDER_KEY] = settings.selectedOption.title
         }
     }

@@ -5,6 +5,7 @@ internal class MemoryAppSettings : AppSettings {
         openAiToken = "",
         anthropicToken = "",
         geminiToken = "",
+        ollamaUrl = "http://localhost:11434",
         selectedOption = SelectedOption.OpenAI
     )
 

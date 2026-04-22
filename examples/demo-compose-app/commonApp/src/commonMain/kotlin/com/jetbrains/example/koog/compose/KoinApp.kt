@@ -7,6 +7,9 @@ import ai.koog.prompt.executor.clients.google.GoogleLLMClient
 import ai.koog.prompt.executor.clients.google.GoogleModels
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.executor.ollama.client.OllamaClient
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import androidx.compose.runtime.Composable
 import com.jetbrains.example.koog.compose.agents.calculator.CalculatorAgentProvider
@@ -36,6 +39,29 @@ fun KoinApp() = KoinMultiplatformApplication(
                         val appSettings: AppSettings = get()
                         val currentSettings = appSettings.getCurrentSettings()
                         when (currentSettings.selectedOption) {
+                            SelectedOption.Ollama -> {
+                                val model = LLModel(
+                                    provider = LLMProvider.Ollama,
+                                    id = "qwen3.5:0.8b",
+                                    capabilities =
+                                    listOf(
+                                        LLMCapability.Schema.JSON.Basic,
+                                        LLMCapability.Temperature,
+                                        LLMCapability.ToolChoice,
+                                        LLMCapability.Tools,
+                                        LLMCapability.Vision.Image,
+                                    ),
+                                    contextLength = 256_000,
+                                )
+                                val baseUrl = currentSettings.ollamaUrl
+                                println("Container baseUrl: $baseUrl")
+                                require(baseUrl.isNotEmpty()) { "Ollama baseUrl is not configured." }
+                                val client = OllamaClient(baseUrl = baseUrl)
+                                println("Model loading: $model")
+                                client.getModelOrNull(model.id, pullIfMissing = true)
+                                println("Model is ready: $model")
+                                Pair(client, model)
+                            }
                             SelectedOption.OpenAI -> {
                                 val openAiToken = appSettings.getCurrentSettings().openAiToken
                                 require(openAiToken.isNotEmpty()) { "OpenAI token is not configured." }

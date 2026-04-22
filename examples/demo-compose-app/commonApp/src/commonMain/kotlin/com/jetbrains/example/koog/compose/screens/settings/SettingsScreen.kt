@@ -53,6 +53,7 @@ private fun SettingsScreenContent(
         SelectedOption.OpenAI,
         SelectedOption.Anthropic,
         SelectedOption.Gemini,
+        SelectedOption.Ollama,
     )
 
     Scaffold(
@@ -90,7 +91,7 @@ private fun SettingsScreenContent(
                 .padding(AppDimension.spacingContentPadding)
         ) {
             Text(
-                text = "API Tokens",
+                text = "Provider Configuration",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = AppDimension.spacingMedium)
@@ -128,6 +129,7 @@ private fun SettingsScreenContent(
                 is SelectedOption.OpenAI -> uiState.openAiToken to "OpenAI Token"
                 is SelectedOption.Anthropic -> uiState.anthropicToken to "Anthropic Token"
                 is SelectedOption.Gemini -> uiState.geminiToken to "Gemini Token"
+                is SelectedOption.Ollama -> uiState.ollamaUrl to "Ollama URL"
             }
 
             OutlinedTextField(

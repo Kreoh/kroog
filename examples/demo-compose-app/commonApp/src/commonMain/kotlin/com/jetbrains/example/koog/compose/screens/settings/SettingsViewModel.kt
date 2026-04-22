@@ -51,6 +51,7 @@ class SettingsViewModel(
                 openAiToken = settings.openAiToken,
                 anthropicToken = settings.anthropicToken,
                 geminiToken = settings.geminiToken,
+                ollamaUrl = settings.ollamaUrl,
                 selectedOption = settings.selectedOption,
                 isLoading = false
             )
@@ -73,6 +74,7 @@ class SettingsViewModel(
             is SelectedOption.OpenAI -> state.copy(openAiToken = credential.trim())
             is SelectedOption.Anthropic -> state.copy(anthropicToken = credential.trim())
             is SelectedOption.Gemini -> state.copy(geminiToken = credential.trim())
+            is SelectedOption.Ollama -> state.copy(ollamaUrl = credential.trim())
         }
     }
 
@@ -88,6 +90,7 @@ class SettingsViewModel(
                     openAiToken = currentSettingsState.openAiToken,
                     anthropicToken = currentSettingsState.anthropicToken,
                     geminiToken = currentSettingsState.geminiToken,
+                    ollamaUrl = currentSettingsState.ollamaUrl,
                     selectedOption = currentSettingsState.selectedOption
                 )
             )

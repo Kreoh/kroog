@@ -2,6 +2,8 @@ package com.jetbrains.example.koog.compose.agents.weather
 
 import ai.koog.agents.core.tools.Tool
 import ai.koog.agents.core.tools.annotations.LLMDescription
+import ai.koog.serialization.JSONSerializer
+import ai.koog.serialization.typeToken
 import kotlinx.datetime.DateTimePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -44,8 +46,8 @@ sealed interface WeatherTools {
         val defaultTimeZone: TimeZone = UTC_ZONE,
         val clock: Clock = CLOCK,
     ) : Tool<CurrentDatetimeTool.Args, CurrentDatetimeTool.Result>(
-        argsSerializer = Args.serializer(),
-        resultSerializer = Result.serializer(),
+        argsType = typeToken<Args>(),
+        resultType = typeToken<Result>(),
         name = "current_datetime",
         description = "Get the current date and time in the specified timezone"
     ) {
@@ -87,7 +89,7 @@ sealed interface WeatherTools {
             )
         }
 
-        override fun encodeResultToString(result: Result): String {
+        override fun encodeResultToString(result: Result, serializer: JSONSerializer): String {
             return "Current datetime: ${result.datetime}, Date: ${result.date}, Time: ${result.time}, Timezone: ${result.timezone}"
         }
     }
@@ -99,8 +101,8 @@ sealed interface WeatherTools {
         val defaultTimeZone: TimeZone = UTC_ZONE,
         val clock: Clock = CLOCK,
     ) : Tool<AddDatetimeTool.Args, AddDatetimeTool.Result>(
-        argsSerializer = Args.serializer(),
-        resultSerializer = Result.serializer(),
+        argsType = typeToken<Args>(),
+        resultType = typeToken<Result>(),
         name = "add_datetime",
         description = "Add a duration to a date. Use this tool when you need to calculate offsets, such as tomorrow, in two days, etc."
     ) {
@@ -159,7 +161,7 @@ sealed interface WeatherTools {
             )
         }
 
-        override fun encodeResultToString(result: Result): String {
+        override fun encodeResultToString(result: Result, serializer: JSONSerializer): String {
             return buildString {
                 append("Date: ${result.date}")
                 if (result.originalDate.isBlank()) {
@@ -196,8 +198,8 @@ sealed interface WeatherTools {
         private val openMeteoClient: OpenMeteoClient = OpenMeteoClient(),
         val defaultTimeZone: TimeZone = UTC_ZONE
     ) : Tool<WeatherForecastTool.Args, WeatherForecastTool.Result>(
-        argsSerializer = Args.serializer(),
-        resultSerializer = Result.serializer(),
+        argsType = typeToken<Args>(),
+        resultType = typeToken<Result>(),
         name = "weather_forecast",
         description = "Get a weather forecast for a location with specified granularity (daily or hourly)"
     ) {
@@ -350,7 +352,7 @@ sealed interface WeatherTools {
             }
         }
 
-        override fun encodeResultToString(result: Result): String {
+        override fun encodeResultToString(result: Result, serializer: JSONSerializer): String {
             val granularityText = when (result.granularity) {
                 Granularity.DAILY -> "daily"
                 Granularity.HOURLY -> "hourly"
