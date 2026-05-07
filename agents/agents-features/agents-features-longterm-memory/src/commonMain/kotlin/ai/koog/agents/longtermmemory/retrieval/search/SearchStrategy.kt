@@ -1,13 +1,14 @@
-package ai.koog.agents.longtermmemory.retrieval
+package ai.koog.agents.longtermmemory.retrieval.search
 
 import ai.koog.rag.base.storage.search.SearchRequest
 import ai.koog.rag.base.storage.search.SimilaritySearchRequest
+import kotlin.jvm.JvmStatic
 
 /**
  * Search strategy for creating search requests during prompt augmentation.
  *
  * This is a functional interface (SAM) that defines how a user query string
- * should be transformed into a [SimilaritySearchRequest] for storage.
+ * should be transformed into a [SearchRequest] for retrieval.
  *
  * **[SimilaritySearchStrategy] is the default implementation.**
  * It uses vector embeddings for semantic search and works with all supported vector backends.
@@ -32,10 +33,10 @@ import ai.koog.rag.base.storage.search.SimilaritySearchRequest
  */
 public fun interface SearchStrategy {
     /**
-     * Maps a query string into a [SearchRequest] for the storage.
+     * Maps a query string into a [SearchRequest] for retrieval.
      *
      * @param query The user's query string (typically the last user message content)
-     * @return The similarity search request to be executed
+     * @return The search request to be executed
      */
     public fun create(query: String): SearchRequest
 
@@ -55,7 +56,7 @@ public fun interface SearchStrategy {
          *     .build()
          * ```
          */
-        @kotlin.jvm.JvmStatic
+        @JvmStatic
         public fun builder(): SearchStrategyBuilder = SearchStrategyBuilder()
     }
 }
