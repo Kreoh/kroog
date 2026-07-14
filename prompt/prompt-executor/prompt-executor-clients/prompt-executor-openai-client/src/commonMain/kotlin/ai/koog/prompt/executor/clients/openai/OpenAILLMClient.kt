@@ -363,6 +363,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             params = params,
             stream = true
         )
+        val toolCallsByItemId = mutableMapOf<String, Item.FunctionToolCall>()
 
         return try {
             httpClient.sse(
@@ -374,6 +375,14 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 },
                 processStreamingChunk = {
                     when (it) {
+                        is OpenAIStreamEvent.ResponseOutputItemAdded -> {
+                            val item = it.item
+                            if (item is Item.FunctionToolCall) {
+                                item.id?.let { itemId -> toolCallsByItemId[itemId] = item }
+                            }
+                            null
+                        }
+
                         is OpenAIStreamEvent.ResponseOutputTextDelta -> {
                             StreamFrame.TextDelta(text = it.delta, index = it.outputIndex)
                         }
@@ -389,9 +398,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         }
 
                         is OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta -> {
+                            val toolCall = toolCallsByItemId[it.itemId]
                             StreamFrame.ToolCallDelta(
-                                id = it.itemId,
-                                name = null,
+                                id = toolCall?.callId ?: it.itemId,
+                                name = toolCall?.name,
                                 content = it.delta,
                                 index = it.outputIndex
                             )
@@ -420,6 +430,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
 
                                 is Item.FunctionToolCall -> {
+                                    item.id?.let { itemId -> toolCallsByItemId.remove(itemId) }
                                     StreamFrame.ToolCallComplete(
                                         id = item.callId,
                                         name = item.name,
