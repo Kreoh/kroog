@@ -156,7 +156,8 @@ kotlin {
 
 android {
     compileSdk = 36
-    namespace = "${project.group.toString().replace('-', '.')}.${project.name.replace('-', '.')}"
+    // Maven coordinates are fork-owned; keep Android namespaces compatible with existing ai.koog packages.
+    namespace = "ai.koog.${project.name.replace('-', '.')}"
 
     // Without an explicit minSdk, AGP falls back to its default (`1`), which propagates
     // into the published AAR's merged manifest and forces every consumer to override it.

@@ -17,17 +17,13 @@ This guide will help you start using Koog in your project.
 
     See [Module versioning](module-versioning.md) for details.
 
-??? tip "Nightly builds"
+??? tip "Snapshot builds"
 
-    Nightly builds from the develop branch are published to the [JetBrains Grazie Maven](https://packages.jetbrains.team/maven/p/grazi/grazie-platform-public) repository.
-    
-    To use a nightly build, add the following repository to your build configuration:
-    `https://packages.jetbrains.team/maven/p/grazi/grazie-platform-public`.
-    
-    Then update your Koog dependency to the desired nightly version. Nightly versions follow the pattern
-    `[next-major-version]-develop-[date]-[time]`.
-    
-    You can browse the available nightly builds [here](https://packages.jetbrains.team/maven/p/grazi/grazie-platform-public/ai/koog/koog-agents/).
+    Kroog snapshots use the `com.kreoh.kroog` Maven group and the
+    [Central Portal snapshot repository](https://central.sonatype.com/repository/maven-snapshots/).
+    Publication is currently manual. See the fork's
+    [publishing guide](https://github.com/Kreoh/kroog/blob/master/PUBLISHING.md) for the current version,
+    repository configuration, and publication command.
 
 ## Set up an API key
 

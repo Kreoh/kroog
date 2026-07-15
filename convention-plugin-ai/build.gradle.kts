@@ -8,10 +8,17 @@ dependencies {
     implementation(libs.jetsign.gradle.plugin)
     implementation(libs.android.tools.gradle)
 
+    testImplementation(kotlin("test-junit5"))
+    testRuntimeOnly(libs.junit.platform.launcher)
+
     // Somewhat hacky way to access libs.version.toml in convention plugins.
     // IntelliJ can mark this code red, but it actually compiles.
     // https://github.com/gradle/gradle/issues/15383
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 kotlin {

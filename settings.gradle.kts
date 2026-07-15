@@ -1,4 +1,4 @@
-rootProject.name = "koog"
+rootProject.name = "kroog"
 
 pluginManagement {
     includeBuild("convention-plugin-ai")

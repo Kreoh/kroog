@@ -174,7 +174,11 @@ tasks {
         group = "publishing"
 
         subprojects {
-            dependsOn(tasks.withType<PublishToMavenRepository>())
+            dependsOn(
+                tasks.withType<PublishToMavenRepository>().matching {
+                    it.repository.name == "artifacts"
+                }
+            )
         }
 
         from(rootProject.layout.buildDirectory.dir("artifacts/maven"))
