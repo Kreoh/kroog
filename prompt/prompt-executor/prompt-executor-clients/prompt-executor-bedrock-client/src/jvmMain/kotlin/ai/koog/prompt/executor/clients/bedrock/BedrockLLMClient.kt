@@ -123,17 +123,19 @@ public class BedrockGuardrailsSettings(
 )
 
 /**
- * Creates a new Bedrock LLM client configured with the specified AWS credentials and settings.
+ * Creates a new Bedrock LLM client using a configured AWS SDK runtime client.
  *
- * @param bedrockClient The runtime client for interacting with Bedrock, highly configurable
+ * The supplied [bedrockClient] retains its existing configuration. This client assumes ownership of it and closes it
+ * when [close] is called.
+ *
+ * @param bedrockClient The configured runtime client for interacting with Bedrock.
  * @param apiMethod The API method to use for interacting with Bedrock models that support messages, defaults to [BedrockAPIMethod.InvokeModel].
  * @param moderationGuardrailsSettings Optional settings of the AWS bedrock Guardrails (see [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-use-independent-api.html) ) that would be used for the [LLMClient.moderate] request
  * @param fallbackModelFamily Optional fallback model family to use for unsupported models. If not provided, unsupported models will throw an exception.
  * @param clock A clock used for time-based operations
  * @return A configured [LLMClient] instance for Bedrock
  */
-public class BedrockLLMClient @JvmOverloads constructor(
-    @VisibleForTesting
+public class BedrockLLMClient @JvmOverloads public constructor(
     internal val bedrockClient: BedrockRuntimeClient,
     private val apiMethod: BedrockAPIMethod = BedrockAPIMethod.InvokeModel,
     private val moderationGuardrailsSettings: BedrockGuardrailsSettings? = null,

@@ -10,6 +10,8 @@ import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import aws.sdk.kotlin.runtime.auth.credentials.StaticCredentialsProvider
 import aws.sdk.kotlin.services.bedrockruntime.BedrockRuntimeClient
@@ -641,6 +643,44 @@ class BedrockLLMClientTest {
         }
     }
 
+    @Execution(ExecutionMode.SAME_THREAD)
+    @Test
+    fun testInjectedRuntimeExecutesConverseAndClosesWithOwningClient() = runTest {
+        var capturedRequest: ConverseRequest? = null
+        var capturedStreamRequest: ConverseStreamRequest? = null
+        var closeCount = 0
+        val runtimeClient = createMockBedrockClient(
+            onConverse = {
+                capturedRequest = it
+                defaultConverseResponse()
+            },
+            onConverseStream = {
+                capturedStreamRequest = it
+                defaultConverseStreamResponse()
+            },
+            onClose = { closeCount++ },
+        )
+        val client = BedrockLLMClient(
+            bedrockClient = runtimeClient,
+            apiMethod = BedrockAPIMethod.Converse,
+        )
+        val prompt = Prompt.build("injected-runtime") { user("Hello") }
+        val model = BedrockModels.AnthropicClaude4Sonnet
+
+        val response = client.execute(prompt, model, emptyList())
+        val streamFrames = client.executeStreaming(prompt, model, emptyList()).toList()
+
+        assertEquals(model.id, capturedRequest?.modelId)
+        assertEquals(model.id, capturedStreamRequest?.modelId)
+        assertEquals("Hello!", (response.parts.single() as MessagePart.Text).text)
+        assertTrue(streamFrames.contains(StreamFrame.TextDelta("Hello!")))
+        assertEquals(0, closeCount, "Injected runtime must remain open while its owning LLM client is in use")
+
+        client.close()
+
+        assertEquals(1, closeCount, "Closing the owning LLM client must close the injected runtime")
+    }
+
     // Helper function to create a counting mock client - delegates to unified mock
     private fun createCountingMockClient(onApplyGuardrail: () -> Unit): BedrockRuntimeClient =
         createMockBedrockClient(
@@ -655,6 +695,7 @@ class BedrockLLMClientTest {
         onConverse: (ConverseRequest) -> ConverseResponse = { defaultConverseResponse() },
         onConverseStream: (ConverseStreamRequest) -> ConverseStreamResponse = { defaultConverseStreamResponse() },
         onApplyGuardrail: (ApplyGuardrailRequest) -> ApplyGuardrailResponse = { defaultGuardrailResponse() },
+        onClose: () -> Unit = {},
     ): BedrockRuntimeClient = object : BedrockRuntimeClient {
         override suspend fun converse(input: ConverseRequest) = onConverse(input)
         override suspend fun <T> converseStream(input: ConverseStreamRequest, block: suspend (ConverseStreamResponse) -> T): T = block(onConverseStream(input))
@@ -667,7 +708,7 @@ class BedrockLLMClientTest {
         override suspend fun <T> invokeModelWithResponseStream(input: InvokeModelWithResponseStreamRequest, block: suspend (InvokeModelWithResponseStreamResponse) -> T): T = throw UnsupportedOperationException()
         override suspend fun listAsyncInvokes(input: ListAsyncInvokesRequest) = throw UnsupportedOperationException()
         override suspend fun startAsyncInvoke(input: StartAsyncInvokeRequest) = throw UnsupportedOperationException()
-        override fun close() {}
+        override fun close() = onClose()
     }
 
     private fun defaultConverseResponse() = ConverseResponse {
