@@ -1,0 +1,67 @@
+name: Publish Maven snapshot
+
+'on':
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-maven-snapshot
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish all Maven snapshot artefacts
+    if: github.repository == 'Kreoh/kroog' && github.ref == 'refs/heads/master'
+    runs-on: macos-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Configure Git
+        run: git config --global core.autocrlf input
+
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'corretto'
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Verify Central Portal credentials
+        env:
+          CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+        run: |
+          if [[ -z "$CENTRAL_PORTAL_USERNAME" ]]; then
+            echo "CENTRAL_PORTAL_USERNAME is required but is not set." >&2
+            exit 1
+          fi
+          if [[ -z "$CENTRAL_PORTAL_PASSWORD" ]]; then
+            echo "CENTRAL_PORTAL_PASSWORD is required but is not set." >&2
+            exit 1
+          fi
+
+      - name: Verify snapshot version
+        run: |
+          VERSION="$(./gradlew properties --no-daemon -q | sed -n 's/^version: //p')"
+          if [[ -z "$VERSION" ]]; then
+            echo "Could not determine the Gradle project version." >&2
+            exit 1
+          fi
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "Central Portal snapshot publication requires a -SNAPSHOT version, but Gradle resolved $VERSION." >&2
+            exit 1
+          fi
+          echo "Publishing Gradle project version $VERSION."
+
+      - name: Publish all Maven snapshot artefacts
+        env:
+          ORG_GRADLE_PROJECT_centralPortalSnapshotsUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+        run: ./gradlew publishAllPublicationsToCentralPortalSnapshotsRepository -PpublishCentralSnapshots=true --no-parallel --no-daemon --stacktrace
