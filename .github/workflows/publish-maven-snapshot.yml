@@ -12,9 +12,9 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish all Maven snapshot artefacts
+    name: Publish JVM Maven snapshot artefacts
     if: github.repository == 'Kreoh/kroog' && github.ref == 'refs/heads/master'
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -47,21 +47,15 @@ jobs:
             exit 1
           fi
 
-      - name: Verify snapshot version
-        run: |
-          VERSION="$(./gradlew properties --no-daemon -q | sed -n 's/^version: //p')"
-          if [[ -z "$VERSION" ]]; then
-            echo "Could not determine the Gradle project version." >&2
-            exit 1
-          fi
-          if [[ "$VERSION" != *-SNAPSHOT ]]; then
-            echo "Central Portal snapshot publication requires a -SNAPSHOT version, but Gradle resolved $VERSION." >&2
-            exit 1
-          fi
-          echo "Publishing Gradle project version $VERSION."
-
-      - name: Publish all Maven snapshot artefacts
+      - name: Publish JVM Maven snapshot artefacts
         env:
           ORG_GRADLE_PROJECT_centralPortalSnapshotsUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
           ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
-        run: ./gradlew publishAllPublicationsToCentralPortalSnapshotsRepository -PpublishCentralSnapshots=true --no-parallel --no-daemon --stacktrace
+        run: |
+          ./gradlew \
+            publishJvmPublicationToCentralPortalSnapshotsRepository \
+            publishMavenPublicationToCentralPortalSnapshotsRepository \
+            -PpublishCentralSnapshots=true \
+            --parallel \
+            --no-daemon \
+            --stacktrace
