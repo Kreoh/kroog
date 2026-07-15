@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.experimental.ExperimentalTypeInference
@@ -134,7 +135,8 @@ public class StreamFrameFlowBuilder(
     private val flowCollector: FlowCollector<StreamFrame>,
 ) {
 
-    private val pendingToolCallRef = AtomicReference<PendingToolCall?>(null)
+    private val stateMutex = Mutex()
+    private val pendingToolCalls = mutableListOf<PendingToolCall>()
     private val pendingTextRef = AtomicReference<PendingText?>(null)
     private val pendingReasoningRef = AtomicReference<PendingReasoning?>(null)
 
@@ -142,43 +144,53 @@ public class StreamFrameFlowBuilder(
      * Emits a [StreamFrame.TextDelta] with the given [text].
      */
     public suspend fun emitTextDelta(text: String, index: Int? = null) {
-        tryEmitPendingToolCall()
-        tryEmitPendingReasoning()
-        val previous: PendingText? = pendingTextRef.load()
-        if (previous == null) {
-            pendingTextRef.store(PendingText(textDelta = text, index = index))
-        } else {
-            pendingTextRef.store(previous.appendTextDelta(text, index))
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingReasoningLocked()
+            val previous: PendingText? = pendingTextRef.load()
+            if (previous == null) {
+                pendingTextRef.store(PendingText(textDelta = text, index = index))
+            } else {
+                pendingTextRef.store(previous.appendTextDelta(text, index))
+            }
+            flowCollector.emitTextDelta(text, index)
         }
-        flowCollector.emitTextDelta(text, index)
     }
 
     /**
      * Emits a [StreamFrame.ReasoningDelta] with the given [text].
      */
     public suspend fun emitReasoningDelta(id: String? = null, text: String? = null, summary: String? = null, index: Int? = null) {
-        tryEmitPendingToolCall()
-        tryEmitPendingText()
-        val previous: PendingReasoning? = pendingReasoningRef.load()
-        if (previous == null) {
-            pendingReasoningRef.store(PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index))
-        } else if (id != previous.id) {
-            tryEmitPendingReasoning()
-            pendingReasoningRef.store(PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index))
-        } else {
-            pendingReasoningRef.store(previous.appendDelta(id, text, summary, index))
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            val previous: PendingReasoning? = pendingReasoningRef.load()
+            if (previous == null) {
+                pendingReasoningRef.store(
+                    PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
+                )
+            } else if (id != previous.id) {
+                tryEmitPendingReasoningLocked()
+                pendingReasoningRef.store(
+                    PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
+                )
+            } else {
+                pendingReasoningRef.store(previous.appendDelta(id, text, summary, index))
+            }
+            flowCollector.emitReasoningDelta(id, text, summary, index)
         }
-        flowCollector.emitReasoningDelta(id, text, summary, index)
     }
 
     /**
      * Emits a [StreamFrame.End] with the given [finishReason].
      */
     public suspend fun emitEnd(finishReason: String? = null, metaInfo: ResponseMetaInfo? = null) {
-        tryEmitPendingToolCall()
-        tryEmitPendingText()
-        tryEmitPendingReasoning()
-        flowCollector.emitEnd(finishReason, metaInfo)
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            tryEmitPendingReasoningLocked()
+            flowCollector.emitEnd(finishReason, metaInfo)
+        }
     }
 
     /**
@@ -193,39 +205,28 @@ public class StreamFrameFlowBuilder(
         args: String? = null,
         index: Int? = null
     ) {
-        tryEmitPendingText()
-        tryEmitPendingReasoning()
-        val sanitizedId = id?.takeUnless { it.isBlank() }
-        val previous: PendingToolCall? = pendingToolCallRef.load()
-        // `id` and `index` are optional per-chunk signals. A new tool call begins only when a
-        // present signal differs from the pending call, not merely because `id` is non-null:
-        // some OpenAI-compatible providers send the same `id` on every chunk (see #2002).
-        val isNewToolCall =
-            (sanitizedId != null && sanitizedId != previous?.id) ||
-                (index != null && index != previous?.index)
-        val new: PendingToolCall = if (isNewToolCall) {
-            tryEmitPendingToolCall()
-            PendingToolCall(sanitizedId, name, args, index)
-        } else {
-            when {
-                previous == null ->
-                    throw StreamFrameFlowBuilderError.NoPartialToolCallToComplete()
-
-                previous.index != index ->
-                    throw StreamFrameFlowBuilderError.UnexpectedPartialToolCallIndex(previous.index, index)
-
-                else ->
-                    previous.appendArgumentsDelta(args)
+        withStateLock {
+            val sanitizedId = id?.takeUnless { it.isBlank() }
+            val update = resolvePendingToolCallUpdate(sanitizedId, name, args, index)
+            tryEmitPendingTextLocked()
+            tryEmitPendingReasoningLocked()
+            if (update.position == null) {
+                pendingToolCalls += update.pendingToolCall
+            } else {
+                pendingToolCalls[update.position] = update.pendingToolCall
             }
+            flowCollector.emitToolCallDelta(sanitizedId, name, args, index)
         }
-        pendingToolCallRef.store(new)
-        flowCollector.emitToolCallDelta(sanitizedId, name, args, index)
     }
 
     /**
      * Emits a [pendingTextRef] if it exists and then clears it.
      */
     public suspend fun tryEmitPendingText() {
+        withStateLock { tryEmitPendingTextLocked() }
+    }
+
+    private suspend fun tryEmitPendingTextLocked() {
         val pendingText = pendingTextRef.exchange(null)
         if (pendingText != null) {
             flowCollector.emitTextComplete(
@@ -239,6 +240,10 @@ public class StreamFrameFlowBuilder(
      * Emits a [pendingReasoningRef] if it exists and then clears it.
      */
     public suspend fun tryEmitPendingReasoning() {
+        withStateLock { tryEmitPendingReasoningLocked() }
+    }
+
+    private suspend fun tryEmitPendingReasoningLocked() {
         val pendingReasoning = pendingReasoningRef.exchange(null)
         if (pendingReasoning != null) {
             flowCollector.emitReasoningComplete(
@@ -251,31 +256,93 @@ public class StreamFrameFlowBuilder(
     }
 
     /**
-     * Emits a [pendingToolCallRef] if it exists and then clears it.
+     * Emits all pending tool calls in first-seen order and then clears them.
      */
     public suspend fun tryEmitPendingToolCall() {
-        val pendingToolCall = pendingToolCallRef.exchange(null)
-        if (pendingToolCall != null) {
+        withStateLock { tryEmitPendingToolCallsLocked() }
+    }
+
+    private suspend fun tryEmitPendingToolCallsLocked() {
+        val calls = pendingToolCalls.toList()
+        pendingToolCalls.clear()
+        calls.forEach { pendingToolCall ->
             flowCollector.emitToolCallComplete(
                 id = pendingToolCall.id,
-                name = pendingToolCall.name ?: "",
+                name = pendingToolCall.name,
                 content = pendingToolCall.argumentsDelta ?: "{}",
                 index = pendingToolCall.index
             )
         }
     }
 
+    private fun resolvePendingToolCallUpdate(
+        id: String?,
+        name: String?,
+        argumentsDelta: String?,
+        index: Int?
+    ): PendingToolCallUpdate {
+        val normalizedName = name?.takeUnless { it.isBlank() }
+        val indexPosition = index?.let { value -> pendingToolCalls.indexOfFirst { it.index == value }.takeIf { it >= 0 } }
+        val idPosition = id?.let { value -> pendingToolCalls.indexOfFirst { it.id == value }.takeIf { it >= 0 } }
+        if (indexPosition != null && idPosition != null && indexPosition != idPosition) {
+            throw IllegalArgumentException("Tool call id $id and index $index identify different pending tool calls.")
+        }
+        val position =
+            indexPosition ?: idPosition ?: when {
+                index != null || id != null -> null
+                pendingToolCalls.isEmpty() -> throw StreamFrameFlowBuilderError.NoPartialToolCallToComplete()
+                pendingToolCalls.size == 1 -> 0
+                else -> throw IllegalStateException(
+                    "Cannot append a tool-call delta without an id or index while multiple tool calls are pending."
+                )
+            }
+        val pendingToolCall =
+            if (position == null) {
+                PendingToolCall(id, normalizedName ?: "", argumentsDelta, index)
+            } else {
+                pendingToolCalls[position].enrich(id, normalizedName, argumentsDelta, index)
+            }
+        return PendingToolCallUpdate(position, pendingToolCall)
+    }
+
+    private suspend fun <T> withStateLock(block: suspend () -> T): T {
+        stateMutex.lock()
+        return try {
+            block()
+        } finally {
+            stateMutex.unlock()
+        }
+    }
+
+    private data class PendingToolCallUpdate(
+        val position: Int?,
+        val pendingToolCall: PendingToolCall,
+    )
+
     private data class PendingToolCall(
         val id: String?,
-        val name: String?,
+        val name: String,
         val argumentsDelta: String?,
         val index: Int?,
     ) {
-        fun appendArgumentsDelta(argumentsDelta: String?): PendingToolCall {
-            require(this.index == index)
-            val newArgs =
+        fun enrich(id: String?, name: String?, argumentsDelta: String?, index: Int?): PendingToolCall {
+            if (this.id != null && id != null && this.id != id) {
+                throw IllegalArgumentException("Tool call index ${this.index ?: index} has conflicting ids ${this.id} and $id.")
+            }
+            if (this.index != null && index != null && this.index != index) {
+                throw IllegalArgumentException("Tool call id ${this.id ?: id} has conflicting indices ${this.index} and $index.")
+            }
+            if (this.name.isNotBlank() && name != null && this.name != name) {
+                throw IllegalArgumentException("Tool call ${this.id ?: id ?: this.index ?: index} has conflicting names ${this.name} and $name.")
+            }
+            val newArguments =
                 if (argumentsDelta == null) this.argumentsDelta else (this.argumentsDelta ?: "") + argumentsDelta
-            return copy(argumentsDelta = newArgs)
+            return copy(
+                id = this.id ?: id,
+                name = this.name.ifBlank { name.orEmpty() },
+                argumentsDelta = newArguments,
+                index = this.index ?: index,
+            )
         }
     }
 
