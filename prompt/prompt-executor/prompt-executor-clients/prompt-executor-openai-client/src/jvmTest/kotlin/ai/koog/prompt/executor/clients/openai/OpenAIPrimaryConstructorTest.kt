@@ -8,6 +8,7 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIStreamEvent
 import ai.koog.prompt.executor.clients.openai.models.OpenAITextConfig
+import ai.koog.prompt.executor.clients.openai.models.OutputContent
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
@@ -315,6 +316,60 @@ class OpenAIPrimaryConstructorTest {
                 StreamFrame.ToolCallDelta(firstCallId, firstName, "true}", 0),
                 StreamFrame.ToolCallComplete(secondCallId, secondName, "{\"second\":true}", 1),
                 StreamFrame.ToolCallComplete(firstCallId, firstName, "{\"first\":true}", 0)
+            ),
+            frames.dropLast(1)
+        )
+        assertIs<StreamFrame.End>(frames.last())
+    }
+
+    @Test
+    fun testResponsesStreamingTextDoneEmitsTextComplete() = runTest {
+        val itemId = "message_123"
+        val text = "Hello from the Responses API"
+        val events = listOf(
+            OpenAIStreamEvent.ResponseOutputTextDelta(
+                itemId = itemId,
+                outputIndex = 0,
+                contentIndex = 0,
+                delta = text,
+                sequenceNumber = 1
+            ),
+            OpenAIStreamEvent.ResponseOutputTextDone(
+                itemId = itemId,
+                outputIndex = 0,
+                contentIndex = 0,
+                text = text,
+                sequenceNumber = 2
+            ),
+            OpenAIStreamEvent.ResponseOutputItemDone(
+                item = Item.OutputMessage(
+                    content = listOf(OutputContent.Text(annotations = emptyList(), text = text)),
+                    id = itemId,
+                    status = OpenAIInputStatus.COMPLETED
+                ),
+                outputIndex = 0,
+                sequenceNumber = 3
+            ),
+            completedResponseEvent(sequenceNumber = 4)
+        )
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(events)
+        )
+
+        val frames = client.executeStreaming(
+            prompt = Prompt(
+                messages = listOf(Message.User("Hello?", RequestMetaInfo.Empty)),
+                id = "test",
+                params = OpenAIResponsesParams()
+            ),
+            model = OpenAIModels.Chat.GPT4o
+        ).toList()
+
+        assertEquals(
+            listOf(
+                StreamFrame.TextDelta(text, index = 0),
+                StreamFrame.TextComplete(text, index = 0)
             ),
             frames.dropLast(1)
         )

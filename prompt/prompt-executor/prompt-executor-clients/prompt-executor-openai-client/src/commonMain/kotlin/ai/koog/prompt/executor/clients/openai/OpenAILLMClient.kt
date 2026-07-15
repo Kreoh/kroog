@@ -387,6 +387,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             StreamFrame.TextDelta(text = it.delta, index = it.outputIndex)
                         }
 
+                        is OpenAIStreamEvent.ResponseOutputTextDone -> {
+                            StreamFrame.TextComplete(text = it.text, index = it.outputIndex)
+                        }
+
                         is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
                             // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
                             StreamFrame.ReasoningDelta(id = it.itemId, text = it.delta, index = it.outputIndex)
