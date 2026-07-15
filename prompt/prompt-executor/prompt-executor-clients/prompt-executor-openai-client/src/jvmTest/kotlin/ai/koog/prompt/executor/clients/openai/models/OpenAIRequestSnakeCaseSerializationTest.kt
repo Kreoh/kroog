@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai.models
 
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import io.kotest.assertions.json.shouldEqualJson
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
@@ -88,6 +89,33 @@ class OpenAIRequestSnakeCaseSerializationTest {
         tree.keys.shouldNotContain("additional_properties")
         tree.keys.shouldNotContain("additionalProperties")
         tree["reasoning"].shouldNotBeNull().jsonObject["effort"]?.jsonPrimitive?.content shouldBe "none"
+    }
+
+    @Test
+    fun testChatCompletionRequestSerializesXhighReasoningEffort() {
+        val request = OpenAIChatCompletionRequest(
+            model = "gpt-5.4",
+            messages = emptyList(),
+            reasoningEffort = ReasoningEffort.XHIGH,
+        )
+
+        val encoded = snakeCaseJson.encodeToString(OpenAIChatCompletionRequestSerializer, request)
+        val tree = snakeCaseJson.parseToJsonElement(encoded).jsonObject
+
+        tree["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
+    }
+
+    @Test
+    fun testResponsesRequestSerializesXhighReasoningEffort() {
+        val request = OpenAIResponsesAPIRequest(
+            model = "gpt-5.4",
+            reasoning = ReasoningConfig(effort = ReasoningEffort.XHIGH),
+        )
+
+        val encoded = snakeCaseJson.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
+        val tree = snakeCaseJson.parseToJsonElement(encoded).jsonObject
+
+        tree["reasoning"].shouldNotBeNull().jsonObject["effort"]?.jsonPrimitive?.content shouldBe "xhigh"
     }
 
     @Test
