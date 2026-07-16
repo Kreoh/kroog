@@ -183,6 +183,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         val request = createGoogleRequest(prompt, model, tools)
 
         try {
+            var latestMeta: ResponseMetaInfo? = null
+            var finishReason: String? = null
+            var nextPartIndex = 0
+            var previousChunkParts = emptyMap<Pair<Int, Int>, GoogleStreamingPart>()
             httpClient.sse(
                 path = "${settings.defaultPath}/${model.id}:${settings.streamGenerateContentMethod}",
                 requestBody = request,
@@ -192,44 +196,62 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 parameters = mapOf("alt" to "sse"),
                 processStreamingChunk = { it }
             ).collect { response ->
-                val meta = response.usageMetadata?.let {
-                    ResponseMetaInfo.create(
-                        clock = clock,
-                        totalTokensCount = it.totalTokenCount,
-                        inputTokensCount = it.promptTokenCount,
-                        outputTokensCount = it.candidatesTokenCount,
-                    )
+                response.usageMetadata?.let {
+                    latestMeta =
+                        ResponseMetaInfo.create(
+                            clock = clock,
+                            totalTokensCount = it.totalTokenCount,
+                            inputTokensCount = it.promptTokenCount,
+                            outputTokensCount = it.candidatesTokenCount,
+                        )
                 }
                 response.candidates.firstOrNull()?.let { candidate ->
-                    candidate.content?.parts?.forEachIndexed { index, part ->
-                        when (part) {
-                            is GooglePart.Text -> {
-                                if (part.thought == true) {
-                                    emitReasoningDelta(
-                                        id = part.thoughtSignature,
-                                        text = part.text,
+                    candidate.content?.parts?.let { parts ->
+                        val currentChunkParts = mutableMapOf<Pair<Int, Int>, GoogleStreamingPart>()
+                        parts.forEachIndexed { localIndex, part ->
+                            val key = (candidate.index ?: 0) to localIndex
+                            val previous = previousChunkParts[key]
+                            val index =
+                                if (previous != null && previous.part.canContinueStreamingWith(part)) {
+                                    previous.index
+                                } else {
+                                    nextPartIndex++
+                                }
+                            currentChunkParts[key] = GoogleStreamingPart(part, index)
+                            when (part) {
+                                is GooglePart.Text -> {
+                                    if (part.thought == true) {
+                                        emitReasoningDelta(
+                                            id = part.thoughtSignature,
+                                            text = part.text,
+                                            index = index,
+                                        )
+                                    } else {
+                                        emitTextDelta(part.text, index)
+                                    }
+                                }
+
+                                is GooglePart.FunctionCall -> {
+                                    part.thoughtSignature?.let { signature ->
+                                        attachReasoningEncrypted(signature, index = index)
+                                    }
+                                    emitToolCallDelta(
+                                        id = part.functionCall.id,
+                                        name = part.functionCall.name,
+                                        args = part.functionCall.args?.toString() ?: "{}",
                                         index = index,
                                     )
-                                } else {
-                                    emitTextDelta(part.text, index)
                                 }
-                            }
 
-                            is GooglePart.FunctionCall -> {
-                                emitToolCallDelta(
-                                    id = part.functionCall.id,
-                                    name = part.functionCall.name,
-                                    args = part.functionCall.args?.toString() ?: "{}",
-                                    index = index,
-                                )
+                                else -> Unit
                             }
-
-                            else -> Unit
                         }
+                        previousChunkParts = currentChunkParts
                     }
-                    candidate.finishReason?.let { emitEnd(it, meta) }
+                    candidate.finishReason?.let { finishReason = it }
                 }
             }
+            finishReason?.let { emitEnd(it, latestMeta) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -240,6 +262,21 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             )
         }
     }.requireEndFrame()
+
+    private data class GoogleStreamingPart(
+        val part: GooglePart,
+        val index: Int,
+    )
+
+    private fun GooglePart.canContinueStreamingWith(next: GooglePart): Boolean =
+        when {
+            this is GooglePart.Text && next is GooglePart.Text ->
+                (thought == true) == (next.thought == true) &&
+                    (thoughtSignature == null || next.thoughtSignature == null || thoughtSignature == next.thoughtSignature)
+            this is GooglePart.FunctionCall && next is GooglePart.FunctionCall ->
+                functionCall.id != null && functionCall.id == next.functionCall.id
+            else -> false
+        }
 
     override suspend fun executeMultipleChoices(
         prompt: Prompt,

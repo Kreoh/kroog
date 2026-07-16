@@ -12,7 +12,6 @@ import ai.koog.prompt.executor.clients.google.models.GoogleData
 import ai.koog.prompt.executor.clients.google.models.GoogleFunctionCallingMode
 import ai.koog.prompt.executor.clients.google.models.GooglePart
 import ai.koog.prompt.executor.clients.google.models.GoogleRequest
-import ai.koog.prompt.executor.clients.google.models.GoogleResponse
 import ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
@@ -22,14 +21,15 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.prompt.streaming.toMessageResponse
+import ai.koog.utils.time.KoogClock
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
@@ -40,6 +40,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.reflect.KClass
 import kotlin.test.Test
+import kotlin.time.Instant
 
 class GoogleLLMClientTest {
 
@@ -556,72 +557,30 @@ class GoogleLLMClientTest {
         val thoughtText = "internal thinking"
         val finishReason = "STOP"
 
-        val transport = object : KoogHttpClient {
-            override val clientName: String = "GoogleStreamingTestClient"
-
-            override suspend fun <R : Any> get(
-                path: String,
-                responseType: KClass<R>,
-                parameters: Map<String, String>,
-                headers: Map<String, String>,
-            ): R = error("GET is not expected in this test")
-
-            override suspend fun <T : Any, R : Any> post(
-                path: String,
-                requestBody: T,
-                requestBodyType: KClass<T>,
-                responseType: KClass<R>,
-                parameters: Map<String, String>,
-                headers: Map<String, String>,
-            ): R = error("POST is not expected in this test")
-
-            override fun <T : Any, R : Any, O : Any> sse(
-                path: String,
-                requestBody: T,
-                requestBodyType: KClass<T>,
-                dataFilter: (String?) -> Boolean,
-                decodeStreamingResponse: (String) -> R,
-                processStreamingChunk: (R) -> O?,
-                parameters: Map<String, String>,
-                headers: Map<String, String>,
-            ): Flow<O> {
-                path shouldBe "v1beta/models/${model.id}:streamGenerateContent"
-                requestBody.shouldBeInstanceOf<GoogleRequest>()
-
-                val response = GoogleResponse(
-                    candidates = listOf(
-                        GoogleCandidate(
-                            content = GoogleContent(
-                                role = "model",
-                                parts = listOf(
-                                    GooglePart.Text(
-                                        text = thoughtText,
-                                        thought = true,
-                                        thoughtSignature = thoughtSignature
-                                    ),
-                                    GooglePart.Text(text = finalAnswer)
-                                )
-                            ),
-                            finishReason = finishReason,
-                            index = 0
-                        )
-                    )
-                )
-
-                val chunk = processStreamingChunk(response as R)
-                return if (chunk != null) flowOf(chunk) else emptyFlow()
-            }
-
-            override fun <T : Any> lines(
-                path: String,
-                requestBody: T,
-                requestBodyType: KClass<T>,
-                parameters: Map<String, String>,
-                headers: Map<String, String>,
-            ): Flow<String> = error("lines is not expected in this test")
-
-            override fun close(): Unit = Unit
-        }
+        val transport = googleStreamingTransport(
+            modelId = model.id,
+            chunks = listOf(
+                """
+                {
+                  "candidates": [{
+                    "content": {
+                      "role": "model",
+                      "parts": [
+                        {
+                          "text": "$thoughtText",
+                          "thought": true,
+                          "thoughtSignature": "$thoughtSignature"
+                        },
+                        {"text": "$finalAnswer"}
+                      ]
+                    },
+                    "finishReason": "$finishReason",
+                    "index": 0
+                  }]
+                }
+                """.trimIndent()
+            ),
+        )
 
         val client = GoogleLLMClient(httpClient = transport)
 
@@ -637,6 +596,134 @@ class GoogleLLMClientTest {
             StreamFrame.TextComplete(finalAnswer, 1),
             StreamFrame.End(finishReason, ResponseMetaInfo.Empty),
         )
+    }
+
+    @Test
+    fun `executeStreaming separates cross-chunk thought and tool signatures with terminal usage`() = runTest {
+        val model = GoogleModels.Gemini2_5Pro
+        val thoughtText = "Check the request"
+        val thoughtSignature = "thought-text-signature"
+        val firstSignature = "first-tool-signature"
+        val secondSignature = "second-tool-signature"
+        val fixedClock = KoogClock { Instant.fromEpochSeconds(1_700_000_000) }
+        val transport = googleStreamingTransport(
+            modelId = model.id,
+            chunks = listOf(
+                """
+                {
+                  "candidates": [{
+                    "content": {
+                      "role": "model",
+                      "parts": [{
+                        "text": "$thoughtText",
+                        "thought": true,
+                        "thoughtSignature": "$thoughtSignature"
+                      }]
+                    },
+                    "index": 0
+                  }]
+                }
+                """.trimIndent(),
+                """
+                {
+                  "candidates": [{
+                    "content": {
+                      "role": "model",
+                      "parts": [
+                        {
+                          "functionCall": {
+                            "id": "call-1",
+                            "name": "read_file",
+                            "args": {"path": "one"}
+                          },
+                          "thoughtSignature": "$firstSignature"
+                        },
+                        {
+                          "functionCall": {
+                            "id": "call-2",
+                            "name": "read_file",
+                            "args": {"path": "two"}
+                          },
+                          "thoughtSignature": "$secondSignature"
+                        }
+                      ]
+                    },
+                    "index": 0
+                  }]
+                }
+                """.trimIndent(),
+                """
+                {
+                  "candidates": [{"finishReason": "STOP", "index": 0}]
+                }
+                """.trimIndent(),
+                """
+                {
+                  "candidates": [],
+                  "usageMetadata": {
+                    "promptTokenCount": 11,
+                    "candidatesTokenCount": 7,
+                    "totalTokenCount": 18
+                  }
+                }
+                """.trimIndent(),
+            ),
+        )
+        val client = GoogleLLMClient(httpClient = transport, clock = fixedClock)
+
+        val frames = client.executeStreaming(
+            prompt = Prompt(messages = listOf(Message.User("Use both tools", RequestMetaInfo.Empty)), id = "id"),
+            model = model,
+        ).toList()
+
+        val expectedMeta = ResponseMetaInfo.create(
+            clock = fixedClock,
+            totalTokensCount = 18,
+            inputTokensCount = 11,
+            outputTokensCount = 7,
+        )
+        frames shouldBe listOf(
+            StreamFrame.ReasoningDelta(
+                id = thoughtSignature,
+                text = thoughtText,
+                index = 0,
+            ),
+            StreamFrame.ReasoningComplete(
+                id = thoughtSignature,
+                content = listOf(thoughtText),
+                index = 0,
+            ),
+            StreamFrame.ReasoningComplete(
+                id = null,
+                content = emptyList(),
+                encrypted = firstSignature,
+                index = 1,
+            ),
+            StreamFrame.ToolCallDelta("call-1", "read_file", "{\"path\":\"one\"}", 1),
+            StreamFrame.ToolCallComplete("call-1", "read_file", "{\"path\":\"one\"}", 1),
+            StreamFrame.ReasoningComplete(
+                id = null,
+                content = emptyList(),
+                encrypted = secondSignature,
+                index = 2,
+            ),
+            StreamFrame.ToolCallDelta("call-2", "read_file", "{\"path\":\"two\"}", 2),
+            StreamFrame.ToolCallComplete("call-2", "read_file", "{\"path\":\"two\"}", 2),
+            StreamFrame.End("STOP", expectedMeta),
+        )
+
+        val streamedMessage = frames.toMessageResponse()
+        val roundTripRequest = client.createGoogleRequest(
+            prompt = Prompt(messages = listOf(streamedMessage), id = "round-trip"),
+            model = model,
+            tools = emptyList(),
+        )
+        val roundTripCalls = roundTripRequest.contents.single().parts.orEmpty().filterIsInstance<GooglePart.FunctionCall>()
+        roundTripCalls shouldHaveSize 2
+        roundTripCalls[0].functionCall.id shouldBe "call-1"
+        roundTripCalls[0].thoughtSignature shouldBe firstSignature
+        roundTripCalls[1].functionCall.id shouldBe "call-2"
+        roundTripCalls[1].thoughtSignature shouldBe secondSignature
     }
 
     @Test
@@ -695,4 +782,56 @@ class GoogleLLMClientTest {
         val filePart = (response.parts[1] as MessagePart.Attachment).source as AttachmentSource.Image
         filePart.format shouldBe "png"
     }
+}
+
+private fun googleStreamingTransport(
+    modelId: String,
+    chunks: List<String>,
+): KoogHttpClient = object : KoogHttpClient {
+    override val clientName: String = "GoogleStreamingTestClient"
+
+    override suspend fun <R : Any> get(
+        path: String,
+        responseType: KClass<R>,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): R = error("GET is not expected in this test")
+
+    override suspend fun <T : Any, R : Any> post(
+        path: String,
+        requestBody: T,
+        requestBodyType: KClass<T>,
+        responseType: KClass<R>,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): R = error("POST is not expected in this test")
+
+    override fun <T : Any, R : Any, O : Any> sse(
+        path: String,
+        requestBody: T,
+        requestBodyType: KClass<T>,
+        dataFilter: (String?) -> Boolean,
+        decodeStreamingResponse: (String) -> R,
+        processStreamingChunk: (R) -> O?,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): Flow<O> = flow {
+        path shouldBe "v1beta/models/$modelId:streamGenerateContent"
+        requestBody.shouldBeInstanceOf<GoogleRequest>()
+        chunks.forEach { chunk ->
+            if (dataFilter(chunk)) {
+                processStreamingChunk(decodeStreamingResponse(chunk))?.let { emit(it) }
+            }
+        }
+    }
+
+    override fun <T : Any> lines(
+        path: String,
+        requestBody: T,
+        requestBodyType: KClass<T>,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): Flow<String> = error("lines is not expected in this test")
+
+    override fun close(): Unit = Unit
 }
