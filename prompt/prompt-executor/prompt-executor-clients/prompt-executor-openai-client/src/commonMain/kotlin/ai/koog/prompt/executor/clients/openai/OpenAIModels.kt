@@ -43,6 +43,9 @@ import kotlin.jvm.JvmField
  * | [Chat.GPT5_4Pro]                 | Slowest   | $30-$180           | Text, Image, Tools, Document | Text, Tools                  |
  * | [Chat.GPT5_5]                    | Fast      | $5-$30             | Text, Image, Tools, Document | Text, Tools                  |
  * | [Chat.GPT5_5Pro]                 | Slowest   | $30-$180           | Text, Image, Tools, Document | Text, Tools                  |
+ * | [Chat.GPT5_6Sol]                 | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
+ * | [Chat.GPT5_6Terra]               | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
+ * | [Chat.GPT5_6Luna]                | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
  * | [Audio.GptAudio]                 | Fast      | $2.5-$10           | Text, Audio, Tools           | Text, Audio, Tools           |
  * | [Audio.GPT4oMiniAudio]           | Fast      | $0.15-$0.6/$10-$20 | Text, Audio, Tools           | Text, Audio, Tools           |
  * | [Audio.GPT4oAudio]               | Medium    | $2.5-$10/$40-$80   | Text, Audio, Tools           | Text, Audio, Tools           |
@@ -945,6 +948,68 @@ public object OpenAIModels : LLModelDefinitions {
             contextLength = 1_050_000,
             maxOutputTokens = 128_000,
         )
+
+        private val gpt5_6Capabilities: List<LLMCapability> = listOf(
+            LLMCapability.Completion,
+            LLMCapability.Speculation,
+            LLMCapability.Tools,
+            LLMCapability.ToolChoice,
+            LLMCapability.Vision.Image,
+            LLMCapability.MultipleChoices,
+            LLMCapability.OpenAIEndpoint.Completions,
+            LLMCapability.OpenAIEndpoint.Responses,
+            LLMCapability.Schema.JSON.Basic,
+            LLMCapability.Schema.JSON.Standard,
+        ) + reasoningCapabilities
+
+        /**
+         * GPT-5.6 Sol is a frontier reasoning model with support for `max` reasoning effort.
+         *
+         * 1,050,000 context window
+         * 128,000 max output tokens
+         * Reasoning token support
+         */
+        @JvmField
+        public val GPT5_6Sol: LLModel = LLModel(
+            provider = LLMProvider.OpenAI,
+            id = "gpt-5.6-sol",
+            capabilities = gpt5_6Capabilities,
+            contextLength = 1_050_000,
+            maxOutputTokens = 128_000,
+        )
+
+        /**
+         * GPT-5.6 Terra is a frontier reasoning model with support for `max` reasoning effort.
+         *
+         * 1,050,000 context window
+         * 128,000 max output tokens
+         * Reasoning token support
+         */
+        @JvmField
+        public val GPT5_6Terra: LLModel = LLModel(
+            provider = LLMProvider.OpenAI,
+            id = "gpt-5.6-terra",
+            capabilities = gpt5_6Capabilities,
+            contextLength = 1_050_000,
+            maxOutputTokens = 128_000,
+        )
+
+        /**
+         * GPT-5.6 Luna is a frontier reasoning model with support for `max` reasoning effort.
+         *
+         * 1,050,000 context window
+         * 128,000 max output tokens
+         * Reasoning token support
+         */
+        @JvmField
+        public val GPT5_6Luna: LLModel = LLModel(
+            provider = LLMProvider.OpenAI,
+            id = "gpt-5.6-luna",
+            capabilities = gpt5_6Capabilities,
+            contextLength = 1_050_000,
+            maxOutputTokens = 128_000,
+        )
+
     }
 
     /**
@@ -1143,7 +1208,6 @@ public object OpenAIModels : LLModelDefinitions {
 
             // Chat Models - GPT-5 Series
             Chat.GPT5,
-            Chat.GPT5Mini,
             Chat.GPT5Nano,
             Chat.GPT5Codex,
             Chat.GPT5Pro,
@@ -1170,6 +1234,12 @@ public object OpenAIModels : LLModelDefinitions {
             // Chat Models - GPT-5.5 Series
             Chat.GPT5_5,
             Chat.GPT5_5Pro,
+
+            // Chat Models - GPT-5.6 Series
+            Chat.GPT5_6Sol,
+            Chat.GPT5_6Terra,
+            Chat.GPT5_6Luna,
+            Chat.GPT5Mini,
 
             // Audio Models
             Audio.GptAudio,

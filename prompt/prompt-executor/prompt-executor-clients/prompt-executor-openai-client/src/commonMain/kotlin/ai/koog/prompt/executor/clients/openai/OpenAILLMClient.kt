@@ -23,6 +23,7 @@ import ai.koog.prompt.executor.clients.openai.base.models.OpenAIStaticContent
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIStreamOptions
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAITool
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIToolChoice
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.InputContent
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequest
@@ -172,6 +173,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         } else {
             null
         }
+        val reasoningEffort = chatParams.reasoningEffort?.let { effort ->
+            if (model.isGPT5_6() && effort == ReasoningEffort.MAX) ReasoningEffort.XHIGH else effort
+        }
 
         val request = OpenAIChatCompletionRequest(
             messages = messages,
@@ -188,7 +192,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             presencePenalty = chatParams.presencePenalty,
             promptCacheKey = chatParams.promptCacheKey,
             reasoningEffort = model.takeIf { it.supports(LLMCapability.Thinking) }
-                ?.let { chatParams.reasoningEffort },
+                ?.let { reasoningEffort },
             responseFormat = responseFormat,
             safetyIdentifier = chatParams.safetyIdentifier,
             serviceTier = chatParams.serviceTier,
@@ -196,7 +200,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             store = chatParams.store,
             stream = stream,
             streamOptions = streamOptions,
-            temperature = chatParams.temperature,
+            temperature = model.reasoningTemperature(chatParams.temperature, chatParams.reasoningEffort),
             toolChoice = toolChoice,
             tools = tools,
             topLogprobs = chatParams.topLogprobs,
@@ -209,7 +213,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return json.encodeToString(OpenAIChatCompletionRequestSerializer, request)
     }
 
-    private fun serializeResponsesAPIRequest(
+    internal fun serializeResponsesAPIRequest(
         messages: List<Item>,
         model: LLModel,
         tools: List<OpenAIResponsesTool>?,
@@ -247,7 +251,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             serviceTier = params.serviceTier,
             store = params.store,
             stream = stream,
-            temperature = params.temperature,
+            temperature = model.reasoningTemperature(params.temperature, params.reasoning?.effort),
             text = responseFormat,
             toolChoice = toolChoice,
             tools = tools,
@@ -259,6 +263,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
         return json.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
     }
+
+    private fun LLModel.reasoningTemperature(
+        temperature: Double?,
+        effort: ReasoningEffort?,
+    ): Double? = temperature.takeUnless { isGPT5_6() && effort != null && effort != ReasoningEffort.NONE }
+
+    private fun LLModel.isGPT5_6(): Boolean =
+        contextLength == 1_050_000L &&
+            maxOutputTokens == 128_000L &&
+            capabilities == OpenAIModels.Chat.GPT5_6Sol.capabilities
 
     override val clientName: String = OPENAI_CLIENT_NAME
 

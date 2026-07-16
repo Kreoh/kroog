@@ -29,6 +29,14 @@ class OpenAIRequestSnakeCaseSerializationTest {
     }
 
     @Test
+    fun `max reasoning effort serializes and deserializes as max`() {
+        val encoded = snakeCaseJson.encodeToString(ReasoningEffort.serializer(), ReasoningEffort.MAX)
+
+        encoded shouldBe "\"max\""
+        snakeCaseJson.decodeFromString(ReasoningEffort.serializer(), encoded) shouldBe ReasoningEffort.MAX
+    }
+
+    @Test
     fun `responses request flattens additionalProperties under snake_case naming`() {
         // Regression for #1878: with JsonNamingStrategy.SnakeCase the additionalProperties field
         // was being emitted verbatim as `additional_properties` at the top level of the request,

@@ -2,11 +2,13 @@ package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.utils.time.KoogClock
+import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -174,5 +176,37 @@ class OpenAIChatCompletionLLMClientTest {
         val decoded = Json.parseToJsonElement(arguments)
         assertIs<JsonObject>(decoded, "function.arguments must be a JSON object, not a double-encoded JSON string")
         assertEquals(JsonObject(mapOf("city" to JsonPrimitive("Boston"))), decoded)
+    }
+
+    @Test
+    fun testGPT5_6DeploymentUsesDeploymentWireIdAndChatReasoningRules() = runTest {
+        var capturedBody: String? = null
+        val engine = MockEngine { request ->
+            capturedBody = (request.body as TextContent).text
+            respond(
+                content = plainResponseBody,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            )
+        }
+        val client = OpenAILLMClient(
+            httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine) {}),
+            apiKey = key,
+            clock = FixedClock,
+        )
+        val prompt = Prompt.build(
+            id = "gpt-5.6-deployment",
+            clock = FixedClock,
+            params = OpenAIChatParams(temperature = 0.3, reasoningEffort = ReasoningEffort.MAX),
+        ) {
+            user("Use maximum reasoning")
+        }
+
+        client.execute(prompt, OpenAIModels.Chat.GPT5_6Luna.copy(id = "luna-deployment"))
+
+        val request = Json.parseToJsonElement(assertNotNull(capturedBody)).jsonObject
+        request["model"]?.jsonPrimitive?.content shouldBe "luna-deployment"
+        request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
+        request.containsKey("temperature") shouldBe false
     }
 }

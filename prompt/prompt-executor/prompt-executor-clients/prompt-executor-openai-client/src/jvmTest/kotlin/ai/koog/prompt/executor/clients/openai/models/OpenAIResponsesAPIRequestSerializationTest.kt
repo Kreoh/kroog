@@ -13,10 +13,32 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 
 class OpenAIResponsesAPIRequestSerializationTest {
+    @Test
+    fun `test max reasoning effort round trip`() =
+        runWithBothJsonConfigurations("max reasoning effort round trip") { json ->
+            val request = OpenAIResponsesAPIRequest(
+                model = "gpt-5.6-sol",
+                reasoning = ReasoningConfig(effort = ReasoningEffort.MAX),
+            )
+
+            val encoded = json.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
+            json.parseToJsonElement(encoded)
+                .jsonObject["reasoning"]
+                .shouldNotBeNull()
+                .jsonObject["effort"]
+                ?.jsonPrimitive
+                ?.content shouldBe "max"
+            json.decodeFromString(OpenAIResponsesAPIRequestSerializer, encoded)
+                .reasoning
+                .shouldNotBeNull()
+                .effort shouldBe ReasoningEffort.MAX
+        }
+
     @Test
     fun `test serialization without additionalProperties`() =
         runWithBothJsonConfigurations("serialization without additionalProperties") { json ->
