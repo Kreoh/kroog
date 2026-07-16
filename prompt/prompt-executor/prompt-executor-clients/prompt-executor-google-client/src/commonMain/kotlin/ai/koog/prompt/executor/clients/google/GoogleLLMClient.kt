@@ -226,6 +226,13 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                                             text = part.text,
                                             index = index,
                                         )
+                                        part.thoughtSignature?.let { signature ->
+                                            attachReasoningEncrypted(
+                                                encrypted = signature,
+                                                id = signature,
+                                                index = index,
+                                            )
+                                        }
                                     } else {
                                         emitTextDelta(part.text, index)
                                     }

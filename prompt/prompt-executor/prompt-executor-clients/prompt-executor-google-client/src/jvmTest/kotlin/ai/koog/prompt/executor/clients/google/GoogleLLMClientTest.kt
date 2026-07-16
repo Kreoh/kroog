@@ -591,7 +591,12 @@ class GoogleLLMClientTest {
 
         frames shouldBe listOf(
             StreamFrame.ReasoningDelta(id = thoughtSignature, text = thoughtText, index = 0),
-            StreamFrame.ReasoningComplete(id = thoughtSignature, content = listOf(thoughtText), index = 0),
+            StreamFrame.ReasoningComplete(
+                id = thoughtSignature,
+                content = listOf(thoughtText),
+                encrypted = thoughtSignature,
+                index = 0,
+            ),
             StreamFrame.TextDelta(finalAnswer, 1),
             StreamFrame.TextComplete(finalAnswer, 1),
             StreamFrame.End(finishReason, ResponseMetaInfo.Empty),
@@ -691,6 +696,7 @@ class GoogleLLMClientTest {
             StreamFrame.ReasoningComplete(
                 id = thoughtSignature,
                 content = listOf(thoughtText),
+                encrypted = thoughtSignature,
                 index = 0,
             ),
             StreamFrame.ReasoningComplete(
@@ -718,7 +724,13 @@ class GoogleLLMClientTest {
             model = model,
             tools = emptyList(),
         )
-        val roundTripCalls = roundTripRequest.contents.single().parts.orEmpty().filterIsInstance<GooglePart.FunctionCall>()
+        val roundTripParts = roundTripRequest.contents.single().parts.orEmpty()
+        val roundTripThought = roundTripParts[0].shouldBeInstanceOf<GooglePart.Text>()
+        roundTripThought.text shouldBe thoughtText
+        roundTripThought.thought shouldBe true
+        roundTripThought.thoughtSignature shouldBe thoughtSignature
+
+        val roundTripCalls = roundTripParts.filterIsInstance<GooglePart.FunctionCall>()
         roundTripCalls shouldHaveSize 2
         roundTripCalls[0].functionCall.id shouldBe "call-1"
         roundTripCalls[0].thoughtSignature shouldBe firstSignature
