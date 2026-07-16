@@ -10,6 +10,7 @@ import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessage
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequest
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequestSerializer
@@ -56,6 +57,9 @@ import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlin.jvm.JvmOverloads
 import kotlin.uuid.ExperimentalUuidApi
@@ -79,6 +83,41 @@ public class AnthropicClientSettings(
     public val timeoutConfig: ConnectionTimeoutConfig = ConnectionTimeoutConfig()
 )
 
+internal sealed interface AnthropicRequestDialect {
+    val clientName: String
+    val modelVersionsMap: Map<LLModel, String>
+
+    fun requestPath(modelVersion: String, stream: Boolean): String
+
+    fun transformRequestBody(body: JsonObject): JsonObject
+
+    class Direct(private val settings: AnthropicClientSettings) : AnthropicRequestDialect {
+        override val clientName: String = "AnthropicLLMClient"
+        override val modelVersionsMap: Map<LLModel, String> = settings.modelVersionsMap
+
+        override fun requestPath(modelVersion: String, stream: Boolean): String = settings.messagesPath
+
+        override fun transformRequestBody(body: JsonObject): JsonObject = body
+    }
+
+    class Vertex(private val settings: AnthropicVertexClientSettings) : AnthropicRequestDialect {
+        override val clientName: String = "AnthropicVertexLLMClient"
+        override val modelVersionsMap: Map<LLModel, String> = settings.modelVersionsMap
+
+        override fun requestPath(modelVersion: String, stream: Boolean): String =
+            "v1/projects/${settings.projectId}/locations/${settings.location}/publishers/anthropic/models/" +
+                "$modelVersion:${if (stream) "streamRawPredict" else "rawPredict"}"
+
+        override fun transformRequestBody(body: JsonObject): JsonObject =
+            buildJsonObject {
+                body.entries
+                    .filterNot { (key, _) -> key == "model" || key == "anthropic_version" }
+                    .forEach { (key, value) -> put(key, value) }
+                put("anthropic_version", settings.anthropicVersion)
+            }
+    }
+}
+
 /**
  * A client implementation for interacting with Anthropic's API in a suspendable and direct manner.
  *
@@ -97,6 +136,20 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
     protected val httpClient: KoogHttpClient,
     private val clock: KoogClock = KoogClock.System
 ) : LLMClient() {
+
+    private var requestDialect: AnthropicRequestDialect = AnthropicRequestDialect.Direct(settings)
+
+    internal constructor(
+        httpClient: KoogHttpClient,
+        clock: KoogClock,
+        requestDialect: AnthropicRequestDialect,
+    ) : this(
+        settings = AnthropicClientSettings(modelVersionsMap = requestDialect.modelVersionsMap),
+        httpClient = httpClient,
+        clock = clock,
+    ) {
+        this.requestDialect = requestDialect
+    }
 
     private companion object {
         private const val ANTHROPIC_CLIENT_NAME = "AnthropicLLMClient"
@@ -146,7 +199,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
      *
      * @return The LLM provider associated with this client, specifically `LLMProvider.Anthropic`.
      */
-    override val clientName: String = ANTHROPIC_CLIENT_NAME
+    override val clientName: String
+        get() = requestDialect.clientName
 
     override fun llmProvider(): LLMProvider = LLMProvider.Anthropic
 
@@ -163,11 +217,11 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
         return try {
             httpClient.post(
-                path = settings.messagesPath,
+                path = requestDialect.requestPath(modelVersion(model), stream = false),
                 requestBody = request,
                 requestBodyType = String::class,
-                responseType = AnthropicResponse::class,
-            )
+                responseType = String::class,
+            ).let(::decodeAnthropicResponse)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -193,6 +247,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         return buildStreamFrameFlow {
             var inputTokens: Int? = null
             var outputTokens: Int? = null
+            val activeBlockTypes = mutableMapOf<Int, String>()
 
             fun updateUsage(usage: AnthropicUsage) {
                 inputTokens = usage.inputTokens ?: inputTokens
@@ -208,10 +263,10 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
             try {
                 httpClient.sse(
-                    path = settings.messagesPath,
+                    path = requestDialect.requestPath(modelVersion(model), stream = true),
                     requestBody = request,
                     requestBodyType = String::class,
-                    decodeStreamingResponse = { json.decodeFromString<AnthropicStreamResponse>(it) },
+                    decodeStreamingResponse = ::decodeAnthropicStreamResponse,
                     processStreamingChunk = { it }
                 ).collect { response ->
                     when (response.type) {
@@ -220,95 +275,101 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         }
 
                         AnthropicStreamEventType.CONTENT_BLOCK_START.value -> {
+                            val index = response.index
+                                ?: throw LLMClientException(clientName, "Content block index is missing")
                             when (val contentBlock = response.contentBlock) {
                                 is AnthropicContent.Text -> {
+                                    requireUnsupportedCitationsAbsent(contentBlock)
+                                    activeBlockTypes[index] = "text"
                                     emitTextDelta(
                                         text = contentBlock.text,
-                                        index = response.index
-                                            ?: throw LLMClientException(
-                                                clientName,
-                                                "Text index is missing"
-                                            )
+                                        index = index,
                                     )
                                 }
 
                                 is AnthropicContent.ToolUse -> {
+                                    activeBlockTypes[index] = "tool_use"
                                     emitToolCallDelta(
                                         id = contentBlock.id,
                                         name = contentBlock.name,
-                                        index = response.index
-                                            ?: throw LLMClientException(clientName, "Tool index is missing"),
+                                        index = index,
                                     )
                                 }
 
                                 is AnthropicContent.Thinking -> {
-                                    emitReasoningDelta(
-                                        text = contentBlock.thinking,
-                                        index = response.index
-                                            ?: throw LLMClientException(clientName, "Thinking index is missing")
-                                    )
+                                    activeBlockTypes[index] = "thinking"
+                                    if (contentBlock.thinking.isNotEmpty()) {
+                                        emitReasoningDelta(
+                                            text = contentBlock.thinking,
+                                            index = index,
+                                        )
+                                    }
                                 }
 
-                                else -> {
-                                    contentBlock?.let { logger.warn { "Unknown Anthropic stream content block type: ${it::class}" } }
-                                        ?: logger.warn { "Anthropic stream content block is missing" }
-                                }
+                                null -> throw LLMClientException(clientName, "Anthropic stream content block is missing")
+                                else -> throw LLMClientException(
+                                    clientName,
+                                    "Unsupported Anthropic stream content block type: ${contentBlock::class}",
+                                )
                             }
                         }
 
                         AnthropicStreamEventType.CONTENT_BLOCK_DELTA.value -> {
-                            response.delta?.let { delta ->
-                                // Handles deltas for tool calls and text
-
-                                when (delta.type) {
-                                    AnthropicStreamDeltaContentType.TEXT_DELTA.value -> {
-                                        emitTextDelta(
-                                            delta.text
-                                                ?: throw LLMClientException(clientName, "Text delta is missing"),
-                                            index = response.index
-                                        )
-                                    }
-
-                                    AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value -> {
-                                        emitToolCallDelta(
-                                            args = delta.partialJson
-                                                ?: throw LLMClientException(clientName, "Tool args are missing"),
-                                            index = response.index
-                                                ?: throw LLMClientException(clientName, "Tool index is missing"),
-                                        )
-                                    }
-
-                                    AnthropicStreamDeltaContentType.THINKING_DELTA.value -> {
-                                        emitReasoningDelta(
-                                            text = delta.thinking
-                                                ?: throw LLMClientException(clientName, "Reasoning delta is missing"),
-                                            index = response.index
-                                                ?: throw LLMClientException(clientName, "Reasoning index is missing")
-                                        )
-                                    }
-
-                                    else -> {
-                                        logger.warn { "Unknown Anthropic stream delta type: ${delta.type}" }
-                                    }
+                            val delta = response.delta
+                                ?: throw LLMClientException(clientName, "Anthropic stream delta is missing")
+                            val index = response.index
+                                ?: throw LLMClientException(clientName, "Anthropic stream delta index is missing")
+                            when (delta.type) {
+                                AnthropicStreamDeltaContentType.TEXT_DELTA.value -> {
+                                    emitTextDelta(
+                                        delta.text ?: throw LLMClientException(clientName, "Text delta is missing"),
+                                        index = index,
+                                    )
                                 }
+
+                                AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value -> {
+                                    emitToolCallDelta(
+                                        args = delta.partialJson
+                                            ?: throw LLMClientException(clientName, "Tool args are missing"),
+                                        index = index,
+                                    )
+                                }
+
+                                AnthropicStreamDeltaContentType.THINKING_DELTA.value -> {
+                                    emitReasoningDelta(
+                                        text = delta.thinking
+                                            ?: throw LLMClientException(clientName, "Reasoning delta is missing"),
+                                        index = index,
+                                    )
+                                }
+
+                                AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value -> {
+                                    attachReasoningEncrypted(
+                                        encrypted = delta.signature
+                                            ?: throw LLMClientException(clientName, "Reasoning signature delta is missing"),
+                                        index = index,
+                                    )
+                                }
+
+                                else -> throw LLMClientException(
+                                    clientName,
+                                    "Unsupported Anthropic stream delta type: ${delta.type}",
+                                )
                             }
                         }
 
                         AnthropicStreamEventType.CONTENT_BLOCK_STOP.value -> {
-                            response.delta?.let { delta ->
-                                when (delta.type) {
-                                    AnthropicStreamDeltaContentType.TEXT_DELTA.value -> {
-                                        tryEmitPendingText()
-                                    }
-
-                                    AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value -> {
-                                        tryEmitPendingToolCall()
-                                    }
-
-                                    AnthropicStreamDeltaContentType.THINKING_DELTA.value -> {
-                                        tryEmitPendingReasoning()
-                                    }
-                                }
+                            val index = response.index
+                                ?: throw LLMClientException(clientName, "Content block stop index is missing")
+                            when (activeBlockTypes.remove(index)) {
+                                "text" -> tryEmitPendingText()
+                                "tool_use" -> tryEmitPendingToolCall()
+                                "thinking" -> tryEmitPendingReasoning()
+                                null -> throw LLMClientException(
+                                    clientName,
+                                    "Content block stop has no matching start for index $index",
+                                )
+                                else -> throw LLMClientException(clientName, "Unsupported Anthropic content block state")
                             }
                         }
 
@@ -331,6 +392,11 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         AnthropicStreamEventType.PING.value -> {
                             logger.debug { "Received ping from Anthropic" }
                         }
+
+                        else -> throw LLMClientException(
+                            clientName,
+                            "Unsupported Anthropic stream event type: ${response.type}",
+                        )
                     }
                 }
             } catch (e: CancellationException) {
@@ -426,6 +492,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         stream: Boolean
     ): String {
         val anthropicParams = params.toAnthropicParams()
+        val adaptiveThinking = anthropicParams.thinking as? ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinking.Adaptive
 
         val toolChoice = when (val toolChoice = anthropicParams.toolChoice) {
             LLMParams.ToolChoice.Auto -> AnthropicToolChoice.Auto
@@ -443,10 +510,18 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 format = AnthropicOutputFormat.JsonSchema(schema = schema.schema)
             )
         }
+        val additionalOutputConfig = anthropicParams.additionalProperties?.get("output_config")
+        require(additionalOutputConfig == null || additionalOutputConfig is JsonObject) {
+            "Anthropic additionalProperties output_config must be a JSON object"
+        }
+        val requestAdditionalProperties =
+            anthropicParams.additionalProperties
+                ?.filterKeys { it != "output_config" }
+                ?.takeIf { it.isNotEmpty() }
 
         // Always include max_tokens as it's required by the API
         val request = AnthropicMessageRequest(
-            model = settings.modelVersionsMap[model] ?: throw IllegalArgumentException("Unsupported model: $model"),
+            model = modelVersion(model),
             messages = messages,
             maxTokens = anthropicParams.maxTokens ?: AnthropicMessageRequest.MAX_TOKENS_DEFAULT,
             cacheControl = anthropicParams.cacheControl?.toAnthropicCacheControl(),
@@ -457,17 +532,45 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             stopSequence = anthropicParams.stopSequences,
             stream = stream,
             system = systemMessages,
-            temperature = anthropicParams.temperature,
+            temperature = anthropicParams.temperature.takeUnless { adaptiveThinking != null },
             thinking = anthropicParams.thinking,
             toolChoice = toolChoice,
             tools = tools,
             topK = anthropicParams.topK,
             topP = anthropicParams.topP,
-            additionalProperties = anthropicParams.additionalProperties
+            additionalProperties = requestAdditionalProperties,
         )
 
-        return json.encodeToString(AnthropicMessageRequestSerializer, request)
+        val encodedRequest = json.encodeToJsonElement(AnthropicMessageRequestSerializer, request).jsonObject
+        val typedOutputConfig = encodedRequest["output_config"] as? JsonObject
+        val mergedOutputConfig =
+            buildJsonObject {
+                additionalOutputConfig?.forEach { (key, value) -> put(key, value) }
+                typedOutputConfig?.forEach { (key, value) -> put(key, value) }
+                adaptiveThinking?.effort?.let { put("effort", effortValue(it)) }
+            }.takeIf { it.isNotEmpty() }
+        val mergedRequest =
+            buildJsonObject {
+                encodedRequest.entries
+                    .filterNot { (key, _) -> key == "output_config" }
+                    .forEach { (key, value) -> put(key, value) }
+                mergedOutputConfig?.let { put("output_config", it) }
+            }
+
+        return json.encodeToString(JsonObject.serializer(), requestDialect.transformRequestBody(mergedRequest))
     }
+
+    private fun modelVersion(model: LLModel): String =
+        requestDialect.modelVersionsMap[model] ?: throw IllegalArgumentException("Unsupported model: $model")
+
+    private fun effortValue(effort: AnthropicEffort): String =
+        when (effort) {
+            AnthropicEffort.LOW -> "low"
+            AnthropicEffort.MEDIUM -> "medium"
+            AnthropicEffort.HIGH -> "high"
+            AnthropicEffort.XHIGH -> "xhigh"
+            AnthropicEffort.MAX -> "max"
+        }
 
     @OptIn(ExperimentalUuidApi::class)
     private fun Message.Assistant.toAnthropicAssistantMessage(model: LLModel): AnthropicMessage.Assistant {
@@ -480,8 +583,14 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         }
                         add(
                             AnthropicContent.Thinking(
-                                thinking = it.content.singleOrNull()
-                                    ?: throw IllegalArgumentException("Only single content is required for reasoning messages"),
+                                thinking =
+                                when (it.content.size) {
+                                    0 -> ""
+                                    1 -> it.content.single()
+                                    else -> throw IllegalArgumentException(
+                                        "At most one content value is supported for reasoning messages",
+                                    )
+                                },
                                 signature = it.encrypted
                                     ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
                             )
@@ -691,6 +800,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 }
 
                 is AnthropicContent.Text -> {
+                    requireUnsupportedCitationsAbsent(content)
                     MessagePart.Text(
                         text = content.text,
                     )
@@ -792,6 +902,9 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
     }
 
     public override suspend fun models(): List<LLModel> {
+        if (requestDialect is AnthropicRequestDialect.Vertex) {
+            return requestDialect.modelVersionsMap.keys.toList()
+        }
         logger.debug { "Fetching available models from Anthropic" }
 
         val response = httpClient.get(
@@ -850,5 +963,66 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
     override fun close() {
         httpClient.close()
+    }
+
+    private fun requireUnsupportedCitationsAbsent(content: AnthropicContent.Text) {
+        if (content.citations != null) {
+            throw LLMClientException(clientName, "Anthropic citations are not supported")
+        }
+    }
+
+    private fun decodeAnthropicStreamResponse(payload: String): AnthropicStreamResponse {
+        val element = json.parseToJsonElement(payload)
+        val root = element as? JsonObject
+            ?: throw LLMClientException(clientName, "Anthropic stream event must be a JSON object")
+        val eventType = (root["type"] as? JsonPrimitive)?.content
+        var signature: String? = null
+        if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_START.value) {
+            val block = root["content_block"] as? JsonObject
+                ?: throw LLMClientException(clientName, "Anthropic stream content block is missing")
+            val blockType = (block["type"] as? JsonPrimitive)?.content
+            if (blockType !in setOf("text", "tool_use", "thinking")) {
+                throw LLMClientException(clientName, "Unsupported Anthropic stream content block type: $blockType")
+            }
+            if (block.containsKey("citations")) {
+                throw LLMClientException(clientName, "Anthropic citations are not supported")
+            }
+        }
+        if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_DELTA.value) {
+            val delta = root["delta"] as? JsonObject
+                ?: throw LLMClientException(clientName, "Anthropic stream delta is missing")
+            val deltaType = (delta["type"] as? JsonPrimitive)?.content
+            if (
+                deltaType !in
+                setOf(
+                    AnthropicStreamDeltaContentType.TEXT_DELTA.value,
+                    AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value,
+                    AnthropicStreamDeltaContentType.THINKING_DELTA.value,
+                    AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value,
+                )
+            ) {
+                throw LLMClientException(clientName, "Unsupported Anthropic stream delta type: $deltaType")
+            }
+            if (deltaType == AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value) {
+                signature = (delta["signature"] as? JsonPrimitive)?.content
+            }
+        }
+        return json.decodeFromJsonElement<AnthropicStreamResponse>(element).also { response ->
+            response.delta?.signature = signature
+        }
+    }
+
+    private fun decodeAnthropicResponse(payload: String): AnthropicResponse {
+        val element = json.parseToJsonElement(payload)
+        val root = element as? JsonObject
+            ?: throw LLMClientException(clientName, "Anthropic response must be a JSON object")
+        (root["content"] as? JsonArray)?.forEach { contentElement ->
+            val content = contentElement as? JsonObject ?: return@forEach
+            val contentType = (content["type"] as? JsonPrimitive)?.content
+            if (contentType == "text" && content.containsKey("citations")) {
+                throw LLMClientException(clientName, "Anthropic citations are not supported")
+            }
+        }
+        return json.decodeFromJsonElement(element)
     }
 }

@@ -55,6 +55,24 @@ val anthropicClient = AnthropicLLMClient(
 )
 ```
 
+For Anthropic models served by Vertex AI, supply a pre-authenticated `KoogHttpClient` and an explicit model map:
+
+```kotlin
+val vertexClient = AnthropicVertexLLMClient(
+    settings = AnthropicVertexClientSettings(
+        projectId = "my-gcp-project",
+        location = "europe-west1",
+        modelVersionsMap = mapOf(
+            AnthropicModels.Fable_5 to "claude-fable-5@20260701",
+        ),
+    ),
+    httpClient = authenticatedVertexHttpClient,
+)
+```
+
+The HTTP client must already provide Google authentication. The Vertex client sends Messages payloads through
+`rawPredict` and `streamRawPredict` and does not add Anthropic API-key or version headers.
+
 ### Using in tests
 
 For testing, you can use a mock implementation:

@@ -1,6 +1,7 @@
 package ai.koog.prompt.executor.clients.anthropic
 
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMCPServerURLDefinition
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessage
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequest
@@ -8,7 +9,9 @@ import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequestS
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicOutputConfig
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicOutputFormat
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicServiceTier
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamDelta
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinking
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinkingDisplay
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicTool
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicToolChoice
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicToolConfiguration
@@ -455,5 +458,41 @@ class AnthropicSerializationTest {
               "stream": false
             }
                 """.trimIndent()
+        }
+
+    @Test
+    fun `adaptive thinking serializes display while effort remains top-level request state`() =
+        runWithBothJsonConfigurations("adaptive thinking serialization") { json ->
+            val request = AnthropicMessageRequest(
+                model = "claude-opus-4-6",
+                messages = listOf(AnthropicMessage.User(listOf(AnthropicContent.Text("Think")))),
+                thinking = AnthropicThinking.Adaptive(
+                    display = AnthropicThinkingDisplay.SUMMARIZED,
+                    effort = AnthropicEffort.XHIGH,
+                ),
+            )
+
+            json.encodeToString(AnthropicMessageRequestSerializer, request) shouldEqualJson
+                """
+                {
+                  "model": "claude-opus-4-6",
+                  "max_tokens": 2048,
+                  "messages": [{"role":"user","content":[{"type":"text","text":"Think"}]}],
+                  "stream": false,
+                  "thinking": {"type":"adaptive","display":"summarized"}
+                }
+                """.trimIndent()
+        }
+
+    @Test
+    fun `signature delta payload remains transient to preserve the existing constructor shape`() =
+        runWithBothJsonConfigurations("transient signature delta payload") { json ->
+            val delta = AnthropicStreamDelta(type = "signature_delta").apply {
+                signature = "exact-signature"
+            }
+
+            delta.type shouldBe "signature_delta"
+            delta.signature shouldBe "exact-signature"
+            json.encodeToString(delta) shouldEqualJson """{"type":"signature_delta"}"""
         }
 }

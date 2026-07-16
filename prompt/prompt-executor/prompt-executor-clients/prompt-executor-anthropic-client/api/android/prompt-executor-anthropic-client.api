@@ -103,6 +103,21 @@ public final class ai/koog/prompt/executor/clients/anthropic/AnthropicParams : a
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/anthropic/AnthropicVertexClientSettings {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getAnthropicVersion ()Ljava/lang/String;
+	public final fun getLocation ()Ljava/lang/String;
+	public final fun getModelVersionsMap ()Ljava/util/Map;
+	public final fun getProjectId ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/anthropic/AnthropicVertexLLMClient : ai/koog/prompt/executor/clients/anthropic/AnthropicLLMClient {
+	public fun <init> (Lai/koog/prompt/executor/clients/anthropic/AnthropicVertexClientSettings;Lai/koog/http/client/KoogHttpClient;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/anthropic/AnthropicVertexClientSettings;Lai/koog/http/client/KoogHttpClient;Lai/koog/utils/time/KoogClock;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/anthropic/AnthropicVertexClientSettings;Lai/koog/http/client/KoogHttpClient;Lai/koog/utils/time/KoogClock;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
 public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicCacheControl$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
@@ -326,6 +341,22 @@ public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicCon
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort$Companion;
+	public static final field HIGH Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static final field LOW Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static final field MAX Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static final field MEDIUM Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static final field XHIGH Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+	public static fun values ()[Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+}
+
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicMCPServerURLDefinition {
 	public static final field Companion Lai/koog/prompt/executor/clients/anthropic/models/AnthropicMCPServerURLDefinition$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/anthropic/models/AnthropicToolConfiguration;)V
@@ -516,6 +547,7 @@ public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicStr
 
 public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicStreamDeltaContentType : java/lang/Enum {
 	public static final field INPUT_JSON_DELTA Lai/koog/prompt/executor/clients/anthropic/models/AnthropicStreamDeltaContentType;
+	public static final field SIGNATURE_DELTA Lai/koog/prompt/executor/clients/anthropic/models/AnthropicStreamDeltaContentType;
 	public static final field TEXT_DELTA Lai/koog/prompt/executor/clients/anthropic/models/AnthropicStreamDeltaContentType;
 	public static final field THINKING_DELTA Lai/koog/prompt/executor/clients/anthropic/models/AnthropicStreamDeltaContentType;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
@@ -573,6 +605,29 @@ public abstract interface class ai/koog/prompt/executor/clients/anthropic/models
 	public static final field Companion Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Companion;
 }
 
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive : ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking {
+	public static final field Companion Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive$Companion;
+	public fun <init> (Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getDisplay ()Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;
+	public final fun getEffort ()Lai/koog/prompt/executor/clients/anthropic/models/AnthropicEffort;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Adaptive$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
@@ -615,6 +670,19 @@ public final synthetic class ai/koog/prompt/executor/clients/anthropic/models/An
 }
 
 public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinking$Enabled$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay$Companion;
+	public static final field OMITTED Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;
+	public static final field SUMMARIZED Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;
+	public static fun values ()[Lai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay;
+}
+
+public final class ai/koog/prompt/executor/clients/anthropic/models/AnthropicThinkingDisplay$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 

@@ -5,6 +5,7 @@ import ai.koog.prompt.executor.clients.serialization.AdditionalPropertiesFlatten
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -239,7 +240,11 @@ public sealed interface AnthropicContent {
      */
     @Serializable
     @SerialName("text")
-    public data class Text(val text: String, val cacheControl: AnthropicCacheControl? = null) : AnthropicContent
+    public data class Text(val text: String, val cacheControl: AnthropicCacheControl? = null) : AnthropicContent {
+        /** Internal rejection sentinel. Citations remain unsupported and are never exposed as a public model. */
+        @Transient
+        internal var citations: JsonElement? = null
+    }
 
     /**
      * Represents a thinking process.
@@ -484,6 +489,46 @@ public sealed interface AnthropicThinking {
     @Serializable
     @SerialName("disabled")
     public class Disabled : AnthropicThinking
+
+    /**
+     * Enables adaptive thinking. [effort] is sent through top-level `output_config` and is not nested here.
+     */
+    @Serializable
+    @SerialName("adaptive")
+    public class Adaptive(
+        public val display: AnthropicThinkingDisplay,
+        @Transient
+        public val effort: AnthropicEffort? = null,
+    ) : AnthropicThinking
+}
+
+/** Controls whether adaptive thinking is returned in summarised form or omitted. */
+@Serializable
+public enum class AnthropicThinkingDisplay {
+    @SerialName("summarized")
+    SUMMARIZED,
+
+    @SerialName("omitted")
+    OMITTED,
+}
+
+/** Controls the inference effort used by adaptive thinking models. */
+@Serializable
+public enum class AnthropicEffort {
+    @SerialName("low")
+    LOW,
+
+    @SerialName("medium")
+    MEDIUM,
+
+    @SerialName("high")
+    HIGH,
+
+    @SerialName("xhigh")
+    XHIGH,
+
+    @SerialName("max")
+    MAX,
 }
 
 /**
@@ -631,7 +676,11 @@ public data class AnthropicStreamDelta(
     val stopReason: String? = null,
     val thinking: String? = null,
     val toolUse: AnthropicContent.ToolUse? = null
-)
+) {
+    /** Signature payload carried by `signature_delta` without changing the existing constructor or copy ABI. */
+    @Transient
+    public var signature: String? = null
+}
 
 /**
  * Represents the different types of stream events that can occur in the Anthropic streaming protocol.
@@ -662,6 +711,7 @@ public enum class AnthropicStreamDeltaContentType(public val value: String) {
     TEXT_DELTA("text_delta"),
     INPUT_JSON_DELTA("input_json_delta"),
     THINKING_DELTA("thinking_delta"),
+    SIGNATURE_DELTA("signature_delta"),
 }
 
 /**
