@@ -74,14 +74,33 @@ class ThinkingConfigTest {
             """.trimIndent().replace("\r\n", "\n")
         }
 
+    @Test fun `test thinkingLevel exact serialization and deserialization`() =
+        runWithBothJsonConfigurations("thinkingLevel exact serialization and deserialization") { json ->
+            listOf(
+                GoogleThinkingLevel.LOW to "low",
+                GoogleThinkingLevel.HIGH to "high",
+                GoogleThinkingLevel.MINIMAL to "minimal",
+                GoogleThinkingLevel.MEDIUM to "medium",
+            ).forEach { (level, serializedLevel) ->
+                val config = GoogleThinkingConfig(thinkingLevel = level)
+                val encoded = json.encodeToString(GoogleThinkingConfig.serializer(), config)
+
+                encoded shouldEqualJson """{"thinkingLevel":"$serializedLevel"}"""
+                json.decodeFromString(GoogleThinkingConfig.serializer(), encoded) shouldBe config
+            }
+        }
+
     @Test fun `test thinkingConfig validation prevents mixing old and new params`() {
-        // Should throw IllegalArgumentException because init block checks mutual exclusivity
-        shouldThrow<IllegalArgumentException> {
-            GoogleThinkingConfig(
-                includeThoughts = true,
-                thinkingBudget = 1024,
-                thinkingLevel = GoogleThinkingLevel.LOW
-            )
+        GoogleThinkingLevel.entries.forEach { level ->
+            shouldThrow<IllegalArgumentException> {
+                GoogleThinkingConfig(
+                    includeThoughts = true,
+                    thinkingBudget = 1024,
+                    thinkingLevel = level
+                )
+            }.message shouldBe
+                "Cannot set both 'thinkingBudget' and 'thinkingLevel'. " +
+                "Use 'thinkingBudget' for Gemini 2.0 models and 'thinkingLevel' for Gemini 3.0 models."
         }
     }
 

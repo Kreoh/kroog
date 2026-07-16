@@ -367,7 +367,13 @@ public enum class GoogleThinkingLevel {
     LOW,
 
     @SerialName("high")
-    HIGH
+    HIGH,
+
+    @SerialName("minimal")
+    MINIMAL,
+
+    @SerialName("medium")
+    MEDIUM
 }
 
 /**

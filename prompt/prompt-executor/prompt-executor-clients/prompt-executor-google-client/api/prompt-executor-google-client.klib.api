@@ -1,0 +1,164 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, iosX64, js, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <com.kreoh.kroog:prompt-executor-google-client>
+final enum class ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel : kotlin/Enum<ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel> { // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel|null[0]
+    enum entry HIGH // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.HIGH|null[0]
+    enum entry LOW // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.LOW|null[0]
+    enum entry MEDIUM // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.MEDIUM|null[0]
+    enum entry MINIMAL // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.MINIMAL|null[0]
+
+    final val entries // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.values|values#static(){}[0]
+
+    final object Companion : kotlinx.serialization.internal/SerializerFactory { // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.Companion|null[0]
+        final fun serializer(): kotlinx.serialization/KSerializer<ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.Companion.serializer|serializer(){}[0]
+        final fun serializer(kotlin/Array<out kotlinx.serialization/KSerializer<*>>...): kotlinx.serialization/KSerializer<*> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel.Companion.serializer|serializer(kotlin.Array<out|kotlinx.serialization.KSerializer<*>>...){}[0]
+    }
+}
+
+final class ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig { // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig|null[0]
+    constructor <init>(kotlin/Boolean? = ..., kotlin/Int? = ..., ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel? = ...) // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.<init>|<init>(kotlin.Boolean?;kotlin.Int?;ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel?){}[0]
+
+    final val includeThoughts // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.includeThoughts|{}includeThoughts[0]
+        final fun <get-includeThoughts>(): kotlin/Boolean? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.includeThoughts.<get-includeThoughts>|<get-includeThoughts>(){}[0]
+    final val thinkingBudget // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.thinkingBudget|{}thinkingBudget[0]
+        final fun <get-thinkingBudget>(): kotlin/Int? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.thinkingBudget.<get-thinkingBudget>|<get-thinkingBudget>(){}[0]
+    final val thinkingLevel // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.thinkingLevel|{}thinkingLevel[0]
+        final fun <get-thinkingLevel>(): ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.thinkingLevel.<get-thinkingLevel>|<get-thinkingLevel>(){}[0]
+
+    final fun component1(): kotlin/Boolean? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.component1|component1(){}[0]
+    final fun component2(): kotlin/Int? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.component2|component2(){}[0]
+    final fun component3(): ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel? // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.component3|component3(){}[0]
+    final fun copy(kotlin/Boolean? = ..., kotlin/Int? = ..., ai.koog.prompt.executor.clients.google.models/GoogleThinkingLevel? = ...): ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.copy|copy(kotlin.Boolean?;kotlin.Int?;ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.toString|toString(){}[0]
+
+    final object $serializer : kotlinx.serialization.internal/GeneratedSerializer<ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig> { // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer|null[0]
+        final val descriptor // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer.descriptor|{}descriptor[0]
+            final fun <get-descriptor>(): kotlinx.serialization.descriptors/SerialDescriptor // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer.descriptor.<get-descriptor>|<get-descriptor>(){}[0]
+
+        final fun childSerializers(): kotlin/Array<kotlinx.serialization/KSerializer<*>> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer.childSerializers|childSerializers(){}[0]
+        final fun deserialize(kotlinx.serialization.encoding/Decoder): ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer.deserialize|deserialize(kotlinx.serialization.encoding.Decoder){}[0]
+        final fun serialize(kotlinx.serialization.encoding/Encoder, ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig) // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.$serializer.serialize|serialize(kotlinx.serialization.encoding.Encoder;ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig){}[0]
+    }
+
+    final object Companion { // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.Companion|null[0]
+        final val $childSerializers // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.Companion.$childSerializers|{}$childSerializers[0]
+
+        final fun serializer(): kotlinx.serialization/KSerializer<ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig> // ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig.Companion.serializer|serializer(){}[0]
+    }
+}
+
+final class ai.koog.prompt.executor.clients.google/GoogleClientSettings { // ai.koog.prompt.executor.clients.google/GoogleClientSettings|null[0]
+    constructor <init>(kotlin/String = ..., ai.koog.prompt.executor.clients/ConnectionTimeoutConfig = ..., kotlin/String = ..., kotlin/String = ..., kotlin/String = ..., kotlin/String = ..., kotlin/String = ..., kotlin/String = ...) // ai.koog.prompt.executor.clients.google/GoogleClientSettings.<init>|<init>(kotlin.String;ai.koog.prompt.executor.clients.ConnectionTimeoutConfig;kotlin.String;kotlin.String;kotlin.String;kotlin.String;kotlin.String;kotlin.String){}[0]
+
+    final val baseUrl // ai.koog.prompt.executor.clients.google/GoogleClientSettings.baseUrl|{}baseUrl[0]
+        final fun <get-baseUrl>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.baseUrl.<get-baseUrl>|<get-baseUrl>(){}[0]
+    final val batchEmbedContentsMethod // ai.koog.prompt.executor.clients.google/GoogleClientSettings.batchEmbedContentsMethod|{}batchEmbedContentsMethod[0]
+        final fun <get-batchEmbedContentsMethod>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.batchEmbedContentsMethod.<get-batchEmbedContentsMethod>|<get-batchEmbedContentsMethod>(){}[0]
+    final val defaultPath // ai.koog.prompt.executor.clients.google/GoogleClientSettings.defaultPath|{}defaultPath[0]
+        final fun <get-defaultPath>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.defaultPath.<get-defaultPath>|<get-defaultPath>(){}[0]
+    final val embedContentMethod // ai.koog.prompt.executor.clients.google/GoogleClientSettings.embedContentMethod|{}embedContentMethod[0]
+        final fun <get-embedContentMethod>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.embedContentMethod.<get-embedContentMethod>|<get-embedContentMethod>(){}[0]
+    final val fallbackThoughtSignature // ai.koog.prompt.executor.clients.google/GoogleClientSettings.fallbackThoughtSignature|{}fallbackThoughtSignature[0]
+        final fun <get-fallbackThoughtSignature>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.fallbackThoughtSignature.<get-fallbackThoughtSignature>|<get-fallbackThoughtSignature>(){}[0]
+    final val generateContentMethod // ai.koog.prompt.executor.clients.google/GoogleClientSettings.generateContentMethod|{}generateContentMethod[0]
+        final fun <get-generateContentMethod>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.generateContentMethod.<get-generateContentMethod>|<get-generateContentMethod>(){}[0]
+    final val streamGenerateContentMethod // ai.koog.prompt.executor.clients.google/GoogleClientSettings.streamGenerateContentMethod|{}streamGenerateContentMethod[0]
+        final fun <get-streamGenerateContentMethod>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleClientSettings.streamGenerateContentMethod.<get-streamGenerateContentMethod>|<get-streamGenerateContentMethod>(){}[0]
+    final val timeoutConfig // ai.koog.prompt.executor.clients.google/GoogleClientSettings.timeoutConfig|{}timeoutConfig[0]
+        final fun <get-timeoutConfig>(): ai.koog.prompt.executor.clients/ConnectionTimeoutConfig // ai.koog.prompt.executor.clients.google/GoogleClientSettings.timeoutConfig.<get-timeoutConfig>|<get-timeoutConfig>(){}[0]
+}
+
+final class ai.koog.prompt.executor.clients.google/GoogleParams : ai.koog.prompt.params/LLMParams { // ai.koog.prompt.executor.clients.google/GoogleParams|null[0]
+    constructor <init>(kotlin/Double? = ..., kotlin/Int? = ..., kotlin/Int? = ..., kotlin/String? = ..., ai.koog.prompt.params/LLMParams.Schema? = ..., ai.koog.prompt.params/LLMParams.ToolChoice? = ..., kotlin/String? = ..., kotlin.collections/Map<kotlin/String, kotlinx.serialization.json/JsonElement>? = ..., kotlin/Double? = ..., kotlin/Int? = ..., ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig? = ...) // ai.koog.prompt.executor.clients.google/GoogleParams.<init>|<init>(kotlin.Double?;kotlin.Int?;kotlin.Int?;kotlin.String?;ai.koog.prompt.params.LLMParams.Schema?;ai.koog.prompt.params.LLMParams.ToolChoice?;kotlin.String?;kotlin.collections.Map<kotlin.String,kotlinx.serialization.json.JsonElement>?;kotlin.Double?;kotlin.Int?;ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig?){}[0]
+
+    final val thinkingConfig // ai.koog.prompt.executor.clients.google/GoogleParams.thinkingConfig|{}thinkingConfig[0]
+        final fun <get-thinkingConfig>(): ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig? // ai.koog.prompt.executor.clients.google/GoogleParams.thinkingConfig.<get-thinkingConfig>|<get-thinkingConfig>(){}[0]
+    final val topK // ai.koog.prompt.executor.clients.google/GoogleParams.topK|{}topK[0]
+        final fun <get-topK>(): kotlin/Int? // ai.koog.prompt.executor.clients.google/GoogleParams.topK.<get-topK>|<get-topK>(){}[0]
+    final val topP // ai.koog.prompt.executor.clients.google/GoogleParams.topP|{}topP[0]
+        final fun <get-topP>(): kotlin/Double? // ai.koog.prompt.executor.clients.google/GoogleParams.topP.<get-topP>|<get-topP>(){}[0]
+
+    final fun copy(kotlin/Double? = ..., kotlin/Int? = ..., kotlin/Int? = ..., kotlin/String? = ..., ai.koog.prompt.params/LLMParams.Schema? = ..., ai.koog.prompt.params/LLMParams.ToolChoice? = ..., kotlin/String? = ..., kotlin.collections/Map<kotlin/String, kotlinx.serialization.json/JsonElement>? = ..., kotlin/Double? = ..., kotlin/Int? = ..., ai.koog.prompt.executor.clients.google.models/GoogleThinkingConfig? = ...): ai.koog.prompt.executor.clients.google/GoogleParams // ai.koog.prompt.executor.clients.google/GoogleParams.copy|copy(kotlin.Double?;kotlin.Int?;kotlin.Int?;kotlin.String?;ai.koog.prompt.params.LLMParams.Schema?;ai.koog.prompt.params.LLMParams.ToolChoice?;kotlin.String?;kotlin.collections.Map<kotlin.String,kotlinx.serialization.json.JsonElement>?;kotlin.Double?;kotlin.Int?;ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig?){}[0]
+    final fun copy(kotlin/Double?, kotlin/Int?, kotlin/Int?, kotlin/String?, ai.koog.prompt.params/LLMParams.Schema?, ai.koog.prompt.params/LLMParams.ToolChoice?, kotlin/String?, kotlin.collections/Map<kotlin/String, kotlinx.serialization.json/JsonElement>?): ai.koog.prompt.executor.clients.google/GoogleParams // ai.koog.prompt.executor.clients.google/GoogleParams.copy|copy(kotlin.Double?;kotlin.Int?;kotlin.Int?;kotlin.String?;ai.koog.prompt.params.LLMParams.Schema?;ai.koog.prompt.params.LLMParams.ToolChoice?;kotlin.String?;kotlin.collections.Map<kotlin.String,kotlinx.serialization.json.JsonElement>?){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ai.koog.prompt.executor.clients.google/GoogleParams.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ai.koog.prompt.executor.clients.google/GoogleParams.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleParams.toString|toString(){}[0]
+}
+
+open class ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator : ai.koog.prompt.structure.json.generator/BasicJsonSchemaGenerator { // ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator|null[0]
+    constructor <init>() // ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator.<init>|<init>(){}[0]
+
+    open fun processObject(ai.koog.prompt.structure.json.generator/JsonSchemaGenerator.GenerationContext): kotlinx.serialization.json/JsonObject // ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator.processObject|processObject(ai.koog.prompt.structure.json.generator.JsonSchemaGenerator.GenerationContext){}[0]
+
+    final object Companion : ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator // ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator.Companion|null[0]
+}
+
+open class ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator : ai.koog.prompt.structure.json.generator/StandardJsonSchemaGenerator { // ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator|null[0]
+    constructor <init>() // ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator.<init>|<init>(){}[0]
+
+    open fun processClassDiscriminator(ai.koog.prompt.structure.json.generator/JsonSchemaGenerator.GenerationContext): kotlinx.serialization.json/JsonObject // ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator.processClassDiscriminator|processClassDiscriminator(ai.koog.prompt.structure.json.generator.JsonSchemaGenerator.GenerationContext){}[0]
+    open fun processObject(ai.koog.prompt.structure.json.generator/JsonSchemaGenerator.GenerationContext): kotlinx.serialization.json/JsonObject // ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator.processObject|processObject(ai.koog.prompt.structure.json.generator.JsonSchemaGenerator.GenerationContext){}[0]
+
+    final object Companion : ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator // ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator.Companion|null[0]
+}
+
+open class ai.koog.prompt.executor.clients.google/GoogleLLMClient : ai.koog.prompt.executor.clients/LLMClient { // ai.koog.prompt.executor.clients.google/GoogleLLMClient|null[0]
+    constructor <init>(ai.koog.prompt.executor.clients.google/GoogleClientSettings = ..., ai.koog.http.client/KoogHttpClient, ai.koog.utils.time/KoogClock = ...) // ai.koog.prompt.executor.clients.google/GoogleLLMClient.<init>|<init>(ai.koog.prompt.executor.clients.google.GoogleClientSettings;ai.koog.http.client.KoogHttpClient;ai.koog.utils.time.KoogClock){}[0]
+    constructor <init>(kotlin/String, ai.koog.prompt.executor.clients.google/GoogleClientSettings = ..., ai.koog.http.client/KoogHttpClient.Factory, ai.koog.utils.time/KoogClock = ...) // ai.koog.prompt.executor.clients.google/GoogleLLMClient.<init>|<init>(kotlin.String;ai.koog.prompt.executor.clients.google.GoogleClientSettings;ai.koog.http.client.KoogHttpClient.Factory;ai.koog.utils.time.KoogClock){}[0]
+
+    open val clientName // ai.koog.prompt.executor.clients.google/GoogleLLMClient.clientName|{}clientName[0]
+        open fun <get-clientName>(): kotlin/String // ai.koog.prompt.executor.clients.google/GoogleLLMClient.clientName.<get-clientName>|<get-clientName>(){}[0]
+
+    open fun close() // ai.koog.prompt.executor.clients.google/GoogleLLMClient.close|close(){}[0]
+    open fun executeStreaming(ai.koog.prompt/Prompt, ai.koog.prompt.llm/LLModel, kotlin.collections/List<ai.koog.agents.core.tools/ToolDescriptor>): kotlinx.coroutines.flow/Flow<ai.koog.prompt.streaming/StreamFrame> // ai.koog.prompt.executor.clients.google/GoogleLLMClient.executeStreaming|executeStreaming(ai.koog.prompt.Prompt;ai.koog.prompt.llm.LLModel;kotlin.collections.List<ai.koog.agents.core.tools.ToolDescriptor>){}[0]
+    open fun getBasicJsonSchemaGenerator(): ai.koog.prompt.executor.clients.google.structure/GoogleBasicJsonSchemaGenerator // ai.koog.prompt.executor.clients.google/GoogleLLMClient.getBasicJsonSchemaGenerator|getBasicJsonSchemaGenerator(){}[0]
+    open fun getStandardJsonSchemaGenerator(): ai.koog.prompt.executor.clients.google.structure/GoogleStandardJsonSchemaGenerator // ai.koog.prompt.executor.clients.google/GoogleLLMClient.getStandardJsonSchemaGenerator|getStandardJsonSchemaGenerator(){}[0]
+    open fun llmProvider(): ai.koog.prompt.llm/LLMProvider // ai.koog.prompt.executor.clients.google/GoogleLLMClient.llmProvider|llmProvider(){}[0]
+    open suspend fun embed(kotlin.collections/List<kotlin/String>, ai.koog.prompt.llm/LLModel): kotlin.collections/List<kotlin.collections/List<kotlin/Double>> // ai.koog.prompt.executor.clients.google/GoogleLLMClient.embed|embed(kotlin.collections.List<kotlin.String>;ai.koog.prompt.llm.LLModel){}[0]
+    open suspend fun embed(kotlin/String, ai.koog.prompt.llm/LLModel): kotlin.collections/List<kotlin/Double> // ai.koog.prompt.executor.clients.google/GoogleLLMClient.embed|embed(kotlin.String;ai.koog.prompt.llm.LLModel){}[0]
+    open suspend fun execute(ai.koog.prompt/Prompt, ai.koog.prompt.llm/LLModel, kotlin.collections/List<ai.koog.agents.core.tools/ToolDescriptor>): ai.koog.prompt.message/Message.Assistant // ai.koog.prompt.executor.clients.google/GoogleLLMClient.execute|execute(ai.koog.prompt.Prompt;ai.koog.prompt.llm.LLModel;kotlin.collections.List<ai.koog.agents.core.tools.ToolDescriptor>){}[0]
+    open suspend fun executeMultipleChoices(ai.koog.prompt/Prompt, ai.koog.prompt.llm/LLModel, kotlin.collections/List<ai.koog.agents.core.tools/ToolDescriptor>): kotlin.collections/List<ai.koog.prompt.message/Message.Assistant> // ai.koog.prompt.executor.clients.google/GoogleLLMClient.executeMultipleChoices|executeMultipleChoices(ai.koog.prompt.Prompt;ai.koog.prompt.llm.LLModel;kotlin.collections.List<ai.koog.agents.core.tools.ToolDescriptor>){}[0]
+    open suspend fun models(): kotlin.collections/List<ai.koog.prompt.llm/LLModel> // ai.koog.prompt.executor.clients.google/GoogleLLMClient.models|models(){}[0]
+    open suspend fun moderate(ai.koog.prompt/Prompt, ai.koog.prompt.llm/LLModel): ai.koog.prompt.dsl/ModerationResult // ai.koog.prompt.executor.clients.google/GoogleLLMClient.moderate|moderate(ai.koog.prompt.Prompt;ai.koog.prompt.llm.LLModel){}[0]
+}
+
+final object ai.koog.prompt.executor.clients.google/GoogleModels : ai.koog.prompt.executor.clients/LLModelDefinitions { // ai.koog.prompt.executor.clients.google/GoogleModels|null[0]
+    final val Gemini2_0FlashLite001 // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_0FlashLite001|{}Gemini2_0FlashLite001[0]
+        final fun <get-Gemini2_0FlashLite001>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_0FlashLite001.<get-Gemini2_0FlashLite001>|<get-Gemini2_0FlashLite001>(){}[0]
+    final val Gemini2_5Flash // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5Flash|{}Gemini2_5Flash[0]
+        final fun <get-Gemini2_5Flash>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5Flash.<get-Gemini2_5Flash>|<get-Gemini2_5Flash>(){}[0]
+    final val Gemini2_5FlashLite // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5FlashLite|{}Gemini2_5FlashLite[0]
+        final fun <get-Gemini2_5FlashLite>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5FlashLite.<get-Gemini2_5FlashLite>|<get-Gemini2_5FlashLite>(){}[0]
+    final val Gemini2_5Pro // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5Pro|{}Gemini2_5Pro[0]
+        final fun <get-Gemini2_5Pro>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini2_5Pro.<get-Gemini2_5Pro>|<get-Gemini2_5Pro>(){}[0]
+    final val Gemini3_1FlashLite // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1FlashLite|{}Gemini3_1FlashLite[0]
+        final fun <get-Gemini3_1FlashLite>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1FlashLite.<get-Gemini3_1FlashLite>|<get-Gemini3_1FlashLite>(){}[0]
+    final val Gemini3_1FlashLite_Preview // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1FlashLite_Preview|{}Gemini3_1FlashLite_Preview[0]
+        final fun <get-Gemini3_1FlashLite_Preview>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1FlashLite_Preview.<get-Gemini3_1FlashLite_Preview>|<get-Gemini3_1FlashLite_Preview>(){}[0]
+    final val Gemini3_1Pro_Preview // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1Pro_Preview|{}Gemini3_1Pro_Preview[0]
+        final fun <get-Gemini3_1Pro_Preview>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_1Pro_Preview.<get-Gemini3_1Pro_Preview>|<get-Gemini3_1Pro_Preview>(){}[0]
+    final val Gemini3_5Flash // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_5Flash|{}Gemini3_5Flash[0]
+        final fun <get-Gemini3_5Flash>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_5Flash.<get-Gemini3_5Flash>|<get-Gemini3_5Flash>(){}[0]
+    final val Gemini3_Flash_Preview // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_Flash_Preview|{}Gemini3_Flash_Preview[0]
+        final fun <get-Gemini3_Flash_Preview>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Gemini3_Flash_Preview.<get-Gemini3_Flash_Preview>|<get-Gemini3_Flash_Preview>(){}[0]
+    final val models // ai.koog.prompt.executor.clients.google/GoogleModels.models|{}models[0]
+        final fun <get-models>(): kotlin.collections/List<ai.koog.prompt.llm/LLModel> // ai.koog.prompt.executor.clients.google/GoogleModels.models.<get-models>|<get-models>(){}[0]
+
+    final fun addCustomModel(ai.koog.prompt.llm/LLModel) // ai.koog.prompt.executor.clients.google/GoogleModels.addCustomModel|addCustomModel(ai.koog.prompt.llm.LLModel){}[0]
+
+    final object Embeddings { // ai.koog.prompt.executor.clients.google/GoogleModels.Embeddings|null[0]
+        final val GeminiEmbedding001 // ai.koog.prompt.executor.clients.google/GoogleModels.Embeddings.GeminiEmbedding001|{}GeminiEmbedding001[0]
+            final fun <get-GeminiEmbedding001>(): ai.koog.prompt.llm/LLModel // ai.koog.prompt.executor.clients.google/GoogleModels.Embeddings.GeminiEmbedding001.<get-GeminiEmbedding001>|<get-GeminiEmbedding001>(){}[0]
+    }
+}

@@ -1,0 +1,148 @@
+public final class ai/koog/prompt/executor/clients/google/GoogleClientFactory {
+	public static final fun googleClient (Ljava/lang/String;)Lai/koog/prompt/executor/clients/google/GoogleLLMClient;
+	public static final fun googleClient (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;)Lai/koog/prompt/executor/clients/google/GoogleLLMClient;
+	public static final fun googleClient (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/utils/time/KoogClock;)Lai/koog/prompt/executor/clients/google/GoogleLLMClient;
+	public static synthetic fun googleClient$default (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/utils/time/KoogClock;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/GoogleLLMClient;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleClientSettings {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBaseUrl ()Ljava/lang/String;
+	public final fun getBatchEmbedContentsMethod ()Ljava/lang/String;
+	public final fun getDefaultPath ()Ljava/lang/String;
+	public final fun getEmbedContentMethod ()Ljava/lang/String;
+	public final fun getFallbackThoughtSignature ()Ljava/lang/String;
+	public final fun getGenerateContentMethod ()Ljava/lang/String;
+	public final fun getStreamGenerateContentMethod ()Ljava/lang/String;
+	public final fun getTimeoutConfig ()Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;
+}
+
+public class ai/koog/prompt/executor/clients/google/GoogleLLMClient : ai/koog/prompt/executor/clients/LLMClient {
+	public fun <init> (Lai/koog/http/client/KoogHttpClient;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient;Lai/koog/utils/time/KoogClock;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient;Lai/koog/utils/time/KoogClock;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lai/koog/http/client/KoogHttpClient$Factory;)V
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient$Factory;)V
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/utils/time/KoogClock;)V
+	public synthetic fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/utils/time/KoogClock;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun close ()V
+	public fun embed (Ljava/lang/String;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun embed (Ljava/util/List;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun execute (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeMultipleChoices (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeStreaming (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;)Lkotlinx/coroutines/flow/Flow;
+	public fun getBasicJsonSchemaGenerator ()Lai/koog/prompt/executor/clients/google/structure/GoogleBasicJsonSchemaGenerator;
+	public synthetic fun getBasicJsonSchemaGenerator ()Lai/koog/prompt/structure/json/generator/BasicJsonSchemaGenerator;
+	public fun getClientName ()Ljava/lang/String;
+	public fun getStandardJsonSchemaGenerator ()Lai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator;
+	public synthetic fun getStandardJsonSchemaGenerator ()Lai/koog/prompt/structure/json/generator/StandardJsonSchemaGenerator;
+	public fun llmProvider ()Lai/koog/prompt/llm/LLMProvider;
+	public fun models (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleModels : ai/koog/prompt/executor/clients/LLModelDefinitions {
+	public static final field Gemini2_0FlashLite001 Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini2_5Flash Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini2_5FlashLite Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini2_5Pro Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_1FlashLite Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_1FlashLite_Preview Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_1Pro_Preview Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_5Flash Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_Flash_Preview Lai/koog/prompt/llm/LLModel;
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleModels;
+	public fun addCustomModel (Lai/koog/prompt/llm/LLModel;)V
+	public fun getModels ()Ljava/util/List;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleModels$Embeddings {
+	public static final field GeminiEmbedding001 Lai/koog/prompt/llm/LLModel;
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleModels$Embeddings;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleParams : ai/koog/prompt/params/LLMParams {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)V
+	public synthetic fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/executor/clients/google/GoogleParams;
+	public synthetic fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/params/LLMParams;
+	public final fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)Lai/koog/prompt/executor/clients/google/GoogleParams;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/google/GoogleParams;Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/GoogleParams;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getThinkingConfig ()Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;
+	public final fun getTopK ()Ljava/lang/Integer;
+	public final fun getTopP ()Ljava/lang/Double;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig {
+	public static final field Companion Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Boolean;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;)V
+	public synthetic fun <init> (Ljava/lang/Boolean;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Boolean;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public final fun copy (Ljava/lang/Boolean;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;)Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;Ljava/lang/Boolean;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getIncludeThoughts ()Ljava/lang/Boolean;
+	public final fun getThinkingBudget ()Ljava/lang/Integer;
+	public final fun getThinkingLevel ()Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel$Companion;
+	public static final field HIGH Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static final field LOW Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static final field MEDIUM Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static final field MINIMAL Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static fun values ()[Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+}
+
+public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public class ai/koog/prompt/executor/clients/google/structure/GoogleBasicJsonSchemaGenerator : ai/koog/prompt/structure/json/generator/BasicJsonSchemaGenerator {
+	public static final field Companion Lai/koog/prompt/executor/clients/google/structure/GoogleBasicJsonSchemaGenerator$Companion;
+	public fun <init> ()V
+	protected fun processObject (Lai/koog/prompt/structure/json/generator/JsonSchemaGenerator$GenerationContext;)Lkotlinx/serialization/json/JsonObject;
+}
+
+public final class ai/koog/prompt/executor/clients/google/structure/GoogleBasicJsonSchemaGenerator$Companion : ai/koog/prompt/executor/clients/google/structure/GoogleBasicJsonSchemaGenerator {
+}
+
+public class ai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator : ai/koog/prompt/structure/json/generator/StandardJsonSchemaGenerator {
+	public static final field Companion Lai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator$Companion;
+	public fun <init> ()V
+	protected fun processClassDiscriminator (Lai/koog/prompt/structure/json/generator/JsonSchemaGenerator$GenerationContext;)Lkotlinx/serialization/json/JsonObject;
+	protected fun processObject (Lai/koog/prompt/structure/json/generator/JsonSchemaGenerator$GenerationContext;)Lkotlinx/serialization/json/JsonObject;
+}
+
+public final class ai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator$Companion : ai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator {
+}
