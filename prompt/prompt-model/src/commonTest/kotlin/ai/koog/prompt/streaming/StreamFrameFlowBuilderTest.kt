@@ -52,6 +52,96 @@ class StreamFrameFlowBuilderTest {
     }
 
     @Test
+    fun testAttachReasoningEncryptedAfterText() = runTest {
+        val frames = buildStreamFrameFlow {
+            emitReasoningDelta(text = "Thinking", index = 3)
+            attachReasoningEncrypted(encrypted = "signature", index = 3)
+            tryEmitPendingReasoning()
+        }.toList()
+
+        assertContentEquals(
+            listOf(
+                StreamFrame.ReasoningDelta(text = "Thinking", index = 3),
+                StreamFrame.ReasoningComplete(
+                    id = null,
+                    content = listOf("Thinking"),
+                    encrypted = "signature",
+                    index = 3,
+                ),
+            ),
+            frames,
+        )
+    }
+
+    @Test
+    fun testAttachReasoningEncryptedBeforeText() = runTest {
+        val frames = buildStreamFrameFlow {
+            attachReasoningEncrypted(encrypted = "signature", index = 3)
+            emitReasoningDelta(text = "Thinking", index = 3)
+            tryEmitPendingReasoning()
+        }.toList()
+
+        assertContentEquals(
+            listOf(
+                StreamFrame.ReasoningDelta(text = "Thinking", index = 3),
+                StreamFrame.ReasoningComplete(
+                    id = null,
+                    content = listOf("Thinking"),
+                    encrypted = "signature",
+                    index = 3,
+                ),
+            ),
+            frames,
+        )
+    }
+
+    @Test
+    fun testAttachReasoningEncryptedWithoutText() = runTest {
+        val frames = buildStreamFrameFlow {
+            attachReasoningEncrypted(encrypted = "signature", index = 3)
+            tryEmitPendingReasoning()
+        }.toList()
+
+        assertContentEquals(
+            listOf(
+                StreamFrame.ReasoningComplete(
+                    id = null,
+                    content = emptyList(),
+                    encrypted = "signature",
+                    index = 3,
+                ),
+            ),
+            frames,
+        )
+    }
+
+    @Test
+    fun testNullReasoningIdsRemainSeparatedByIndex() = runTest {
+        val frames = buildStreamFrameFlow {
+            emitReasoningDelta(text = "first", index = 3)
+            emitReasoningDelta(text = "second", index = 4)
+            attachReasoningEncrypted(encrypted = "second-signature", index = 4)
+            emitEnd()
+        }.toList()
+
+        assertContentEquals(
+            listOf(
+                StreamFrame.ReasoningDelta(text = "first", index = 3),
+                StreamFrame.ReasoningComplete(id = null, content = listOf("first"), index = 3),
+                StreamFrame.ReasoningDelta(text = "second", index = 4),
+                StreamFrame.ReasoningComplete(
+                    id = null,
+                    content = listOf("second"),
+                    encrypted = "second-signature",
+                    index = 4,
+                ),
+                StreamFrame.End(null, ResponseMetaInfo.Empty),
+            ),
+            frames,
+        )
+    }
+
+    @Test
     fun testEmitReasoningSummaryDelta() = runTest {
         val frames = buildStreamFrameFlow {
             emitReasoningDelta(summary = "Summary part 1", index = 0)

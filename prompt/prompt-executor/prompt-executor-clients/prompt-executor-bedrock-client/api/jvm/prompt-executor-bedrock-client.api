@@ -335,9 +335,45 @@ public final class ai/koog/prompt/executor/clients/bedrock/converse/BedrockConve
 	public final fun getPromptVariables ()Ljava/util/Map;
 	public final fun getRequestMetadata ()Ljava/util/Map;
 	public final fun getStopSequences ()Ljava/util/List;
+	public final fun getThinking ()Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig;
 	public final fun getTopP ()Ljava/lang/Double;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+	public final fun withThinking (Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockConverseParams;
+}
+
+public final class ai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort : java/lang/Enum {
+	public static final field HIGH Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static final field LOW Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static final field MAX Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static final field MEDIUM Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static fun values ()[Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig {
+}
+
+public final class ai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig$Adaptive : ai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig {
+	public fun <init> (Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;)V
+	public final fun component1 ()Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public final fun component2 ()Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
+	public final fun copy (Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig$Adaptive;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig$Adaptive;Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig$Adaptive;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDisplay ()Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
+	public final fun getEffort ()Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay : java/lang/Enum {
+	public static final field OMITTED Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
+	public static final field SUMMARIZED Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
+	public static fun values ()[Lai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingDisplay;
 }
 
 public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModel {
@@ -800,4 +836,3 @@ public final synthetic class ai/koog/prompt/executor/clients/bedrock/modelfamili
 public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/meta/LlamaStreamChunk$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
-

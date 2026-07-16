@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.bedrock.converse
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockGuardrailsSettings
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
@@ -48,6 +49,7 @@ import aws.sdk.kotlin.services.bedrockruntime.model.OutputFormatType
 import aws.sdk.kotlin.services.bedrockruntime.model.PerformanceConfiguration
 import aws.sdk.kotlin.services.bedrockruntime.model.PromptVariableValues
 import aws.sdk.kotlin.services.bedrockruntime.model.ReasoningContentBlock
+import aws.sdk.kotlin.services.bedrockruntime.model.ReasoningContentBlockDelta
 import aws.sdk.kotlin.services.bedrockruntime.model.ReasoningTextBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.S3Location
 import aws.sdk.kotlin.services.bedrockruntime.model.SpecificToolChoice
@@ -177,8 +179,7 @@ internal object BedrockConverseConverters {
                     ?.takeIf { model.supports(LLMCapability.Temperature) }
                     ?.toFloat()
             },
-            additionalModelRequestFields = params.additionalProperties
-                ?.let { JsonDocumentConverters.convertToDocument(JsonObject(it)) },
+            additionalModelRequestFields = params.toAdditionalModelRequestFields(model),
             outputConfig = outputConfig,
             performanceConfig = params.performanceConfig,
             promptVariables = params.promptVariables,
@@ -269,12 +270,22 @@ internal object BedrockConverseConverters {
                             }
                         }
                         is MessagePart.Reasoning -> {
+                            val replayText = when (part.content.size) {
+                                0 -> {
+                                    require(part.encrypted != null) {
+                                        "Reasoning content may be empty only when an encrypted payload is present"
+                                    }
+                                    ""
+                                }
+
+                                1 -> part.content.single()
+                                else -> throw IllegalArgumentException("Reasoning content must have at most one part")
+                            }
                             add(
                                 ContentBlock.ReasoningContent(
                                     ReasoningContentBlock.ReasoningText(
                                         ReasoningTextBlock {
-                                            this.text = part.content.singleOrNull()
-                                                ?: throw IllegalArgumentException("Reasoning content must have a single part")
+                                            this.text = replayText
                                             this.signature = part.encrypted
                                         }
                                     )
@@ -400,8 +411,11 @@ internal object BedrockConverseConverters {
                         )
                     }
 
-                    else ->
-                        throw IllegalArgumentException("Unsupported reasoning content type from Bedrock Converse API: $reasoningContent")
+                    is ReasoningContentBlock.RedactedContent -> throw redactedReasoningException()
+                    ReasoningContentBlock.SdkUnknown -> throw LLMClientException(
+                        BEDROCK_CONVERSE_CLIENT_NAME,
+                        "Unknown reasoning content type from Bedrock Converse API."
+                    )
                 }
 
                 is ContentBlock.ToolUse -> {
@@ -470,7 +484,7 @@ internal object BedrockConverseConverters {
 
                 is ConverseStreamOutput.ContentBlockDelta -> when (val delta = chunk.value.delta) {
                     is ContentBlockDelta.Text -> {
-                        emitTextDelta(delta.value)
+                        emitTextDelta(delta.value, index = chunk.value.contentBlockIndex)
                     }
 
                     is ContentBlockDelta.ToolUse -> {
@@ -480,7 +494,25 @@ internal object BedrockConverseConverters {
                         )
                     }
 
-                    is ContentBlockDelta.Citation, is ContentBlockDelta.ReasoningContent -> {
+                    is ContentBlockDelta.ReasoningContent -> when (val reasoning = delta.value) {
+                        is ReasoningContentBlockDelta.Text -> emitReasoningDelta(
+                            text = reasoning.value,
+                            index = chunk.value.contentBlockIndex,
+                        )
+
+                        is ReasoningContentBlockDelta.Signature -> attachReasoningEncrypted(
+                            encrypted = reasoning.value,
+                            index = chunk.value.contentBlockIndex,
+                        )
+
+                        is ReasoningContentBlockDelta.RedactedContent -> throw redactedReasoningException()
+                        ReasoningContentBlockDelta.SdkUnknown -> throw LLMClientException(
+                            BEDROCK_CONVERSE_CLIENT_NAME,
+                            "Unknown reasoning content delta type from Bedrock Converse API."
+                        )
+                    }
+
+                    is ContentBlockDelta.Citation -> {
                         logger.warn { "Unsupported Converse content block delta type: ${delta::class.simpleName}" }
                     }
 
@@ -499,6 +531,9 @@ internal object BedrockConverseConverters {
 
                 is ConverseStreamOutput.ContentBlockStop -> {
                     logger.debug { "Received content block stop from Converse" }
+                    tryEmitPendingReasoning()
+                    tryEmitPendingText()
+                    tryEmitPendingToolCall()
                 }
 
                 is ConverseStreamOutput.MessageStop -> {
@@ -529,6 +564,50 @@ internal object BedrockConverseConverters {
             }
         }
     }
+
+    private fun BedrockConverseParams.toAdditionalModelRequestFields(model: LLModel): Document? {
+        val thinkingConfig = thinking
+            ?: return additionalProperties?.let { JsonDocumentConverters.convertToDocument(JsonObject(it)) }
+
+        require(model.supports(LLMCapability.Thinking)) {
+            "${model.id} doesn't support thinking"
+        }
+        require("thinking" !in additionalProperties.orEmpty()) {
+            "additionalProperties must not contain 'thinking' when BedrockConverseParams.thinking is set"
+        }
+        require("output_config" !in additionalProperties.orEmpty()) {
+            "additionalProperties must not contain 'output_config' when BedrockConverseParams.thinking is set"
+        }
+
+        val requestFields = buildJsonObject {
+            additionalProperties.orEmpty().forEach { (key, value) -> put(key, value) }
+            when (thinkingConfig) {
+                is BedrockThinkingConfig.Adaptive -> {
+                    put(
+                        "thinking",
+                        buildJsonObject {
+                            put("type", "adaptive")
+                            put("display", thinkingConfig.display.name.lowercase())
+                        }
+                    )
+                    put(
+                        "output_config",
+                        buildJsonObject {
+                            put("effort", thinkingConfig.effort.name.lowercase())
+                        }
+                    )
+                }
+            }
+        }
+        return JsonDocumentConverters.convertToDocument(requestFields)
+    }
+
+    private fun redactedReasoningException(): LLMClientException = LLMClientException(
+        BEDROCK_CONVERSE_CLIENT_NAME,
+        "Redacted reasoning content from Bedrock Converse cannot be represented by Koog."
+    )
+
+    private const val BEDROCK_CONVERSE_CLIENT_NAME = "Bedrock Converse"
 
     /**
      * Converts a [ContentPart] to [ContentBlock] for Bedrock Converse API.

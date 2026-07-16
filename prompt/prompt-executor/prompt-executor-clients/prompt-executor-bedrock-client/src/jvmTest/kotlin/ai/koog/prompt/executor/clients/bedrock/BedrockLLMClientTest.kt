@@ -673,7 +673,7 @@ class BedrockLLMClientTest {
         assertEquals(model.id, capturedRequest?.modelId)
         assertEquals(model.id, capturedStreamRequest?.modelId)
         assertEquals("Hello!", (response.parts.single() as MessagePart.Text).text)
-        assertTrue(streamFrames.contains(StreamFrame.TextDelta("Hello!")))
+        assertTrue(streamFrames.contains(StreamFrame.TextDelta("Hello!", index = 0)))
         assertEquals(0, closeCount, "Injected runtime must remain open while its owning LLM client is in use")
 
         client.close()

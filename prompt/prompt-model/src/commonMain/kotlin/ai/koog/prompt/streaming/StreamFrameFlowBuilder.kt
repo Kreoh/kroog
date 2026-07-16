@@ -169,7 +169,7 @@ public class StreamFrameFlowBuilder(
                 pendingReasoningRef.store(
                     PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
                 )
-            } else if (id != previous.id) {
+            } else if (previous.hasConflictingIdentity(id, index)) {
                 tryEmitPendingReasoningLocked()
                 pendingReasoningRef.store(
                     PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
@@ -178,6 +178,25 @@ public class StreamFrameFlowBuilder(
                 pendingReasoningRef.store(previous.appendDelta(id, text, summary, index))
             }
             flowCollector.emitReasoningDelta(id, text, summary, index)
+        }
+    }
+
+    /**
+     * Attaches an encrypted reasoning payload to the pending reasoning block identified by [id] or [index].
+     */
+    public suspend fun attachReasoningEncrypted(encrypted: String, id: String? = null, index: Int? = null) {
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            val previous = pendingReasoningRef.load()
+            if (previous == null) {
+                pendingReasoningRef.store(PendingReasoning(id = id, encrypted = encrypted, index = index))
+            } else if (previous.hasConflictingIdentity(id, index)) {
+                tryEmitPendingReasoningLocked()
+                pendingReasoningRef.store(PendingReasoning(id = id, encrypted = encrypted, index = index))
+            } else {
+                pendingReasoningRef.store(previous.attachEncrypted(encrypted, id, index))
+            }
         }
     }
 
@@ -250,6 +269,7 @@ public class StreamFrameFlowBuilder(
                 id = pendingReasoning.id,
                 text = pendingReasoning.textDelta?.let { listOf(pendingReasoning.textDelta) } ?: emptyList(),
                 summary = pendingReasoning.summaryDelta?.let { listOf(pendingReasoning.summaryDelta) },
+                encrypted = pendingReasoning.encrypted,
                 index = pendingReasoning.index
             )
         }
@@ -359,16 +379,37 @@ public class StreamFrameFlowBuilder(
 
     private data class PendingReasoning(
         val id: String?,
-        val textDelta: String?,
-        val summaryDelta: String?,
-        val index: Int?
+        val textDelta: String? = null,
+        val summaryDelta: String? = null,
+        val encrypted: String? = null,
+        val index: Int?,
     ) {
+        fun hasConflictingIdentity(id: String?, index: Int?): Boolean =
+            (this.id != null && id != null && this.id != id) ||
+                (this.index != null && index != null && this.index != index)
+
         fun appendDelta(id: String?, textDelta: String?, summaryDelta: String?, index: Int?): PendingReasoning {
-            require(this.index == index)
-            require(this.id == id)
+            require(!hasConflictingIdentity(id, index))
             val newTextDelta = if (textDelta == null) this.textDelta else (this.textDelta ?: "") + textDelta
             val newSummaryDelta = if (summaryDelta == null) this.summaryDelta else (this.summaryDelta ?: "") + summaryDelta
-            return copy(textDelta = newTextDelta, summaryDelta = newSummaryDelta)
+            return copy(
+                id = this.id ?: id,
+                textDelta = newTextDelta,
+                summaryDelta = newSummaryDelta,
+                index = this.index ?: index,
+            )
+        }
+
+        fun attachEncrypted(encrypted: String, id: String?, index: Int?): PendingReasoning {
+            require(!hasConflictingIdentity(id, index))
+            require(this.encrypted == null || this.encrypted == encrypted) {
+                "Reasoning block ${this.id ?: id ?: this.index ?: index} has conflicting encrypted payloads."
+            }
+            return copy(
+                id = this.id ?: id,
+                encrypted = encrypted,
+                index = this.index ?: index,
+            )
         }
     }
 }

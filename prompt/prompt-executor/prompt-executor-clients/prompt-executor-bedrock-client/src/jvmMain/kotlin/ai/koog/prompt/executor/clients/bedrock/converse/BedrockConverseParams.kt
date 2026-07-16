@@ -45,6 +45,8 @@ internal fun LLMParams.toBedrockConverseParams(): BedrockConverseParams {
  * resource in the `modelId` field.
  * @property requestMetadata Key-value pairs that you can use to filter invocation logs.
  * See Converse API docs for limitations.
+ * @property thinking Adaptive reasoning configuration. The selected model must support
+ * [ai.koog.prompt.llm.LLMCapability.Thinking].
  */
 @Suppress("LongParameterList")
 public class BedrockConverseParams(
@@ -71,6 +73,12 @@ public class BedrockConverseParams(
     user,
     additionalProperties,
 ) {
+    private var thinkingConfig: BedrockThinkingConfig? = null
+
+    /** Adaptive reasoning configuration, or null when adaptive reasoning is disabled. */
+    public val thinking: BedrockThinkingConfig?
+        get() = thinkingConfig
+
     init {
         require(temperature == null || temperature in 0.0..1.0) {
             "temperature must be in [0.0, 1.0], but was $temperature"
@@ -145,7 +153,26 @@ public class BedrockConverseParams(
         performanceConfig = performanceConfig,
         promptVariables = promptVariables,
         requestMetadata = requestMetadata,
-    )
+    ).withThinking(thinking)
+
+    /**
+     * Creates a copy of this instance with [thinking] as its adaptive reasoning configuration.
+     */
+    public fun withThinking(thinking: BedrockThinkingConfig?): BedrockConverseParams = BedrockConverseParams(
+        temperature = temperature,
+        maxTokens = maxTokens,
+        numberOfChoices = numberOfChoices,
+        speculation = speculation,
+        schema = schema,
+        toolChoice = toolChoice,
+        user = user,
+        additionalProperties = additionalProperties,
+        topP = topP,
+        stopSequences = stopSequences,
+        performanceConfig = performanceConfig,
+        promptVariables = promptVariables,
+        requestMetadata = requestMetadata,
+    ).also { it.thinkingConfig = thinking }
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true
@@ -166,12 +193,13 @@ public class BedrockConverseParams(
                 stopSequences == other.stopSequences &&
                 performanceConfig == other.performanceConfig &&
                 promptVariables == other.promptVariables &&
-                requestMetadata == other.requestMetadata
+                requestMetadata == other.requestMetadata &&
+                thinking == other.thinking
     }
 
     override fun hashCode(): Int = listOf(
         temperature, maxTokens, numberOfChoices, speculation, schema, toolChoice, user, additionalProperties, topP,
-        stopSequences, performanceConfig, promptVariables, requestMetadata
+        stopSequences, performanceConfig, promptVariables, requestMetadata, thinking
     ).fold(0) { acc, element ->
         31 * acc + (element?.hashCode() ?: 0)
     }
@@ -192,6 +220,7 @@ public class BedrockConverseParams(
         append(", performanceConfig=$performanceConfig")
         append(", promptVariables=$promptVariables")
         append(", requestMetadata=$requestMetadata")
+        append(", thinking=$thinking")
         append(")")
     }
 }
