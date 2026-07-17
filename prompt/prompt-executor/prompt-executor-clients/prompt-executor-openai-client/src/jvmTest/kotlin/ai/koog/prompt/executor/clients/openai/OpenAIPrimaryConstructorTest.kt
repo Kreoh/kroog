@@ -76,6 +76,106 @@ class OpenAIPrimaryConstructorTest {
     }
 
     @Test
+    fun `chat streaming accepts Azure annotation choices without delta`() = runTest {
+        val inputTokens = 4
+        val outputTokens = 2
+        val totalTokens = 6
+        val chunks = listOf(
+            """
+                {
+                  "id": "chatcmpl-annotation",
+                  "object": "chat.completion.chunk",
+                  "created": 1716920005,
+                  "model": "gpt-4o",
+                  "choices": [
+                    {
+                      "index": 0,
+                      "finish_reason": null,
+                      "content_filter_results": {
+                        "hate": {"filtered": false, "severity": "safe"}
+                      },
+                      "content_filter_offsets": {
+                        "start_offset": 0,
+                        "end_offset": 5,
+                        "check_offset": 0
+                      }
+                    }
+                  ]
+                }
+            """.trimIndent(),
+            """
+                {
+                  "id": "chatcmpl-content",
+                  "object": "chat.completion.chunk",
+                  "created": 1716920005,
+                  "model": "gpt-4o",
+                  "choices": [
+                    {
+                      "index": 0,
+                      "delta": {"content": "Hello"},
+                      "finish_reason": null
+                    }
+                  ]
+                }
+            """.trimIndent(),
+            """
+                {
+                  "id": "chatcmpl-finish",
+                  "object": "chat.completion.chunk",
+                  "created": 1716920005,
+                  "model": "gpt-4o",
+                  "choices": [
+                    {
+                      "index": 0,
+                      "finish_reason": "stop"
+                    }
+                  ]
+                }
+            """.trimIndent(),
+            """
+                {
+                  "id": "chatcmpl-usage",
+                  "object": "chat.completion.chunk",
+                  "created": 1716920005,
+                  "model": "gpt-4o",
+                  "choices": [],
+                  "usage": {
+                    "prompt_tokens": $inputTokens,
+                    "completion_tokens": $outputTokens,
+                    "total_tokens": $totalTokens
+                  }
+                }
+            """.trimIndent()
+        )
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = chatCompletionsStreamingTransport(chunks)
+        )
+
+        val frames = client.executeStreaming(
+            prompt = Prompt(
+                messages = listOf(Message.User("Hello?", RequestMetaInfo.Empty)),
+                id = "test",
+                params = OpenAIChatParams()
+            ),
+            model = OpenAIModels.Chat.GPT4o
+        ).toList()
+
+        assertEquals(
+            listOf(
+                StreamFrame.TextDelta("Hello", index = 0),
+                StreamFrame.TextComplete("Hello", index = 0)
+            ),
+            frames.dropLast(1)
+        )
+        val end = assertIs<StreamFrame.End>(frames.last())
+        assertEquals("stop", end.finishReason)
+        assertEquals(inputTokens, end.metaInfo.inputTokensCount)
+        assertEquals(outputTokens, end.metaInfo.outputTokensCount)
+        assertEquals(totalTokens, end.metaInfo.totalTokensCount)
+    }
+
+    @Test
     fun `primary constructor should stream reasoning frames through provided koog http client`() = runTest {
         val responsesPath = "v1/responses"
         val reasoningId = "reasoning_123"
@@ -407,6 +507,51 @@ class OpenAIPrimaryConstructorTest {
         ): Flow<O> = flow {
             events.forEach { event ->
                 processStreamingChunk(event as R)?.let { emit(it) }
+            }
+        }
+
+        override fun <T : Any> lines(
+            path: String,
+            requestBody: T,
+            requestBodyType: KClass<T>,
+            parameters: Map<String, String>,
+            headers: Map<String, String>,
+        ): Flow<String> = error("lines is not expected in this test")
+
+        override fun close(): Unit = Unit
+    }
+
+    private fun chatCompletionsStreamingTransport(chunks: List<String>): KoogHttpClient = object : KoogHttpClient {
+        override val clientName: String = "StreamingOpenAIChatClient"
+
+        override suspend fun <R : Any> get(
+            path: String,
+            responseType: KClass<R>,
+            parameters: Map<String, String>,
+            headers: Map<String, String>,
+        ): R = error("GET is not expected in this test")
+
+        override suspend fun <T : Any, R : Any> post(
+            path: String,
+            requestBody: T,
+            requestBodyType: KClass<T>,
+            responseType: KClass<R>,
+            parameters: Map<String, String>,
+            headers: Map<String, String>,
+        ): R = error("POST is not expected in this test")
+
+        override fun <T : Any, R : Any, O : Any> sse(
+            path: String,
+            requestBody: T,
+            requestBodyType: KClass<T>,
+            dataFilter: (String?) -> Boolean,
+            decodeStreamingResponse: (String) -> R,
+            processStreamingChunk: (R) -> O?,
+            parameters: Map<String, String>,
+            headers: Map<String, String>,
+        ): Flow<O> = flow {
+            chunks.forEach { chunk ->
+                processStreamingChunk(decodeStreamingResponse(chunk))?.let { emit(it) }
             }
         }
 

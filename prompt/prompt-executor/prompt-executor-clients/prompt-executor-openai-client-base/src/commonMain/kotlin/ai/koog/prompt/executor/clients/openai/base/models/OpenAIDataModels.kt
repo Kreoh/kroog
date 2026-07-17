@@ -952,7 +952,7 @@ public class PromptTokensDetails(
  */
 @Serializable
 public class OpenAIStreamChoice(
-    public val delta: OpenAIStreamDelta,
+    public val delta: OpenAIStreamDelta = OpenAIStreamDelta(),
     public val finishReason: String? = null,
     public val index: Int,
     public val logprobs: OpenAIChoiceLogProbs? = null,
