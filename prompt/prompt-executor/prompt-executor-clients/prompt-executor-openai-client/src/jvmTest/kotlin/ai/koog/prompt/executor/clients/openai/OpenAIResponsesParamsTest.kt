@@ -130,6 +130,115 @@ class OpenAIResponsesParamsTest {
     }
 
     @Test
+    fun testCodeInterpreterConfigurationValidatesProviderIdentifiersAndIncompatibleModes() {
+        listOf("", " ", " file_123").forEach { invalidId ->
+            shouldThrow<IllegalArgumentException> {
+                OpenAICodeInterpreterConfig(fileIds = listOf(invalidId))
+            }.message shouldBe "Code Interpreter fileIds must contain only non-blank provider file IDs"
+        }
+        shouldThrow<IllegalArgumentException> {
+            OpenAICodeInterpreterConfig(fileIds = listOf("file_123", "file_123"))
+        }.message shouldBe "Code Interpreter fileIds must not contain duplicates"
+        listOf("", " ", " cntr_123").forEach { invalidId ->
+            shouldThrow<IllegalArgumentException> {
+                OpenAICodeInterpreterConfig(containerId = invalidId)
+            }.message shouldBe "Code Interpreter containerId must be a non-blank provider container ID"
+        }
+        shouldThrow<IllegalArgumentException> {
+            OpenAICodeInterpreterConfig(
+                fileIds = listOf("file_123"),
+                containerId = "cntr_123",
+            )
+        }.message shouldBe "Code Interpreter fileIds cannot be combined with a reused containerId"
+
+        OpenAIResponsesParams().codeInterpreter shouldBe null
+        OpenAICodeInterpreterConfig() shouldBe OpenAICodeInterpreterConfig(emptyList(), null)
+        OpenAICodeInterpreterConfig(fileIds = listOf("file_123", "file_456")).fileIds shouldBe
+            listOf("file_123", "file_456")
+        OpenAICodeInterpreterConfig(containerId = "cntr_123").containerId shouldBe "cntr_123"
+    }
+
+    @Test
+    fun testOpenAIResponsesParamsPreservesLegacyJvmConstructors() {
+        val descriptors = OpenAIResponsesParams::class.java.declaredConstructors.map { constructor ->
+            constructor.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.name }
+        }
+        val legacyParameters = listOf(
+            "java.lang.Double",
+            "java.lang.Integer",
+            "java.lang.Integer",
+            "java.lang.String",
+            "ai.koog.prompt.params.LLMParams\$Schema",
+            "ai.koog.prompt.params.LLMParams\$ToolChoice",
+            "java.lang.String",
+            "java.util.Map",
+            "java.lang.Boolean",
+            "java.util.List",
+            "java.lang.Integer",
+            "java.lang.Boolean",
+            "ai.koog.prompt.executor.clients.openai.models.ReasoningConfig",
+            "ai.koog.prompt.executor.clients.openai.models.Truncation",
+            "java.lang.String",
+            "java.lang.String",
+            "ai.koog.prompt.executor.clients.openai.base.models.ServiceTier",
+            "java.lang.Boolean",
+            "java.lang.Boolean",
+            "java.lang.Integer",
+            "java.lang.Double",
+        )
+
+        descriptors.contains(legacyParameters.joinToString(prefix = "(", postfix = ")")) shouldBe true
+        descriptors.contains(
+            (legacyParameters + "int" + "kotlin.jvm.internal.DefaultConstructorMarker")
+                .joinToString(prefix = "(", postfix = ")")
+        ) shouldBe true
+    }
+
+    @Test
+    fun testOpenAIResponsesParamsPreservesLegacyJvmCopyMethods() {
+        val legacyParameters = listOf(
+            "java.lang.Double",
+            "java.lang.Integer",
+            "java.lang.Integer",
+            "java.lang.String",
+            "ai.koog.prompt.params.LLMParams\$Schema",
+            "ai.koog.prompt.params.LLMParams\$ToolChoice",
+            "java.lang.String",
+            "java.util.Map",
+            "java.lang.Boolean",
+            "java.util.List",
+            "java.lang.Integer",
+            "java.lang.Boolean",
+            "ai.koog.prompt.executor.clients.openai.models.ReasoningConfig",
+            "ai.koog.prompt.executor.clients.openai.models.Truncation",
+            "java.lang.String",
+            "java.lang.String",
+            "ai.koog.prompt.executor.clients.openai.base.models.ServiceTier",
+            "java.lang.Boolean",
+            "java.lang.Boolean",
+            "java.lang.Integer",
+            "java.lang.Double",
+        )
+        val methods = OpenAIResponsesParams::class.java.declaredMethods
+
+        methods.single {
+            it.name == "copy" &&
+                it.returnType == OpenAIResponsesParams::class.java &&
+                it.parameterTypes.map { parameter -> parameter.name } == legacyParameters
+        }
+        methods.single {
+            it.name == "copy\$default" &&
+                it.returnType == OpenAIResponsesParams::class.java &&
+                it.parameterTypes.map { parameter -> parameter.name } ==
+                listOf(OpenAIResponsesParams::class.java.name) + legacyParameters + "int" + "java.lang.Object"
+        }
+        methods.none {
+            it.name == "copy" &&
+                it.parameterTypes.lastOrNull() == OpenAICodeInterpreterConfig::class.java
+        } shouldBe true
+    }
+
+    @Test
     fun `Should make a full copy`() {
         val source = OpenAIResponsesParams(
             temperature = 0.75,
@@ -152,9 +261,15 @@ class OpenAIResponsesParamsTest {
             store = true,
             logprobs = true,
             topLogprobs = 14,
+            codeInterpreter = OpenAICodeInterpreterConfig(fileIds = listOf("file_123")),
         )
 
         val target = source.copy()
         target shouldBeEqualToComparingFields source
+
+        val replacement = OpenAICodeInterpreterConfig(containerId = "cntr_123")
+        source.withCodeInterpreter(replacement).codeInterpreter shouldBe replacement
+        source.withCodeInterpreter(null).codeInterpreter shouldBe null
+        source.copy(maxTokens = 42).codeInterpreter shouldBe source.codeInterpreter
     }
 }

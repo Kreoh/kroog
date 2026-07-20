@@ -25,6 +25,12 @@ kotlin {
                 api(libs.acp)
             }
         }
+
+        jvmTest {
+            dependencies {
+                implementation(kotlin("test-junit5"))
+            }
+        }
     }
 
     explicitApi()

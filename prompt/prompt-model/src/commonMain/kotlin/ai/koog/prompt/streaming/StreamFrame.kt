@@ -1,5 +1,6 @@
 package ai.koog.prompt.streaming
 
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -126,6 +127,88 @@ public sealed interface StreamFrame {
         val contentJson: JsonObject
             get() = contentJsonResult.getOrThrow()
     }
+
+    /**
+     * Starts one provider-hosted code execution.
+     *
+     * @property id The provider item identifier.
+     * @property containerId The provider container identifier.
+     * @property index The response output index.
+     */
+    @Serializable
+    public data class CodeExecutionStart(
+        public val id: String,
+        public val containerId: String,
+        public val index: Int? = null,
+    ) : StreamFrame
+
+    /**
+     * Appends a code fragment to one provider-hosted code execution.
+     *
+     * @property id The provider item identifier.
+     * @property containerId The provider container identifier.
+     * @property code The code fragment.
+     * @property index The response output index.
+     */
+    @Serializable
+    public data class CodeExecutionCodeDelta(
+        public val id: String,
+        public val containerId: String,
+        public val code: String,
+        override val index: Int? = null,
+    ) : DeltaFrame
+
+    /**
+     * Emits one ordered output from provider-hosted code execution.
+     *
+     * @property id The provider item identifier.
+     * @property containerId The provider container identifier.
+     * @property output The typed log or image output.
+     * @property index The response output index.
+     */
+    @Serializable
+    public data class CodeExecutionOutput(
+        public val id: String,
+        public val containerId: String,
+        public val output: MessagePart.CodeExecution.Output,
+        public val index: Int? = null,
+    ) : StreamFrame
+
+    /**
+     * Reports a terminal unsuccessful provider-hosted code execution state.
+     *
+     * @property id The provider item identifier.
+     * @property containerId The provider container identifier.
+     * @property failure The typed terminal failure state.
+     * @property index The response output index.
+     */
+    @Serializable
+    public data class CodeExecutionFailure(
+        public val id: String,
+        public val containerId: String,
+        public val failure: MessagePart.CodeExecution.Failure,
+        public val index: Int? = null,
+    ) : StreamFrame
+
+    /**
+     * Completes one provider-hosted code execution.
+     *
+     * @property id The provider item identifier.
+     * @property code The complete executed code.
+     * @property containerId The provider container identifier.
+     * @property outputs Ordered log and image outputs.
+     * @property failure The terminal failure state, or null on success.
+     * @property index The response output index.
+     */
+    @Serializable
+    public data class CodeExecutionComplete(
+        public val id: String,
+        public val code: String,
+        public val containerId: String,
+        public val outputs: List<MessagePart.CodeExecution.Output>,
+        public val failure: MessagePart.CodeExecution.Failure? = null,
+        override val index: Int? = null,
+    ) : CompleteFrame
 
     /**
      * Represents a frame of a streaming response from a LLM that signals the end of the stream.

@@ -24,32 +24,61 @@ koog/
 
 ## Build & Commands
 
-### Development Commands
+### Kreoh JVM-only scope
+
+Kreoh currently builds, validates, publishes, and consumes Kroog for the JVM only. For Kreoh work:
+
+- Use module-specific JVM tasks and the JVM CI publication tasks.
+- Never run the root `build` or `assemble` tasks.
+- Never run the aggregate `updateLegacyAbi` or `checkLegacyAbi` tasks. The current Kotlin Gradle plugin exposes no
+  JVM-only legacy ABI task for these multiplatform modules. Use a reliable JVM-only ABI tool against JVM compilation
+  output and the checked-in `api/jvm` dump, or document that the ABI check could not run.
+- Never compile Android, JavaScript, Wasm, Native, or iOS targets.
+- Never regenerate or commit Android or KLIB ABI dumps unless the user explicitly requests cross-platform work.
+
+This JVM-only rule overrides broader multiplatform commands and quality gates elsewhere in this repository, including
+`TESTING.md`, unless the user explicitly requests cross-platform work.
+
+### JVM development commands
 
 ```bash
-# Full build including tests
-./gradlew build
-
-# Build without tests
-./gradlew assemble
-
-# Run all JVM tests
-./gradlew jvmTest
-
-# Run all JS tests  
-./gradlew jsTest
-
-# Test specific module
+# Test a specific JVM module
 ./gradlew :agents:agents-core:jvmTest
 
+# Compile JVM test classes for a specific module
+./gradlew :agents:agents-core:jvmTestClasses
+
+# Build the JVM JAR for a specific module
+./gradlew :agents:agents-core:jvmJar
+
+# Generate JVM publication metadata for a specific module
+./gradlew :agents:agents-core:generatePomFileForJvmPublication
+
 # Run specific test class
-./gradlew jvmTest --tests "ai.koog.agents.test.SimpleAgentMockedTest"
+./gradlew :agents:agents-core:jvmTest --tests "ai.koog.agents.test.SimpleAgentMockedTest"
 
 # Run specific test method  
-./gradlew jvmTest --tests "ai.koog.agents.test.SimpleAgentMockedTest.test AIAgent doesn't call tools by default"
+./gradlew :agents:agents-core:jvmTest --tests "ai.koog.agents.test.SimpleAgentMockedTest.test AIAgent doesn't call tools by default"
+```
 
-# Compile test classes only (for faster iteration)
+Use the JVM publication tasks selected by CI when validating or publishing artefacts. The snapshot workflow uses
+`publishJvmPublicationToCentralPortalSnapshotsRepository` and
+`publishMavenPublicationToCentralPortalSnapshotsRepository`. Scope publication tasks to the intended modules where
+Gradle provides module tasks, and never publish unless the user explicitly requests publication.
+
+### Explicit cross-platform commands
+
+The following upstream commands compile multiplatform targets. Run them only when the user explicitly requests
+cross-platform work:
+
+```bash
+./gradlew build
+./gradlew assemble
+./gradlew jvmTest
+./gradlew jsTest
 ./gradlew jvmTestClasses jsTestClasses
+./gradlew updateLegacyAbi
+./gradlew checkLegacyAbi
 ```
 
 ### Development Environment
@@ -237,8 +266,10 @@ export OPEN_ROUTER_API_TEST_KEY=your_key_here
 
 ### Code Quality
 
-- **ALWAYS** run `./gradlew build` before submitting PRs
-- Ensure all tests pass on JVM, JS, WASM targets
+- For Kreoh work, run the narrowest module-specific JVM tests, JVM ABI checks, and JVM CI publication tasks that cover
+  the change.
+- Do not run root builds or compile non-JVM targets unless the user explicitly requests cross-platform work.
+- For explicitly requested upstream cross-platform work, run the applicable multiplatform tests and build checks.
 - Follow established patterns in existing code
 - Add tests for new functionality
 - Update documentation for API changes

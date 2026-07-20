@@ -8,6 +8,7 @@ import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInv
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelContent
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelMessage
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicToolChoice
+import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
@@ -21,6 +22,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -96,6 +98,39 @@ class BedrockAnthropicClaudeSerializationTest {
         assertEquals(
             "Tell me about Paris.",
             (userMessageActual2.content[0] as BedrockAnthropicInvokeModelContent.Text).text
+        )
+    }
+
+    @Test
+    fun testCodeExecutionReplayFailsDuringBedrockAnthropicConversion() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.CodeExecution(
+                            id = "ci_failed",
+                            code = "raise RuntimeError()",
+                            containerId = "cntr_123",
+                            outputs = listOf(
+                                MessagePart.CodeExecution.Output.Logs("before failure"),
+                                MessagePart.CodeExecution.Output.Image("https://example.test/failure.png"),
+                            ),
+                            failure = MessagePart.CodeExecution.Failure.FAILED,
+                        )
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+            id = "code-replay",
+        )
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            BedrockAnthropicClaudeSerialization.createAnthropicRequest(prompt, emptyList())
+        }
+
+        assertEquals(
+            "Bedrock Anthropic cannot replay provider-hosted code execution items",
+            failure.message,
         )
     }
 

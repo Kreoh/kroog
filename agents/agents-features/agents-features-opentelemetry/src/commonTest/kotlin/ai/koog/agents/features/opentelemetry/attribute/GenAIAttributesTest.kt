@@ -3,12 +3,58 @@ package ai.koog.agents.features.opentelemetry.attribute
 import ai.koog.agents.features.opentelemetry.mock.MockLLMProvider
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.ResponseMetaInfo
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class GenAIAttributesTest {
+
+    @Test
+    fun testCodeExecutionOutputMessagesRetainCodeOrderedOutputsAndFailure() {
+        val message = Message.Assistant(
+            parts = listOf(
+                MessagePart.CodeExecution(
+                    id = "ci_123",
+                    code = "print('telemetry')",
+                    containerId = "cntr_123",
+                    outputs = listOf(
+                        MessagePart.CodeExecution.Output.Logs("first output"),
+                        MessagePart.CodeExecution.Output.Image("https://example.test/second.png"),
+                        MessagePart.CodeExecution.Output.Logs("third output"),
+                    ),
+                    failure = MessagePart.CodeExecution.Failure.INCOMPLETE,
+                )
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+
+        val encoded = GenAIAttributes.Output.Messages(listOf(message)).value.value
+        val part = Json.parseToJsonElement(encoded).jsonArray
+            .single().jsonObject.getValue("parts").jsonArray
+            .single().jsonObject
+
+        assertEquals("code_execution", part.getValue("type").jsonPrimitive.content)
+        assertEquals("ci_123", part.getValue("id").jsonPrimitive.content)
+        assertEquals("cntr_123", part.getValue("container_id").jsonPrimitive.content)
+        assertEquals("print('telemetry')", part.getValue("code").jsonPrimitive.content)
+        assertEquals("incomplete", part.getValue("status").jsonPrimitive.content)
+        assertEquals(
+            listOf(
+                """{"type":"logs","logs":"first output"}""",
+                """{"type":"image","url":"https://example.test/second.png"}""",
+                """{"type":"logs","logs":"third output"}""",
+            ),
+            part.getValue("outputs").jsonArray.map { it.toString() },
+        )
+    }
 
     //region Tool
 

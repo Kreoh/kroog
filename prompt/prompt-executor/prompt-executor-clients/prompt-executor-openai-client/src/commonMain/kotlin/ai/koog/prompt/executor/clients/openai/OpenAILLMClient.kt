@@ -30,8 +30,10 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequestSerializer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionStreamResponse
+import ai.koog.prompt.executor.clients.openai.models.OpenAICodeInterpreterContainer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
+import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIModelsResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIOutputFormat
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIRequest
@@ -64,6 +66,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -236,6 +239,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             }
         }
 
+        val responsesTools = buildList {
+            addAll(tools.orEmpty())
+            params.codeInterpreter?.let { add(it.toOpenAIResponsesTool()) }
+        }.ifEmpty { null }
+
         val request = OpenAIResponsesAPIRequest(
             background = params.background,
             include = params.include,
@@ -254,7 +262,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             temperature = model.reasoningTemperature(params.temperature, params.reasoning?.effort),
             text = responseFormat,
             toolChoice = toolChoice,
-            tools = tools,
+            tools = responsesTools,
             topLogprobs = params.topLogprobs,
             topP = params.topP,
             truncation = params.truncation,
@@ -268,6 +276,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         temperature: Double?,
         effort: ReasoningEffort?,
     ): Double? = temperature.takeUnless { isGPT5_6() && effort != null && effort != ReasoningEffort.NONE }
+
+    private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
+        val validated = OpenAICodeInterpreterConfig(fileIds = fileIds.toList(), containerId = containerId)
+        val container = when {
+            validated.containerId != null -> OpenAICodeInterpreterContainer.Reused(validated.containerId)
+            validated.fileIds.isEmpty() -> OpenAICodeInterpreterContainer.Auto
+            else -> OpenAICodeInterpreterContainer.AutoWithFiles(fileIds = validated.fileIds)
+        }
+        return OpenAIResponsesTool.CodeInterpreter(container)
+    }
 
     private fun LLModel.isGPT5_6(): Boolean =
         contextLength == 1_050_000L &&
@@ -360,6 +378,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): Flow<StreamFrame> {
         logger.debug { "Executing streaming prompt: $prompt with model: $model" }
 
+        if (tools.isNotEmpty() || params.codeInterpreter != null) {
+            model.requireCapability(LLMCapability.Tools)
+        }
         val llmTools = tools.takeIf { it.isNotEmpty() }?.map {
             Function(
                 name = it.name,
@@ -378,6 +399,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             stream = true
         )
         val toolCallsByItemId = mutableMapOf<String, Item.FunctionToolCall>()
+        val codeContainerByItemId = mutableMapOf<String, String>()
 
         return try {
             httpClient.sse(
@@ -387,100 +409,180 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 decodeStreamingResponse = {
                     json.decodeFromString<OpenAIStreamEvent>(it)
                 },
-                processStreamingChunk = {
-                    when (it) {
-                        is OpenAIStreamEvent.ResponseOutputItemAdded -> {
-                            val item = it.item
-                            if (item is Item.FunctionToolCall) {
-                                item.id?.let { itemId -> toolCallsByItemId[itemId] = item }
-                            }
-                            null
-                        }
-
-                        is OpenAIStreamEvent.ResponseOutputTextDelta -> {
-                            StreamFrame.TextDelta(text = it.delta, index = it.outputIndex)
-                        }
-
-                        is OpenAIStreamEvent.ResponseOutputTextDone -> {
-                            StreamFrame.TextComplete(text = it.text, index = it.outputIndex)
-                        }
-
-                        is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
-                            // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
-                            StreamFrame.ReasoningDelta(id = it.itemId, text = it.delta, index = it.outputIndex)
-                        }
-
-                        is OpenAIStreamEvent.ResponseReasoningSummaryTextDelta -> {
-                            // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
-                            StreamFrame.ReasoningDelta(id = it.itemId, summary = it.delta, index = it.outputIndex)
-                        }
-
-                        is OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta -> {
-                            val toolCall = toolCallsByItemId[it.itemId]
-                            StreamFrame.ToolCallDelta(
-                                id = toolCall?.callId ?: it.itemId,
-                                name = toolCall?.name,
-                                content = it.delta,
-                                index = it.outputIndex
-                            )
-                        }
-
-                        is OpenAIStreamEvent.ResponseOutputItemDone -> {
-                            when (val item = it.item) {
-                                is Item.Text -> {
-                                    StreamFrame.TextComplete(item.value, it.outputIndex)
-                                }
-
-                                is Item.Reasoning -> {
-                                    // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.done
-                                    if (item.summary.isEmpty() && item.content.isNullOrEmpty()) {
-                                        logger.debug { "Got and empty (hidden) reasoning from the model, ignoring it." }
-                                        null
-                                    } else {
-                                        StreamFrame.ReasoningComplete(
-                                            id = item.id,
-                                            content = item.content?.map { content -> content.text } ?: emptyList(),
-                                            summary = item.summary.map { content -> content.text },
-                                            encrypted = item.encryptedContent,
-                                            index = it.outputIndex
+                processStreamingChunk = { event ->
+                    buildList {
+                        when (event) {
+                            is OpenAIStreamEvent.ResponseOutputItemAdded -> {
+                                when (val item = event.item) {
+                                    is Item.FunctionToolCall ->
+                                        item.id?.let { itemId -> toolCallsByItemId[itemId] = item }
+                                    is Item.CodeInterpreterToolCall -> {
+                                        codeContainerByItemId[item.id] = item.containerId
+                                        add(
+                                            StreamFrame.CodeExecutionStart(
+                                                id = item.id,
+                                                containerId = item.containerId,
+                                                index = event.outputIndex,
+                                            )
                                         )
                                     }
+                                    else -> Unit
                                 }
-
-                                is Item.FunctionToolCall -> {
-                                    item.id?.let { itemId -> toolCallsByItemId.remove(itemId) }
-                                    StreamFrame.ToolCallComplete(
-                                        id = item.callId,
-                                        name = item.name,
-                                        content = item.arguments,
-                                        index = it.outputIndex
-                                    )
-                                }
-
-                                else -> null
                             }
-                        }
 
-                        is OpenAIStreamEvent.ResponseCompleted -> {
-                            StreamFrame.End(
-                                finishReason = null,
-                                metaInfo = it.response.usage.let { usage ->
-                                    ResponseMetaInfo.create(
-                                        clock = clock,
-                                        totalTokensCount = usage?.totalTokens,
-                                        inputTokensCount = usage?.inputTokens,
-                                        outputTokensCount = usage?.outputTokens
+                            is OpenAIStreamEvent.ResponseOutputTextDelta -> {
+                                add(StreamFrame.TextDelta(text = event.delta, index = event.outputIndex))
+                            }
+
+                            is OpenAIStreamEvent.ResponseOutputTextDone -> {
+                                add(StreamFrame.TextComplete(text = event.text, index = event.outputIndex))
+                            }
+
+                            is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
+                                // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
+                                add(
+                                    StreamFrame.ReasoningDelta(
+                                        id = event.itemId,
+                                        text = event.delta,
+                                        index = event.outputIndex,
                                     )
-                                }
-                            )
-                        }
+                                )
+                            }
 
-                        else -> {
-                            null
+                            is OpenAIStreamEvent.ResponseReasoningSummaryTextDelta -> {
+                                // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
+                                add(
+                                    StreamFrame.ReasoningDelta(
+                                        id = event.itemId,
+                                        summary = event.delta,
+                                        index = event.outputIndex,
+                                    )
+                                )
+                            }
+
+                            is OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta -> {
+                                val toolCall = toolCallsByItemId[event.itemId]
+                                add(
+                                    StreamFrame.ToolCallDelta(
+                                        id = toolCall?.callId ?: event.itemId,
+                                        name = toolCall?.name,
+                                        content = event.delta,
+                                        index = event.outputIndex,
+                                    )
+                                )
+                            }
+
+                            is OpenAIStreamEvent.ResponseCodeInterpreterCallCodeDelta -> {
+                                val containerId = requireNotNull(codeContainerByItemId[event.itemId]) {
+                                    "Code Interpreter delta arrived before its output item was added"
+                                }
+                                add(
+                                    StreamFrame.CodeExecutionCodeDelta(
+                                        id = event.itemId,
+                                        containerId = containerId,
+                                        code = event.delta,
+                                        index = event.outputIndex,
+                                    )
+                                )
+                            }
+
+                            is OpenAIStreamEvent.ResponseOutputItemDone -> {
+                                when (val item = event.item) {
+                                    is Item.Text -> {
+                                        add(StreamFrame.TextComplete(item.value, event.outputIndex))
+                                    }
+
+                                    is Item.Reasoning -> {
+                                        // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.done
+                                        if (item.summary.isEmpty() && item.content.isNullOrEmpty()) {
+                                            logger.debug { "Got and empty (hidden) reasoning from the model, ignoring it." }
+                                        } else {
+                                            add(
+                                                StreamFrame.ReasoningComplete(
+                                                    id = item.id,
+                                                    content = item.content?.map { content -> content.text } ?: emptyList(),
+                                                    summary = item.summary.map { content -> content.text },
+                                                    encrypted = item.encryptedContent,
+                                                    index = event.outputIndex,
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    is Item.FunctionToolCall -> {
+                                        item.id?.let { itemId -> toolCallsByItemId.remove(itemId) }
+                                        add(
+                                            StreamFrame.ToolCallComplete(
+                                                id = item.callId,
+                                                name = item.name,
+                                                content = item.arguments,
+                                                index = event.outputIndex,
+                                            )
+                                        )
+                                    }
+
+                                    is Item.CodeInterpreterToolCall -> {
+                                        codeContainerByItemId.remove(item.id)
+                                        val part = item.toMessagePart()
+                                        part.outputs.forEach { output ->
+                                            add(
+                                                StreamFrame.CodeExecutionOutput(
+                                                    id = part.id,
+                                                    containerId = part.containerId,
+                                                    output = output,
+                                                    index = event.outputIndex,
+                                                )
+                                            )
+                                        }
+                                        part.failure?.let { failure ->
+                                            add(
+                                                StreamFrame.CodeExecutionFailure(
+                                                    id = part.id,
+                                                    containerId = part.containerId,
+                                                    failure = failure,
+                                                    index = event.outputIndex,
+                                                )
+                                            )
+                                        }
+                                        add(
+                                            StreamFrame.CodeExecutionComplete(
+                                                id = part.id,
+                                                code = part.code,
+                                                containerId = part.containerId,
+                                                outputs = part.outputs,
+                                                failure = part.failure,
+                                                index = event.outputIndex,
+                                            )
+                                        )
+                                    }
+
+                                    else -> Unit
+                                }
+                            }
+
+                            is OpenAIStreamEvent.ResponseCompleted -> {
+                                add(
+                                    StreamFrame.End(
+                                        finishReason = null,
+                                        metaInfo = event.response.usage.let { usage ->
+                                            ResponseMetaInfo.create(
+                                                clock = clock,
+                                                totalTokensCount = usage?.totalTokens,
+                                                inputTokensCount = usage?.inputTokens,
+                                                outputTokensCount = usage?.outputTokens,
+                                            )
+                                        },
+                                    )
+                                )
+                            }
+
+                            else -> Unit
                         }
                     }
                 }
-            ).requireEndFrame()
+            ).transform { frames ->
+                frames.forEach { emit(it) }
+            }.requireEndFrame()
         } catch (e: Exception) {
             throw LLMClientException(
                 clientName = clientName,
@@ -759,7 +861,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): OpenAIResponsesAPIResponse {
         logger.debug { "Executing prompt: $prompt with tools: $tools and model: $model" }
 
-        if (tools.isNotEmpty()) {
+        if (tools.isNotEmpty() || params.codeInterpreter != null) {
             model.requireCapability(LLMCapability.Tools)
         }
 
@@ -928,6 +1030,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     }
                                 }
 
+                                is MessagePart.CodeExecution -> {
+                                    model.requireCapability(LLMCapability.Tools)
+                                    add(part.toOpenAIItem())
+                                }
+
                                 is MessagePart.Reasoning -> {
                                     if (model.supports(LLMCapability.Thinking)) {
                                         add(
@@ -1059,6 +1166,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         )
                     }
 
+                    is Item.CodeInterpreterToolCall -> {
+                        add(output.toMessagePart())
+                    }
+
                     else -> throw LLMClientException(
                         clientName,
                         "Unexpected response from $clientName: no tool calls and no content"
@@ -1073,6 +1184,50 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             metaInfo = metaInfo
         )
     }
+
+    private fun MessagePart.CodeExecution.toOpenAIItem(): Item.CodeInterpreterToolCall =
+        Item.CodeInterpreterToolCall(
+            code = code,
+            containerId = containerId,
+            id = id,
+            outputs =
+            outputs.map { output ->
+                when (output) {
+                    is MessagePart.CodeExecution.Output.Logs ->
+                        Item.CodeInterpreterToolCall.Output.Logs(output.logs)
+                    is MessagePart.CodeExecution.Output.Image ->
+                        Item.CodeInterpreterToolCall.Output.Image(output.url)
+                }
+            },
+            status =
+            when (failure) {
+                null -> OpenAIInputStatus.COMPLETED
+                MessagePart.CodeExecution.Failure.FAILED -> OpenAIInputStatus.FAILED
+                MessagePart.CodeExecution.Failure.INCOMPLETE -> OpenAIInputStatus.INCOMPLETE
+            },
+        )
+
+    private fun Item.CodeInterpreterToolCall.toMessagePart(): MessagePart.CodeExecution =
+        MessagePart.CodeExecution(
+            id = id,
+            code = code.orEmpty(),
+            containerId = containerId,
+            outputs =
+            outputs.orEmpty().map { output ->
+                when (output) {
+                    is Item.CodeInterpreterToolCall.Output.Logs ->
+                        MessagePart.CodeExecution.Output.Logs(output.logs)
+                    is Item.CodeInterpreterToolCall.Output.Image ->
+                        MessagePart.CodeExecution.Output.Image(output.url)
+                }
+            },
+            failure =
+            when (status) {
+                OpenAIInputStatus.FAILED -> MessagePart.CodeExecution.Failure.FAILED
+                OpenAIInputStatus.INCOMPLETE -> MessagePart.CodeExecution.Failure.INCOMPLETE
+                else -> null
+            },
+        )
 
     private fun LLMParams.ToolChoice.toOpenAIResponseToolChoice() = when (this) {
         LLMParams.ToolChoice.Auto -> OpenAIResponsesToolChoice.Mode("auto")

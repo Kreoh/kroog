@@ -106,6 +106,79 @@ internal class StreamFrameExtTest {
     }
 
     @Test
+    fun testCodeExecutionMessageRoundTripThroughStreamFrames() {
+        val part = MessagePart.CodeExecution(
+            id = "ci_123",
+            code = "print('hello')",
+            containerId = "cntr_123",
+            outputs = listOf(
+                MessagePart.CodeExecution.Output.Logs("hello\n"),
+                MessagePart.CodeExecution.Output.Image("https://example.test/chart.png"),
+            ),
+        )
+        val message = Message.Assistant(
+            parts = listOf(part),
+            finishReason = "stop",
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+
+        val frames = message.toStreamFrames()
+
+        assertEquals(
+            listOf(
+                StreamFrame.CodeExecutionStart("ci_123", "cntr_123", 0),
+                StreamFrame.CodeExecutionCodeDelta("ci_123", "cntr_123", "print('hello')", 0),
+                StreamFrame.CodeExecutionOutput(
+                    "ci_123",
+                    "cntr_123",
+                    MessagePart.CodeExecution.Output.Logs("hello\n"),
+                    0,
+                ),
+                StreamFrame.CodeExecutionOutput(
+                    "ci_123",
+                    "cntr_123",
+                    MessagePart.CodeExecution.Output.Image("https://example.test/chart.png"),
+                    0,
+                ),
+                StreamFrame.CodeExecutionComplete(
+                    id = "ci_123",
+                    code = "print('hello')",
+                    containerId = "cntr_123",
+                    outputs = part.outputs,
+                    index = 0,
+                ),
+                StreamFrame.End("stop", ResponseMetaInfo.Empty),
+            ),
+            frames,
+        )
+        assertEquals(message, frames.toMessageResponse())
+    }
+
+    @Test
+    fun testFailedCodeExecutionMessageRoundTripThroughStreamFrames() {
+        val part = MessagePart.CodeExecution(
+            id = "ci_failed",
+            code = "raise RuntimeError()",
+            containerId = "cntr_failed",
+            failure = MessagePart.CodeExecution.Failure.FAILED,
+        )
+        val message = Message.Assistant(parts = listOf(part), metaInfo = ResponseMetaInfo.Empty)
+
+        val frames = message.toStreamFrames()
+
+        assertEquals(
+            StreamFrame.CodeExecutionFailure(
+                "ci_failed",
+                "cntr_failed",
+                MessagePart.CodeExecution.Failure.FAILED,
+                0,
+            ),
+            frames[2],
+        )
+        assertEquals(part, frames.toMessageResponse().parts.single())
+    }
+
+    @Test
     fun testListOfMessageResponsesToStreamFrames() {
         val message = Message.Assistant(
             parts = listOf(

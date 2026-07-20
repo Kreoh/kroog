@@ -9,6 +9,7 @@ import ai.koog.prompt.executor.clients.bedrock.modelfamilies.amazon.NovaInferenc
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -118,6 +120,39 @@ class BedrockAmazonNovaSerializationTest {
 
         assertEquals("user", request.messages[2].role)
         assertEquals(userMessage, request.messages[2].content[0].text)
+    }
+
+    @Test
+    fun testCodeExecutionReplayFailsDuringAmazonNovaConversion() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.CodeExecution(
+                            id = "ci_incomplete",
+                            code = "while True: pass",
+                            containerId = "cntr_123",
+                            outputs = listOf(
+                                MessagePart.CodeExecution.Output.Logs("partial output"),
+                                MessagePart.CodeExecution.Output.Image("https://example.test/partial.png"),
+                            ),
+                            failure = MessagePart.CodeExecution.Failure.INCOMPLETE,
+                        )
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+            id = "code-replay",
+        )
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            BedrockAmazonNovaSerialization.createNovaRequest(prompt, model, emptyList())
+        }
+
+        assertEquals(
+            "Amazon Nova cannot replay provider-hosted code execution items",
+            failure.message,
+        )
     }
 
     @Test

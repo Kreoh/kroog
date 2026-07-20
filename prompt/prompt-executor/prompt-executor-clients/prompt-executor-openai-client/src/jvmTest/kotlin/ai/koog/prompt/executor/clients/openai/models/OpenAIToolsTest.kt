@@ -197,7 +197,10 @@ class OpenAIToolsTest {
     @Test
     fun `test OpenAIResponsesTool_CodeInterpreter serialization`() =
         runWithBothJsonConfigurations("CodeInterpreter tool serialization") { json ->
-            val codeInterpreter = OpenAIResponsesTool.CodeInterpreter("container_abc123")
+            val codeInterpreter =
+                OpenAIResponsesTool.CodeInterpreter(
+                    OpenAICodeInterpreterContainer.Reused("container_abc123")
+                )
 
             json.encodeToString(codeInterpreter) shouldEqualJson """
             {
@@ -208,7 +211,25 @@ class OpenAIToolsTest {
             json.decodeFromString<OpenAIResponsesTool.CodeInterpreter>(
                 json.encodeToString(codeInterpreter)
             ).shouldNotBeNull {
-                container shouldBe "container_abc123"
+                container shouldBe OpenAICodeInterpreterContainer.Reused("container_abc123")
+            }
+        }
+
+    @Test
+    fun testOpenAIResponsesToolCodeInterpreterAutomaticContainerSerialization() =
+        runWithBothJsonConfigurations("CodeInterpreter automatic container serialization") { json ->
+            listOf(
+                OpenAIResponsesTool.CodeInterpreter(OpenAICodeInterpreterContainer.Auto) to
+                    """{"container":"auto"}""",
+                OpenAIResponsesTool.CodeInterpreter(
+                    OpenAICodeInterpreterContainer.AutoWithFiles(fileIds = listOf("file_123", "file_456"))
+                ) to
+                    """{"container":{"type":"auto","file_ids":["file_123","file_456"]}}""",
+            ).forEach { (tool, expected) ->
+                json.encodeToString(tool) shouldEqualJson expected
+                json.decodeFromString<OpenAIResponsesTool.CodeInterpreter>(
+                    json.encodeToString(tool)
+                ).container shouldBe tool.container
             }
         }
 
@@ -586,7 +607,10 @@ class OpenAIToolsTest {
     @Test
     fun `test OpenAIResponsesTool_CodeInterpreter round trip serialization`() =
         runWithBothJsonConfigurations("CodeInterpreter round trip") { json ->
-            val tool = OpenAIResponsesTool.CodeInterpreter("container1")
+            val tool =
+                OpenAIResponsesTool.CodeInterpreter(
+                    OpenAICodeInterpreterContainer.Reused("container1")
+                )
 
             json.decodeFromString<OpenAIResponsesTool.CodeInterpreter>(
                 json.encodeToString(tool)

@@ -2,6 +2,7 @@ package ai.koog.prompt.tokenizer
 
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.utils.time.KoogClock
@@ -24,6 +25,9 @@ class PromptTokenizerTest {
     class MockTokenizer : Tokenizer {
         private var _totalTokens = 0
 
+        var lastText: String? = null
+            private set
+
         /**
          * The total number of tokens counted across all calls to countTokens.
          */
@@ -40,6 +44,7 @@ class PromptTokenizerTest {
         override fun countTokens(text: String): Int {
             // Simple approximation: 1 token ≈ 4 characters
             println("countTokens: $text")
+            lastText = text
             val tokens = (text.length / 4) + 1
             _totalTokens += tokens
             return tokens
@@ -136,5 +141,40 @@ class PromptTokenizerTest {
         assertEquals(2, promptTokenizer.cache.size)
         promptTokenizer.tokenCountFor(testPrompt)
         assertEquals(3, promptTokenizer.cache.size)
+    }
+
+    @Test
+    fun testCodeExecutionRetainsCodeOrderedOutputsAndFailureForTokenization() {
+        val tokenizer = MockTokenizer()
+        val promptTokenizer = OnDemandTokenizer(tokenizer)
+        val message = Message.Assistant(
+            parts = listOf(
+                MessagePart.CodeExecution(
+                    id = "ci_123",
+                    code = "print('first')",
+                    containerId = "cntr_123",
+                    outputs = listOf(
+                        MessagePart.CodeExecution.Output.Logs("first output"),
+                        MessagePart.CodeExecution.Output.Image("https://example.test/second.png"),
+                        MessagePart.CodeExecution.Output.Logs("third output"),
+                    ),
+                    failure = MessagePart.CodeExecution.Failure.INCOMPLETE,
+                )
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+
+        promptTokenizer.tokenCountFor(message)
+
+        assertEquals(
+            """
+            print('first')
+            first output
+            https://example.test/second.png
+            third output
+            Code execution incomplete
+            """.trimIndent(),
+            tokenizer.lastText,
+        )
     }
 }

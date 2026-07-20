@@ -1132,6 +1132,23 @@ internal sealed interface OpenAIResponsesToolChoice {
     }
 }
 
+@Serializable(with = OpenAICodeInterpreterContainerSerializer::class)
+internal sealed interface OpenAICodeInterpreterContainer {
+    @Serializable
+    data object Auto : OpenAICodeInterpreterContainer
+
+    @Serializable
+    data class AutoWithFiles(
+        val type: String = "auto",
+        @SerialName("file_ids")
+        val fileIds: List<String>,
+    ) : OpenAICodeInterpreterContainer
+
+    @Serializable
+    @JvmInline
+    value class Reused(val id: String) : OpenAICodeInterpreterContainer
+}
+
 @Serializable
 @JsonClassDiscriminator("type")
 internal sealed interface OpenAIResponsesTool {
@@ -1239,7 +1256,7 @@ internal sealed interface OpenAIResponsesTool {
      */
     @Serializable
     @SerialName("code_interpreter")
-    class CodeInterpreter(val container: String) : OpenAIResponsesTool
+    class CodeInterpreter(val container: OpenAICodeInterpreterContainer) : OpenAIResponsesTool
 
     /**
      * A tool that generates images using a model like `gpt-image-1`.
@@ -2315,6 +2332,41 @@ internal object ItemPolymorphicSerializer : JsonContentPolymorphicSerializer<Ite
             }
 
             else -> throw SerializationException("Invalid Item format")
+        }
+    }
+}
+
+internal object OpenAICodeInterpreterContainerSerializer : KSerializer<OpenAICodeInterpreterContainer> {
+    @OptIn(InternalSerializationApi::class)
+    override val descriptor: SerialDescriptor =
+        buildSerialDescriptor("OpenAICodeInterpreterContainer", SerialKind.CONTEXTUAL)
+
+    override fun serialize(encoder: Encoder, value: OpenAICodeInterpreterContainer) {
+        when (value) {
+            OpenAICodeInterpreterContainer.Auto -> encoder.encodeString("auto")
+            is OpenAICodeInterpreterContainer.AutoWithFiles ->
+                encoder.encodeSerializableValue(OpenAICodeInterpreterContainer.AutoWithFiles.serializer(), value)
+            is OpenAICodeInterpreterContainer.Reused -> encoder.encodeString(value.id)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): OpenAICodeInterpreterContainer {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: throw SerializationException("OpenAICodeInterpreterContainer can only be deserialized from JSON")
+
+        return when (val element = jsonDecoder.decodeJsonElement()) {
+            is JsonPrimitive ->
+                if (element.content == "auto") {
+                    OpenAICodeInterpreterContainer.Auto
+                } else {
+                    OpenAICodeInterpreterContainer.Reused(element.content)
+                }
+            is JsonObject ->
+                jsonDecoder.json.decodeFromJsonElement(
+                    OpenAICodeInterpreterContainer.AutoWithFiles.serializer(),
+                    element,
+                )
+            else -> throw SerializationException("Code Interpreter container must be a string or object")
         }
     }
 }

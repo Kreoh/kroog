@@ -261,6 +261,36 @@ public fun Message.Assistant.toAcpEvents(tools: List<ToolDescriptor> = emptyList
                     )
                 }
 
+                is MessagePart.CodeExecution -> {
+                    val outputText = part.outputs.joinToString(separator = "\n") { output ->
+                        when (output) {
+                            is MessagePart.CodeExecution.Output.Logs -> output.logs
+                            is MessagePart.CodeExecution.Output.Image -> output.url
+                        }
+                    }
+                    val text = buildString {
+                        append("Code execution ")
+                        append(part.id)
+                        append(" in container ")
+                        append(part.containerId)
+                        append(":\n")
+                        append(part.code)
+                        if (outputText.isNotEmpty()) {
+                            append("\nOutputs:\n")
+                            append(outputText)
+                        }
+                        part.failure?.let { failure ->
+                            append("\nStatus: ")
+                            append(failure.name.lowercase())
+                        }
+                    }
+                    add(
+                        SessionUpdateEvent(
+                            update = AgentMessageChunk(ContentBlock.Text(text))
+                        )
+                    )
+                }
+
                 is MessagePart.Text -> {
                     add(
                         SessionUpdateEvent(

@@ -331,6 +331,50 @@ public sealed interface MessagePart {
     }
 
     /**
+     * Represents one provider-hosted code execution and its ordered outputs.
+     *
+     * @property id The provider item identifier.
+     * @property code The executed code.
+     * @property containerId The provider container identifier.
+     * @property outputs Ordered log and image outputs.
+     * @property failure The terminal failure state, or null when execution completed successfully.
+     * @property cacheControl Optional cache-control directive.
+     */
+    @Serializable
+    public data class CodeExecution @JvmOverloads constructor(
+        public val id: String,
+        public val code: String,
+        public val containerId: String,
+        public val outputs: List<Output> = emptyList(),
+        public val failure: Failure? = null,
+        override val cacheControl: CacheControl? = null,
+    ) : ResponsePart {
+
+        /** A typed output produced by provider-hosted code execution. */
+        @Serializable
+        public sealed interface Output {
+
+            /** Text written to the execution logs. */
+            @Serializable
+            public data class Logs(public val logs: String) : Output
+
+            /** An image made available at [url] by the provider. */
+            @Serializable
+            public data class Image(public val url: String) : Output
+        }
+
+        /** A terminal unsuccessful code execution state. */
+        @Serializable
+        public enum class Failure {
+            /** The provider reported a failed execution. */
+            FAILED,
+
+            /** The provider reported an incomplete execution. */
+            INCOMPLETE,
+        }
+    }
+
+    /**
      * Represents messages exchanged with tools, either as calls or results.
      */
     @Serializable

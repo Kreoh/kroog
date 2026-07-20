@@ -125,6 +125,10 @@ internal object BedrockAmazonNovaSerialization {
                         is MessagePart.Text -> add(NovaContent(text = part.text))
                         is MessagePart.Attachment -> throw IllegalArgumentException("No attachments are supported in user messages")
                         is MessagePart.Reasoning -> throw IllegalArgumentException("No reasoning messages are supported in assistant messages")
+                        is MessagePart.CodeExecution ->
+                            throw IllegalArgumentException(
+                                "Amazon Nova cannot replay provider-hosted code execution items"
+                            )
                         is MessagePart.Tool.Call -> add(
                             NovaContent(
                                 toolUse = NovaToolUse(

@@ -43,6 +43,22 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIClientSettings :
 	public final fun getResponsesAPIPath ()Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig {
+	public fun <init> ()V
+	public fun <init> (Ljava/util/List;)V
+	public fun <init> (Ljava/util/List;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/util/List;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/util/List;Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;Ljava/util/List;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContainerId ()Ljava/lang/String;
+	public final fun getFileIds ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public class ai/koog/prompt/executor/clients/openai/OpenAILLMClient : ai/koog/prompt/executor/clients/openai/base/AbstractOpenAILLMClient {
 	public fun <init> (Lai/koog/http/client/KoogHttpClient;)V
 	public fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIClientSettings;Lai/koog/http/client/KoogHttpClient;)V
@@ -135,13 +151,16 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIModels$Moderatio
 public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams : ai/koog/prompt/params/LLMParams, ai/koog/prompt/executor/clients/openai/OpenAIParams {
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;)V
+	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;)V
 	public synthetic fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public synthetic fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/params/LLMParams;
 	public final fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBackground ()Ljava/lang/Boolean;
+	public final fun getCodeInterpreter ()Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;
 	public final fun getInclude ()Ljava/util/List;
 	public final fun getLogprobs ()Ljava/lang/Boolean;
 	public final fun getMaxToolCalls ()Ljava/lang/Integer;
@@ -156,6 +175,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public final fun getTruncation ()Lai/koog/prompt/executor/clients/openai/models/Truncation;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+	public final fun withCodeInterpreter (Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 }
 
 public final class ai/koog/prompt/executor/clients/openai/azure/AzureKt {
@@ -386,4 +406,3 @@ public final class ai/koog/prompt/executor/clients/openai/models/Truncation : ja
 public final class ai/koog/prompt/executor/clients/openai/models/Truncation$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
-

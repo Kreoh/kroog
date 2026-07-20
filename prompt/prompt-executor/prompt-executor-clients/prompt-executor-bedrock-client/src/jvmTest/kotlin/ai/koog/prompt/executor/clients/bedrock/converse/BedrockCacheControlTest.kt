@@ -6,12 +6,16 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockModels
+import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.ResponseMetaInfo
 import aws.sdk.kotlin.services.bedrockruntime.model.CachePointType
 import aws.sdk.kotlin.services.bedrockruntime.model.CacheTtl
 import aws.sdk.kotlin.services.bedrockruntime.model.ContentBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.SystemContentBlock
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -124,4 +128,38 @@ class BedrockCacheControlTest {
         assertEquals(1, content.size)
         assertIs<ContentBlock.Text>(content[0])
     }
+
+    @Test
+    fun testCodeExecutionReplayFailsDuringConverseConversion() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(codeExecution()),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+            id = "code-replay",
+        )
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            converseRequest(prompt)
+        }
+
+        assertEquals(
+            "Bedrock Converse cannot replay provider-hosted code execution items",
+            failure.message,
+        )
+    }
+
+    private fun codeExecution(): MessagePart.CodeExecution =
+        MessagePart.CodeExecution(
+            id = "ci_failed",
+            code = "raise RuntimeError()",
+            containerId = "cntr_123",
+            outputs = listOf(
+                MessagePart.CodeExecution.Output.Logs("before failure"),
+                MessagePart.CodeExecution.Output.Image("https://example.test/failure.png"),
+            ),
+            failure = MessagePart.CodeExecution.Failure.FAILED,
+        )
 }

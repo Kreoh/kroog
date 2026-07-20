@@ -637,6 +637,33 @@ private fun JsonArrayBuilder.addMessagePart(part: MessagePart) {
             }
         }
 
+        is MessagePart.CodeExecution -> {
+            addJsonObject {
+                put("type", JsonPrimitive("code_execution"))
+                put("id", JsonPrimitive(part.id))
+                put("container_id", JsonPrimitive(part.containerId))
+                put("code", JsonPrimitive(part.code))
+                put("status", JsonPrimitive(part.failure?.name?.lowercase() ?: "completed"))
+                putJsonArray("outputs") {
+                    part.outputs.forEach { output ->
+                        addJsonObject {
+                            when (output) {
+                                is MessagePart.CodeExecution.Output.Logs -> {
+                                    put("type", JsonPrimitive("logs"))
+                                    put("logs", JsonPrimitive(output.logs))
+                                }
+
+                                is MessagePart.CodeExecution.Output.Image -> {
+                                    put("type", JsonPrimitive("image"))
+                                    put("url", JsonPrimitive(output.url))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         is MessagePart.Attachment -> {
             when (val source = part.source) {
                 is AttachmentSource.Image -> {

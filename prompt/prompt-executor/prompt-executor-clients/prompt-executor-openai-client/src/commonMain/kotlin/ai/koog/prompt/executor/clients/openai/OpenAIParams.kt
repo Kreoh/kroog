@@ -10,6 +10,7 @@ import ai.koog.prompt.executor.clients.openai.models.Truncation
 import ai.koog.prompt.params.LLMParams
 import kotlinx.serialization.json.JsonElement
 import org.jetbrains.annotations.ApiStatus.Experimental
+import kotlin.jvm.JvmOverloads
 
 internal sealed interface OpenAIParams
 
@@ -300,6 +301,36 @@ public class OpenAIChatParams(
 }
 
 /**
+ * Configures the OpenAI Responses Code Interpreter hosted tool.
+ *
+ * When [containerId] is null, OpenAI creates an automatic container and makes [fileIds]
+ * available to it. When [containerId] is present, that existing container is reused and
+ * [fileIds] must be empty.
+ *
+ * @property fileIds Validated provider file identifiers for a new automatic container.
+ * @property containerId A validated existing provider container identifier to reuse.
+ */
+public data class OpenAICodeInterpreterConfig @JvmOverloads constructor(
+    public val fileIds: List<String> = emptyList(),
+    public val containerId: String? = null,
+) {
+    init {
+        require(fileIds.all { it.isNotBlank() && it == it.trim() }) {
+            "Code Interpreter fileIds must contain only non-blank provider file IDs"
+        }
+        require(fileIds.distinct().size == fileIds.size) {
+            "Code Interpreter fileIds must not contain duplicates"
+        }
+        require(containerId == null || (containerId.isNotBlank() && containerId == containerId.trim())) {
+            "Code Interpreter containerId must be a non-blank provider container ID"
+        }
+        require(containerId == null || fileIds.isEmpty()) {
+            "Code Interpreter fileIds cannot be combined with a reused containerId"
+        }
+    }
+}
+
+/**
  * OpenAI **Responses API** parameters layered on top of [LLMParams].
  *
  * Use these options to generate text or JSON, call built-in tools (e.g., web/file search)
@@ -330,6 +361,7 @@ public class OpenAIChatParams(
  * @property logprobs Whether to include log-probabilities for output tokens.
  * @property topLogprobs Number of top alternatives per position (0–20). Requires [logprobs] = true.
  * @property topP Nucleus sampling in (0.0, 1.0]; use **instead of** [temperature].
+ * @property codeInterpreter Optional typed configuration for the hosted Code Interpreter tool.
  */
 @Experimental
 public class OpenAIResponsesParams(
@@ -354,6 +386,7 @@ public class OpenAIResponsesParams(
     public val logprobs: Boolean? = null,
     public val topLogprobs: Int? = null,
     public val topP: Double? = null,
+    public val codeInterpreter: OpenAICodeInterpreterConfig? = null,
 ) : LLMParams(
     temperature,
     maxTokens,
@@ -365,6 +398,56 @@ public class OpenAIResponsesParams(
     additionalProperties
 ),
     OpenAIParams {
+    /**
+     * Preserves the JVM constructor layout published before [codeInterpreter] was added.
+     */
+    public constructor(
+        temperature: Double?,
+        maxTokens: Int? = null,
+        numberOfChoices: Int? = null,
+        speculation: String? = null,
+        schema: Schema? = null,
+        toolChoice: ToolChoice? = null,
+        user: String? = null,
+        additionalProperties: Map<String, JsonElement>? = null,
+        background: Boolean? = null,
+        include: List<OpenAIInclude>? = null,
+        maxToolCalls: Int? = null,
+        parallelToolCalls: Boolean? = null,
+        reasoning: ReasoningConfig? = null,
+        truncation: Truncation? = null,
+        promptCacheKey: String? = null,
+        safetyIdentifier: String? = null,
+        serviceTier: ServiceTier? = null,
+        store: Boolean? = null,
+        logprobs: Boolean? = null,
+        topLogprobs: Int? = null,
+        topP: Double? = null,
+    ) : this(
+        temperature = temperature,
+        maxTokens = maxTokens,
+        numberOfChoices = numberOfChoices,
+        speculation = speculation,
+        schema = schema,
+        toolChoice = toolChoice,
+        user = user,
+        additionalProperties = additionalProperties,
+        background = background,
+        include = include,
+        maxToolCalls = maxToolCalls,
+        parallelToolCalls = parallelToolCalls,
+        reasoning = reasoning,
+        truncation = truncation,
+        promptCacheKey = promptCacheKey,
+        safetyIdentifier = safetyIdentifier,
+        serviceTier = serviceTier,
+        store = store,
+        logprobs = logprobs,
+        topLogprobs = topLogprobs,
+        topP = topP,
+        codeInterpreter = null,
+    )
+
     init {
         // Mutual exclusivity: temperature and topP
         require(!(temperature != null && topP != null)) {
@@ -481,7 +564,37 @@ public class OpenAIResponsesParams(
         logprobs = logprobs,
         topLogprobs = topLogprobs,
         topP = topP,
+        codeInterpreter = this.codeInterpreter,
     )
+
+    /**
+     * Returns a copy using [codeInterpreter] as its hosted Code Interpreter configuration.
+     */
+    public fun withCodeInterpreter(codeInterpreter: OpenAICodeInterpreterConfig?): OpenAIResponsesParams =
+        OpenAIResponsesParams(
+            temperature = temperature,
+            maxTokens = maxTokens,
+            numberOfChoices = numberOfChoices,
+            speculation = speculation,
+            schema = schema,
+            toolChoice = toolChoice,
+            user = user,
+            additionalProperties = additionalProperties,
+            background = background,
+            include = include,
+            maxToolCalls = maxToolCalls,
+            parallelToolCalls = parallelToolCalls,
+            reasoning = reasoning,
+            truncation = truncation,
+            promptCacheKey = promptCacheKey,
+            safetyIdentifier = safetyIdentifier,
+            serviceTier = serviceTier,
+            store = store,
+            logprobs = logprobs,
+            topLogprobs = topLogprobs,
+            topP = topP,
+            codeInterpreter = codeInterpreter,
+        )
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true
@@ -507,7 +620,8 @@ public class OpenAIResponsesParams(
                 store == other.store &&
                 logprobs == other.logprobs &&
                 topLogprobs == other.topLogprobs &&
-                topP == other.topP
+                topP == other.topP &&
+                codeInterpreter == other.codeInterpreter
     }
 
     override fun hashCode(): Int = listOf(
@@ -517,6 +631,7 @@ public class OpenAIResponsesParams(
         parallelToolCalls, reasoning,
         truncation, promptCacheKey, safetyIdentifier,
         serviceTier, store, logprobs, topLogprobs, topP,
+        codeInterpreter,
     ).fold(0) { acc, element ->
         31 * acc + (element?.hashCode() ?: 0)
     }
@@ -544,6 +659,7 @@ public class OpenAIResponsesParams(
         append(", logprobs=$logprobs")
         append(", topLogprobs=$topLogprobs")
         append(", topP=$topP")
+        append(", codeInterpreter=$codeInterpreter")
         append(")")
     }
 }

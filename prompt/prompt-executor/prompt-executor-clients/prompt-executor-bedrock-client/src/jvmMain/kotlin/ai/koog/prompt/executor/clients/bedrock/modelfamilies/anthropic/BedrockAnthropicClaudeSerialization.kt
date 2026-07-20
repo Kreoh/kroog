@@ -83,6 +83,11 @@ internal object BedrockAnthropicClaudeSerialization {
                         part.argsJson
                     )
 
+                    is MessagePart.CodeExecution ->
+                        throw IllegalArgumentException(
+                            "Bedrock Anthropic cannot replay provider-hosted code execution items"
+                        )
+
                     is MessagePart.Attachment -> throw IllegalArgumentException("No attachments are supported in assistant messages")
                 }
             }

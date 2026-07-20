@@ -115,6 +115,22 @@ private fun Message.getTextContent(): String =
         when (part) {
             is MessagePart.Text -> part.text
             is MessagePart.Reasoning -> part.content.joinToString("\n")
+            is MessagePart.CodeExecution -> buildString {
+                append(part.code)
+                part.outputs.forEach { output ->
+                    append('\n')
+                    append(
+                        when (output) {
+                            is MessagePart.CodeExecution.Output.Logs -> output.logs
+                            is MessagePart.CodeExecution.Output.Image -> output.url
+                        }
+                    )
+                }
+                part.failure?.let { failure ->
+                    append("\nCode execution ")
+                    append(failure.name.lowercase())
+                }
+            }
             is MessagePart.Tool.Call -> part.args
             is MessagePart.Tool.Result -> part.output
             is MessagePart.Attachment -> null

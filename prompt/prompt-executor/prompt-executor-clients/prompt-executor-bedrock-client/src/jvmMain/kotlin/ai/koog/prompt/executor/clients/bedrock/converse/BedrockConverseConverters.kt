@@ -293,6 +293,12 @@ internal object BedrockConverseConverters {
                             )
                         }
 
+                        is MessagePart.CodeExecution -> {
+                            throw IllegalArgumentException(
+                                "Bedrock Converse cannot replay provider-hosted code execution items"
+                            )
+                        }
+
                         is MessagePart.Tool.Call -> {
                             add(
                                 ContentBlock.ToolUse(

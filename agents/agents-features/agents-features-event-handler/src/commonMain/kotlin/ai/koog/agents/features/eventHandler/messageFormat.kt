@@ -39,6 +39,8 @@ internal val MessagePart.traceString: String
         is MessagePart.Text -> "type: ${this::class.simpleName}, text: $text"
         is MessagePart.Attachment -> "type: ${this::class.simpleName}, source: ${this.source::class.simpleName}"
         is MessagePart.Reasoning -> "type: ${this::class.simpleName}, content: $content"
+        is MessagePart.CodeExecution ->
+            "type: ${this::class.simpleName}, id: $id, containerId: $containerId, code: $code, outputs: $outputs, failure: $failure"
         is MessagePart.Tool.Call -> "type: ${this::class.simpleName}, tool: $tool, args: $args"
         is MessagePart.Tool.Result -> "type: ${this::class.simpleName}, tool: $tool, output: $output"
     }

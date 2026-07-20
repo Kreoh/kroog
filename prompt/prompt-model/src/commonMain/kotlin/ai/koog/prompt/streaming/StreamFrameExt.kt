@@ -54,6 +54,27 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
                     )
                 }
 
+                is MessagePart.CodeExecution -> {
+                    add(StreamFrame.CodeExecutionStart(part.id, part.containerId, index))
+                    add(StreamFrame.CodeExecutionCodeDelta(part.id, part.containerId, part.code, index))
+                    part.outputs.forEach { output ->
+                        add(StreamFrame.CodeExecutionOutput(part.id, part.containerId, output, index))
+                    }
+                    part.failure?.let { failure ->
+                        add(StreamFrame.CodeExecutionFailure(part.id, part.containerId, failure, index))
+                    }
+                    add(
+                        StreamFrame.CodeExecutionComplete(
+                            id = part.id,
+                            code = part.code,
+                            containerId = part.containerId,
+                            outputs = part.outputs,
+                            failure = part.failure,
+                            index = index,
+                        )
+                    )
+                }
+
                 is MessagePart.Text -> {
                     add(StreamFrame.TextDelta(part.text, index))
                     add(StreamFrame.TextComplete(part.text, index))
@@ -106,6 +127,15 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
                     id = frame.id,
                     tool = frame.name,
                     args = Json.parseToJsonElement(frame.content).jsonObject,
+                )
+
+            is StreamFrame.CodeExecutionComplete ->
+                MessagePart.CodeExecution(
+                    id = frame.id,
+                    code = frame.code,
+                    containerId = frame.containerId,
+                    outputs = frame.outputs,
+                    failure = frame.failure,
                 )
 
             is StreamFrame.End -> {

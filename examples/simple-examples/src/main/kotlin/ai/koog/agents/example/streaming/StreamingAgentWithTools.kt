@@ -45,7 +45,17 @@ suspend fun main() {
                         is StreamFrame.ReasoningComplete -> println("Reasoning complete:id=${frame.id}\ntext=${frame.content}\nsummary=${frame.summary}")
                         is StreamFrame.TextComplete -> println("Text complete")
                         is StreamFrame.ToolCallComplete -> println("Tool call complete")
+                        is StreamFrame.CodeExecutionComplete ->
+                            println("Code execution complete:id=${frame.id}\noutputs=${frame.outputs}\nfailure=${frame.failure}")
+                        is StreamFrame.CodeExecutionFailure ->
+                            println("Code execution failed:id=${frame.id}\nfailure=${frame.failure}")
+                        is StreamFrame.CodeExecutionOutput ->
+                            println("Code execution output:id=${frame.id}\noutput=${frame.output}")
+                        is StreamFrame.CodeExecutionStart ->
+                            println("Code execution started:id=${frame.id}\ncontainer=${frame.containerId}")
                         is StreamFrame.ReasoningDelta -> println("Reasoning delta:id=${frame.id}\ntext=${frame.text}\nsummary=${frame.summary}")
+                        is StreamFrame.CodeExecutionCodeDelta ->
+                            println("Code execution code delta:id=${frame.id}\ncode=${frame.code}")
                         is StreamFrame.TextDelta -> println("Text delta:\n${frame.text}")
                         is StreamFrame.ToolCallDelta -> println("Tool call delta:\n${frame.content}")
                         is StreamFrame.End -> println("End")

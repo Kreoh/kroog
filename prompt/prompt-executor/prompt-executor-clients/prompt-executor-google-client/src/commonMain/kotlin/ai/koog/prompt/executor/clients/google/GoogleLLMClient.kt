@@ -493,6 +493,12 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                             throw IllegalArgumentException("No attachments are supported in assistant messages")
                         }
 
+                        is MessagePart.CodeExecution -> {
+                            throw IllegalArgumentException(
+                                "Google cannot replay provider-hosted code execution items"
+                            )
+                        }
+
                         is MessagePart.Tool.Call -> {
                             // Use signature from preceding Reasoning message
                             val signature = lastSignature

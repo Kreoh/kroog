@@ -610,6 +610,12 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         throw IllegalArgumentException("Attachments in assistant messages are not supported in Anthropic")
                     }
 
+                    is MessagePart.CodeExecution -> {
+                        throw IllegalArgumentException(
+                            "Anthropic cannot replay provider-hosted code execution items"
+                        )
+                    }
+
                     is MessagePart.Tool.Call -> {
                         require(model.supports(LLMCapability.Tools)) {
                             "Model ${model.id} does not support tools"
