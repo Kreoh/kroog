@@ -37,6 +37,7 @@ class AnthropicModelsTest {
             AnthropicModels.Opus_4_5,
             AnthropicModels.Opus_4_6,
             AnthropicModels.Opus_4_7,
+            AnthropicModels.Opus_4_8,
         )
 
         modelsWithSchema.forEach { model ->
@@ -117,6 +118,7 @@ class AnthropicModelsTest {
         assertNotNull(AnthropicModels.Sonnet_4.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_6.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_7.capabilities) shouldContain LLMCapability.Thinking
+        assertNotNull(AnthropicModels.Opus_4_8.capabilities) shouldContain LLMCapability.Thinking
     }
 
     @Test
@@ -129,5 +131,18 @@ class AnthropicModelsTest {
         assertTrue(model.supports(LLMCapability.Vision.Image))
         assertTrue(model.supports(LLMCapability.Tools))
         assertTrue(model.supports(LLMCapability.ToolChoice))
+    }
+
+    @Test
+    fun `Claude Opus 4_8 should expose exact model profile and default version`() {
+        val model = AnthropicModels.Opus_4_8
+
+        assertEquals(LLMProvider.Anthropic, model.provider)
+        assertEquals("claude-opus-4-8", model.id)
+        assertEquals(AnthropicModels.Opus_4_7.capabilities, model.capabilities)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        AnthropicModels.models shouldContain model
+        assertEquals("claude-opus-4-8", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
     }
 }

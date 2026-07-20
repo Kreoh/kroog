@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.bedrock
 
+import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.list
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -47,5 +48,17 @@ class BedrockModelsTest {
         assertEquals(128_000, model.maxOutputTokens)
         assertTrue(model.supports(LLMCapability.Vision.Image))
         assertTrue(model.supports(LLMCapability.Tools))
+    }
+
+    @Test
+    fun `Claude Opus 4_8 Bedrock model should expose exact effective profile`() {
+        val model = BedrockModels.AnthropicClaude48Opus
+
+        assertEquals(LLMProvider.Bedrock, model.provider)
+        assertEquals("us.anthropic.claude-opus-4-8", model.id)
+        assertEquals(AnthropicModels.Opus_4_8.capabilities, model.capabilities)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        BedrockModels.models shouldContain model
     }
 }

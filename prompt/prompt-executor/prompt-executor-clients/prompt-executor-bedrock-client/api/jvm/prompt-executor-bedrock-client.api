@@ -232,6 +232,7 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public final fun getAnthropicClaude45Opus ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude46Opus ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude47Opus ()Lai/koog/prompt/llm/LLModel;
+	public final fun getAnthropicClaude48Opus ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude4Opus ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude4Sonnet ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude4_5Haiku ()Lai/koog/prompt/llm/LLModel;
@@ -836,3 +837,4 @@ public final synthetic class ai/koog/prompt/executor/clients/bedrock/modelfamili
 public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/meta/LlamaStreamChunk$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
+
