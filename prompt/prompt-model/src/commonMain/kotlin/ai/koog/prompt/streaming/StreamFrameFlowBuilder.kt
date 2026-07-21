@@ -1,5 +1,6 @@
 package ai.koog.prompt.streaming
 
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
@@ -11,6 +12,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.experimental.ExperimentalTypeInference
+import kotlin.jvm.JvmOverloads
 
 /**
  * Create a [Flow] of [StreamFrame.TextDelta] objects from a list of [String] content.
@@ -37,80 +39,102 @@ public fun streamFrameFlow(@BuilderInference block: suspend FlowCollector<Stream
 /**
  * Emits a [StreamFrame.TextDelta] with the given [text].
  */
-public suspend fun FlowCollector<StreamFrame>.emitTextDelta(text: String, index: Int? = null): Unit =
-    emit(StreamFrame.TextDelta(text, index))
+@JvmOverloads
+public suspend fun FlowCollector<StreamFrame>.emitTextDelta(
+    text: String,
+    index: Int? = null,
+    providerItemId: String? = null,
+): Unit = emit(StreamFrame.TextDelta(text, index, providerItemId))
 
 /**
  * Emits a [StreamFrame.TextComplete] with the given [text].
  */
-public suspend fun FlowCollector<StreamFrame>.emitTextComplete(text: String, index: Int? = null): Unit =
-    emit(StreamFrame.TextComplete(text, index))
+@JvmOverloads
+public suspend fun FlowCollector<StreamFrame>.emitTextComplete(
+    text: String,
+    index: Int? = null,
+    providerItemId: String? = null,
+): Unit = emit(StreamFrame.TextComplete(text, index, providerItemId))
 
 /**
  * Emits a [StreamFrame.ReasoningDelta] with the given [text] and [summary].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitReasoningDelta(
     id: String? = null,
     text: String? = null,
     summary: String? = null,
-    index: Int? = null
+    index: Int? = null,
+    providerItemId: String? = null,
 ): Unit =
-    emit(StreamFrame.ReasoningDelta(id, text, summary, index))
+    emit(StreamFrame.ReasoningDelta(id, text, summary, index, providerItemId))
 
 /**
  * Emits a [StreamFrame.ReasoningComplete] with the given [text].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitReasoningComplete(
     id: String? = null,
     text: String,
     summary: String? = null,
     encrypted: String? = null,
-    index: Int? = null
+    index: Int? = null,
+    providerItemId: String? = null,
+    replay: List<MessagePart.ReasoningReplay> = emptyList(),
 ): Unit =
-    emitReasoningComplete(id, listOf(text), summary?.let { listOf(it) }, encrypted, index)
+    emitReasoningComplete(id, listOf(text), summary?.let { listOf(it) }, encrypted, index, providerItemId, replay)
 
 /**
  * Emits a [StreamFrame.ReasoningComplete] with the given [text].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitReasoningComplete(
     id: String? = null,
     text: List<String>,
     summary: List<String>? = null,
     encrypted: String? = null,
-    index: Int? = null
+    index: Int? = null,
+    providerItemId: String? = null,
+    replay: List<MessagePart.ReasoningReplay> = emptyList(),
 ): Unit =
-    emit(StreamFrame.ReasoningComplete(id, text, summary, encrypted, index))
+    emit(StreamFrame.ReasoningComplete(id, text, summary, encrypted, index, providerItemId, replay))
 
 /**
  * Emits a [StreamFrame.End] with the given [finishReason].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitEnd(
     finishReason: String? = null,
-    metaInfo: ResponseMetaInfo? = null
+    metaInfo: ResponseMetaInfo? = null,
+    messageId: String? = null,
 ): Unit =
-    emit(StreamFrame.End(finishReason, metaInfo ?: ResponseMetaInfo.Empty))
+    emit(StreamFrame.End(finishReason, metaInfo ?: ResponseMetaInfo.Empty, messageId))
 
 /**
  * Emits a [StreamFrame.ToolCallDelta] with the given [id], [name] and [content].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitToolCallDelta(
     id: String?,
     name: String?,
     content: String?,
-    index: Int? = null
+    index: Int? = null,
+    providerItemId: String? = null,
 ): Unit =
-    emit(StreamFrame.ToolCallDelta(id, name, content, index))
+    emit(StreamFrame.ToolCallDelta(id, name, content, index, providerItemId))
 
 /**
  * Emits a [StreamFrame.ToolCallComplete] with the given [id], [name] and [content].
  */
+@JvmOverloads
 public suspend fun FlowCollector<StreamFrame>.emitToolCallComplete(
     id: String?,
     name: String,
     content: String,
-    index: Int? = null
+    index: Int? = null,
+    providerItemId: String? = null,
 ): Unit =
-    emit(StreamFrame.ToolCallComplete(id, name, content, index))
+    emit(StreamFrame.ToolCallComplete(id, name, content, index, providerItemId))
 
 /**
  * Builds a [Flow] of [StreamFrame] objects.
@@ -143,59 +167,128 @@ public class StreamFrameFlowBuilder(
     /**
      * Emits a [StreamFrame.TextDelta] with the given [text].
      */
-    public suspend fun emitTextDelta(text: String, index: Int? = null) {
+    @JvmOverloads
+    public suspend fun emitTextDelta(text: String, index: Int? = null, providerItemId: String? = null) {
         withStateLock {
             tryEmitPendingToolCallsLocked()
             tryEmitPendingReasoningLocked()
             val previous: PendingText? = pendingTextRef.load()
             if (previous == null) {
-                pendingTextRef.store(PendingText(textDelta = text, index = index))
+                pendingTextRef.store(PendingText(textDelta = text, index = index, providerItemId = providerItemId))
+            } else if (previous.hasConflictingIdentity(providerItemId, index)) {
+                tryEmitPendingTextLocked()
+                pendingTextRef.store(PendingText(textDelta = text, index = index, providerItemId = providerItemId))
             } else {
-                pendingTextRef.store(previous.appendTextDelta(text, index))
+                pendingTextRef.store(previous.appendTextDelta(text, index, providerItemId))
             }
-            flowCollector.emitTextDelta(text, index)
+            flowCollector.emitTextDelta(text, index, providerItemId)
         }
     }
 
     /**
      * Emits a [StreamFrame.ReasoningDelta] with the given [text].
      */
-    public suspend fun emitReasoningDelta(id: String? = null, text: String? = null, summary: String? = null, index: Int? = null) {
+    @JvmOverloads
+    public suspend fun emitReasoningDelta(
+        id: String? = null,
+        text: String? = null,
+        summary: String? = null,
+        index: Int? = null,
+        providerItemId: String? = null,
+    ) {
         withStateLock {
             tryEmitPendingToolCallsLocked()
             tryEmitPendingTextLocked()
             val previous: PendingReasoning? = pendingReasoningRef.load()
             if (previous == null) {
                 pendingReasoningRef.store(
-                    PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
+                    PendingReasoning(
+                        id = id,
+                        textDelta = text,
+                        summaryDelta = summary,
+                        index = index,
+                        providerItemId = providerItemId,
+                    )
                 )
-            } else if (previous.hasConflictingIdentity(id, index)) {
+            } else if (previous.hasConflictingIdentity(id, index, providerItemId)) {
                 tryEmitPendingReasoningLocked()
                 pendingReasoningRef.store(
-                    PendingReasoning(id = id, textDelta = text, summaryDelta = summary, index = index)
+                    PendingReasoning(
+                        id = id,
+                        textDelta = text,
+                        summaryDelta = summary,
+                        index = index,
+                        providerItemId = providerItemId,
+                    )
                 )
             } else {
-                pendingReasoningRef.store(previous.appendDelta(id, text, summary, index))
+                pendingReasoningRef.store(previous.appendDelta(id, text, summary, index, providerItemId))
             }
-            flowCollector.emitReasoningDelta(id, text, summary, index)
+            flowCollector.emitReasoningDelta(id, text, summary, index, providerItemId)
         }
     }
 
     /**
      * Attaches an encrypted reasoning payload to the pending reasoning block identified by [id] or [index].
      */
-    public suspend fun attachReasoningEncrypted(encrypted: String, id: String? = null, index: Int? = null) {
+    @JvmOverloads
+    public suspend fun attachReasoningEncrypted(
+        encrypted: String,
+        id: String? = null,
+        index: Int? = null,
+        providerItemId: String? = null,
+    ) {
         withStateLock {
             tryEmitPendingToolCallsLocked()
             tryEmitPendingTextLocked()
             val previous = pendingReasoningRef.load()
             if (previous == null) {
-                pendingReasoningRef.store(PendingReasoning(id = id, encrypted = encrypted, index = index))
-            } else if (previous.hasConflictingIdentity(id, index)) {
+                pendingReasoningRef.store(
+                    PendingReasoning(id = id, encrypted = encrypted, index = index, providerItemId = providerItemId)
+                )
+            } else if (previous.hasConflictingIdentity(id, index, providerItemId)) {
                 tryEmitPendingReasoningLocked()
-                pendingReasoningRef.store(PendingReasoning(id = id, encrypted = encrypted, index = index))
+                pendingReasoningRef.store(
+                    PendingReasoning(id = id, encrypted = encrypted, index = index, providerItemId = providerItemId)
+                )
             } else {
-                pendingReasoningRef.store(previous.attachEncrypted(encrypted, id, index))
+                pendingReasoningRef.store(previous.attachEncrypted(encrypted, id, index, providerItemId))
+            }
+        }
+    }
+
+    /** Attaches one lossless signed or opaque replay payload to pending reasoning. */
+    public suspend fun attachReasoningReplay(
+        replay: MessagePart.ReasoningReplay,
+        id: String? = null,
+        index: Int? = null,
+        providerItemId: String? = null,
+    ) {
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            val previous = pendingReasoningRef.load()
+            if (previous == null) {
+                pendingReasoningRef.store(
+                    PendingReasoning(
+                        id = id,
+                        replay = listOf(replay),
+                        index = index,
+                        providerItemId = providerItemId,
+                    )
+                )
+            } else if (previous.hasConflictingIdentity(id, index, providerItemId)) {
+                tryEmitPendingReasoningLocked()
+                pendingReasoningRef.store(
+                    PendingReasoning(
+                        id = id,
+                        replay = listOf(replay),
+                        index = index,
+                        providerItemId = providerItemId,
+                    )
+                )
+            } else {
+                pendingReasoningRef.store(previous.attachReplay(replay, id, index, providerItemId))
             }
         }
     }
@@ -203,12 +296,17 @@ public class StreamFrameFlowBuilder(
     /**
      * Emits a [StreamFrame.End] with the given [finishReason].
      */
-    public suspend fun emitEnd(finishReason: String? = null, metaInfo: ResponseMetaInfo? = null) {
+    @JvmOverloads
+    public suspend fun emitEnd(
+        finishReason: String? = null,
+        metaInfo: ResponseMetaInfo? = null,
+        messageId: String? = null,
+    ) {
         withStateLock {
             tryEmitPendingToolCallsLocked()
             tryEmitPendingTextLocked()
             tryEmitPendingReasoningLocked()
-            flowCollector.emitEnd(finishReason, metaInfo)
+            flowCollector.emitEnd(finishReason, metaInfo, messageId)
         }
     }
 
@@ -218,15 +316,17 @@ public class StreamFrameFlowBuilder(
      *
      * @throws StreamFrameFlowBuilderError if there is
      */
+    @JvmOverloads
     public suspend fun emitToolCallDelta(
         id: String? = null,
         name: String? = null,
         args: String? = null,
-        index: Int? = null
+        index: Int? = null,
+        providerItemId: String? = null,
     ) {
         withStateLock {
             val sanitizedId = id?.takeUnless { it.isBlank() }
-            val update = resolvePendingToolCallUpdate(sanitizedId, name, args, index)
+            val update = resolvePendingToolCallUpdate(sanitizedId, name, args, index, providerItemId)
             tryEmitPendingTextLocked()
             tryEmitPendingReasoningLocked()
             if (update.position == null) {
@@ -234,7 +334,27 @@ public class StreamFrameFlowBuilder(
             } else {
                 pendingToolCalls[update.position] = update.pendingToolCall
             }
-            flowCollector.emitToolCallDelta(sanitizedId, name, args, index)
+            flowCollector.emitToolCallDelta(sanitizedId, name, args, index, providerItemId)
+        }
+    }
+
+    /** Emits one complete hosted execution lifecycle update after flushing pending deltas. */
+    public suspend fun emitHostedExecutionUpdate(update: MessagePart.HostedExecution, index: Int? = null) {
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            tryEmitPendingReasoningLocked()
+            flowCollector.emit(StreamFrame.HostedExecutionUpdate(update, index))
+        }
+    }
+
+    /** Emits one complete generated-file update after flushing pending deltas. */
+    public suspend fun emitGeneratedFile(file: MessagePart.GeneratedFile, index: Int? = null) {
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            tryEmitPendingReasoningLocked()
+            flowCollector.emit(StreamFrame.GeneratedFileComplete(file, index))
         }
     }
 
@@ -250,7 +370,8 @@ public class StreamFrameFlowBuilder(
         if (pendingText != null) {
             flowCollector.emitTextComplete(
                 text = pendingText.textDelta ?: "",
-                index = pendingText.index
+                index = pendingText.index,
+                providerItemId = pendingText.providerItemId,
             )
         }
     }
@@ -270,7 +391,9 @@ public class StreamFrameFlowBuilder(
                 text = pendingReasoning.textDelta?.let { listOf(pendingReasoning.textDelta) } ?: emptyList(),
                 summary = pendingReasoning.summaryDelta?.let { listOf(pendingReasoning.summaryDelta) },
                 encrypted = pendingReasoning.encrypted,
-                index = pendingReasoning.index
+                index = pendingReasoning.index,
+                providerItemId = pendingReasoning.providerItemId,
+                replay = pendingReasoning.replay,
             )
         }
     }
@@ -290,7 +413,8 @@ public class StreamFrameFlowBuilder(
                 id = pendingToolCall.id,
                 name = pendingToolCall.name,
                 content = pendingToolCall.argumentsDelta ?: "{}",
-                index = pendingToolCall.index
+                index = pendingToolCall.index,
+                providerItemId = pendingToolCall.providerItemId,
             )
         }
     }
@@ -299,16 +423,33 @@ public class StreamFrameFlowBuilder(
         id: String?,
         name: String?,
         argumentsDelta: String?,
-        index: Int?
+        index: Int?,
+        providerItemId: String?,
     ): PendingToolCallUpdate {
         val normalizedName = name?.takeUnless { it.isBlank() }
+        val providerPosition = providerItemId?.let { value ->
+            pendingToolCalls.indexOfFirst { it.providerItemId == value }.takeIf { it >= 0 }
+        }
         val indexPosition = index?.let { value -> pendingToolCalls.indexOfFirst { it.index == value }.takeIf { it >= 0 } }
-        val idPosition = id?.let { value -> pendingToolCalls.indexOfFirst { it.id == value }.takeIf { it >= 0 } }
-        if (indexPosition != null && idPosition != null && indexPosition != idPosition) {
+        val idPosition = id?.let { value ->
+            val matchingPositions = pendingToolCalls.indices.filter { pendingToolCalls[it].id == value }
+            val eligiblePositions =
+                if (providerItemId == null) matchingPositions else matchingPositions.filter {
+                    pendingToolCalls[it].providerItemId == null
+                }
+            eligiblePositions.singleOrNull()
+        }
+        if (providerPosition != null && indexPosition != null && providerPosition != indexPosition) {
+            throw IllegalArgumentException(
+                "Tool call provider item $providerItemId and index $index identify different pending tool calls."
+            )
+        }
+        if (providerPosition == null && indexPosition != null && idPosition != null && indexPosition != idPosition) {
             throw IllegalArgumentException("Tool call id $id and index $index identify different pending tool calls.")
         }
+        val knownPosition = providerPosition ?: indexPosition ?: idPosition
         val position =
-            indexPosition ?: idPosition ?: when {
+            knownPosition ?: when {
                 index != null || id != null -> null
                 pendingToolCalls.isEmpty() -> throw StreamFrameFlowBuilderError.NoPartialToolCallToComplete()
                 pendingToolCalls.size == 1 -> 0
@@ -318,9 +459,9 @@ public class StreamFrameFlowBuilder(
             }
         val pendingToolCall =
             if (position == null) {
-                PendingToolCall(id, normalizedName ?: "", argumentsDelta, index)
+                PendingToolCall(id, normalizedName ?: "", argumentsDelta, index, providerItemId)
             } else {
-                pendingToolCalls[position].enrich(id, normalizedName, argumentsDelta, index)
+                pendingToolCalls[position].enrich(id, normalizedName, argumentsDelta, index, providerItemId)
             }
         return PendingToolCallUpdate(position, pendingToolCall)
     }
@@ -344,13 +485,26 @@ public class StreamFrameFlowBuilder(
         val name: String,
         val argumentsDelta: String?,
         val index: Int?,
+        val providerItemId: String?,
     ) {
-        fun enrich(id: String?, name: String?, argumentsDelta: String?, index: Int?): PendingToolCall {
+        fun enrich(
+            id: String?,
+            name: String?,
+            argumentsDelta: String?,
+            index: Int?,
+            providerItemId: String?,
+        ): PendingToolCall {
             if (this.id != null && id != null && this.id != id) {
                 throw IllegalArgumentException("Tool call index ${this.index ?: index} has conflicting ids ${this.id} and $id.")
             }
             if (this.index != null && index != null && this.index != index) {
                 throw IllegalArgumentException("Tool call id ${this.id ?: id} has conflicting indices ${this.index} and $index.")
+            }
+            if (this.providerItemId != null && providerItemId != null && this.providerItemId != providerItemId) {
+                throw IllegalArgumentException(
+                    "Tool call ${this.id ?: id ?: this.index ?: index} has conflicting provider item ids " +
+                        "${this.providerItemId} and $providerItemId."
+                )
             }
             if (this.name.isNotBlank() && name != null && this.name != name) {
                 throw IllegalArgumentException("Tool call ${this.id ?: id ?: this.index ?: index} has conflicting names ${this.name} and $name.")
@@ -362,6 +516,7 @@ public class StreamFrameFlowBuilder(
                 name = this.name.ifBlank { name.orEmpty() },
                 argumentsDelta = newArguments,
                 index = this.index ?: index,
+                providerItemId = this.providerItemId ?: providerItemId,
             )
         }
     }
@@ -369,11 +524,20 @@ public class StreamFrameFlowBuilder(
     private data class PendingText(
         val textDelta: String?,
         val index: Int?,
+        val providerItemId: String?,
     ) {
-        fun appendTextDelta(textDelta: String?, index: Int?): PendingText {
-            require(this.index == index)
+        fun hasConflictingIdentity(providerItemId: String?, index: Int?): Boolean =
+            (this.providerItemId != null && providerItemId != null && this.providerItemId != providerItemId) ||
+                (this.index != null && index != null && this.index != index)
+
+        fun appendTextDelta(textDelta: String?, index: Int?, providerItemId: String?): PendingText {
+            require(!hasConflictingIdentity(providerItemId, index))
             val newText = if (textDelta == null) this.textDelta else (this.textDelta ?: "") + textDelta
-            return copy(textDelta = newText)
+            return copy(
+                textDelta = newText,
+                index = this.index ?: index,
+                providerItemId = this.providerItemId ?: providerItemId,
+            )
         }
     }
 
@@ -382,14 +546,23 @@ public class StreamFrameFlowBuilder(
         val textDelta: String? = null,
         val summaryDelta: String? = null,
         val encrypted: String? = null,
+        val replay: List<MessagePart.ReasoningReplay> = emptyList(),
         val index: Int?,
+        val providerItemId: String?,
     ) {
-        fun hasConflictingIdentity(id: String?, index: Int?): Boolean =
-            (this.id != null && id != null && this.id != id) ||
+        fun hasConflictingIdentity(id: String?, index: Int?, providerItemId: String?): Boolean =
+            (this.providerItemId != null && providerItemId != null && this.providerItemId != providerItemId) ||
+                (this.id != null && id != null && this.id != id) ||
                 (this.index != null && index != null && this.index != index)
 
-        fun appendDelta(id: String?, textDelta: String?, summaryDelta: String?, index: Int?): PendingReasoning {
-            require(!hasConflictingIdentity(id, index))
+        fun appendDelta(
+            id: String?,
+            textDelta: String?,
+            summaryDelta: String?,
+            index: Int?,
+            providerItemId: String?,
+        ): PendingReasoning {
+            require(!hasConflictingIdentity(id, index, providerItemId))
             val newTextDelta = if (textDelta == null) this.textDelta else (this.textDelta ?: "") + textDelta
             val newSummaryDelta = if (summaryDelta == null) this.summaryDelta else (this.summaryDelta ?: "") + summaryDelta
             return copy(
@@ -397,11 +570,17 @@ public class StreamFrameFlowBuilder(
                 textDelta = newTextDelta,
                 summaryDelta = newSummaryDelta,
                 index = this.index ?: index,
+                providerItemId = this.providerItemId ?: providerItemId,
             )
         }
 
-        fun attachEncrypted(encrypted: String, id: String?, index: Int?): PendingReasoning {
-            require(!hasConflictingIdentity(id, index))
+        fun attachEncrypted(
+            encrypted: String,
+            id: String?,
+            index: Int?,
+            providerItemId: String?,
+        ): PendingReasoning {
+            require(!hasConflictingIdentity(id, index, providerItemId))
             require(this.encrypted == null || this.encrypted == encrypted) {
                 "Reasoning block ${this.id ?: id ?: this.index ?: index} has conflicting encrypted payloads."
             }
@@ -409,6 +588,22 @@ public class StreamFrameFlowBuilder(
                 id = this.id ?: id,
                 encrypted = encrypted,
                 index = this.index ?: index,
+                providerItemId = this.providerItemId ?: providerItemId,
+            )
+        }
+
+        fun attachReplay(
+            replay: MessagePart.ReasoningReplay,
+            id: String?,
+            index: Int?,
+            providerItemId: String?,
+        ): PendingReasoning {
+            require(!hasConflictingIdentity(id, index, providerItemId))
+            return copy(
+                id = this.id ?: id,
+                replay = this.replay + replay,
+                index = this.index ?: index,
+                providerItemId = this.providerItemId ?: providerItemId,
             )
         }
     }

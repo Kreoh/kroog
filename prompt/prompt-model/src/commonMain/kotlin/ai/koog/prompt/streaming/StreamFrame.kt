@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlin.jvm.JvmOverloads
 
 /**
  * Represents a frame of a streaming response from a LLM.
@@ -33,9 +34,10 @@ public sealed interface StreamFrame {
      * @property text The text to append to the response.
      */
     @Serializable
-    public data class TextDelta(
+    public data class TextDelta @JvmOverloads constructor(
         val text: String,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : DeltaFrame, StreamFrame
 
     /**
@@ -44,9 +46,11 @@ public sealed interface StreamFrame {
      * @property text The complete text of the response.
      */
     @Serializable
-    public data class TextComplete(
+    public data class TextComplete @JvmOverloads constructor(
         val text: String,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
+        public val generatedFileCitations: List<MessagePart.GeneratedFileCitation> = emptyList(),
     ) : CompleteFrame, StreamFrame
 
     /**
@@ -58,11 +62,12 @@ public sealed interface StreamFrame {
      * @property index The index of the frame in the list of frames.
      */
     @Serializable
-    public data class ReasoningDelta(
+    public data class ReasoningDelta @JvmOverloads constructor(
         val id: String? = null,
         val text: String? = null,
         val summary: String? = null,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : DeltaFrame, StreamFrame
 
     /**
@@ -75,12 +80,14 @@ public sealed interface StreamFrame {
      * @property index The index of the frame in the list of frames.
      */
     @Serializable
-    public data class ReasoningComplete(
+    public data class ReasoningComplete @JvmOverloads constructor(
         val id: String?,
         val content: List<String>,
         val summary: List<String>? = null,
         public val encrypted: String? = null,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
+        public val replay: List<MessagePart.ReasoningReplay> = emptyList(),
     ) : CompleteFrame, StreamFrame
 
     /**
@@ -91,11 +98,12 @@ public sealed interface StreamFrame {
      * @property content The content/arguments of the tool call. Can be null for partial frames.
      */
     @Serializable
-    public data class ToolCallDelta(
+    public data class ToolCallDelta @JvmOverloads constructor(
         val id: String?,
         val name: String?,
         val content: String?,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : DeltaFrame, StreamFrame
 
     /**
@@ -106,11 +114,12 @@ public sealed interface StreamFrame {
      * @property content The complete content/arguments of the tool call..
      */
     @Serializable
-    public data class ToolCallComplete(
+    public data class ToolCallComplete @JvmOverloads constructor(
         val id: String?,
         val name: String,
         val content: String,
-        override val index: Int? = null
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : CompleteFrame, StreamFrame {
 
         /**
@@ -136,10 +145,11 @@ public sealed interface StreamFrame {
      * @property index The response output index.
      */
     @Serializable
-    public data class CodeExecutionStart(
+    public data class CodeExecutionStart @JvmOverloads constructor(
         public val id: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : StreamFrame
 
     /**
@@ -151,11 +161,12 @@ public sealed interface StreamFrame {
      * @property index The response output index.
      */
     @Serializable
-    public data class CodeExecutionCodeDelta(
+    public data class CodeExecutionCodeDelta @JvmOverloads constructor(
         public val id: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val code: String,
         override val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : DeltaFrame
 
     /**
@@ -167,11 +178,12 @@ public sealed interface StreamFrame {
      * @property index The response output index.
      */
     @Serializable
-    public data class CodeExecutionOutput(
+    public data class CodeExecutionOutput @JvmOverloads constructor(
         public val id: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val output: MessagePart.CodeExecution.Output,
         public val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : StreamFrame
 
     /**
@@ -183,11 +195,12 @@ public sealed interface StreamFrame {
      * @property index The response output index.
      */
     @Serializable
-    public data class CodeExecutionFailure(
+    public data class CodeExecutionFailure @JvmOverloads constructor(
         public val id: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val failure: MessagePart.CodeExecution.Failure,
         public val index: Int? = null,
+        public val providerItemId: String? = null,
     ) : StreamFrame
 
     /**
@@ -201,12 +214,27 @@ public sealed interface StreamFrame {
      * @property index The response output index.
      */
     @Serializable
-    public data class CodeExecutionComplete(
+    public data class CodeExecutionComplete @JvmOverloads constructor(
         public val id: String,
         public val code: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val outputs: List<MessagePart.CodeExecution.Output>,
         public val failure: MessagePart.CodeExecution.Failure? = null,
+        override val index: Int? = null,
+        public val providerItemId: String? = null,
+    ) : CompleteFrame
+
+    /** A complete hosted execution lifecycle update. */
+    @Serializable
+    public data class HostedExecutionUpdate(
+        public val update: MessagePart.HostedExecution,
+        override val index: Int? = null,
+    ) : CompleteFrame
+
+    /** A complete provider-generated file update. */
+    @Serializable
+    public data class GeneratedFileComplete(
+        public val file: MessagePart.GeneratedFile,
         override val index: Int? = null,
     ) : CompleteFrame
 
@@ -216,8 +244,9 @@ public sealed interface StreamFrame {
      * @property finishReason The reason for the stream to end.
      */
     @Serializable
-    public data class End(
+    public data class End @JvmOverloads constructor(
         val finishReason: String? = null,
-        val metaInfo: ResponseMetaInfo = ResponseMetaInfo.Empty
+        val metaInfo: ResponseMetaInfo = ResponseMetaInfo.Empty,
+        public val messageId: String? = null,
     ) : StreamFrame
 }

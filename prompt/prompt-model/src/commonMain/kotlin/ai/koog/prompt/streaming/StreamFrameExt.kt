@@ -13,6 +13,69 @@ import kotlin.jvm.JvmName
 private val logger = KotlinLogging.logger {}
 
 /**
+ * Identity used while accumulating stream frames.
+ *
+ * [ProviderItem] is stable replay metadata. [Internal] exists only while merging a stream and must never be copied to
+ * a message part's `providerItemId`.
+ */
+public sealed interface StreamFrameMergeIdentity {
+    public val value: String
+
+    /** A stable identity supplied by the provider. */
+    public data class ProviderItem(override val value: String) : StreamFrameMergeIdentity
+
+    /** A framework-local fallback identity. */
+    public data class Internal(
+        public val kind: String,
+        override val value: String,
+    ) : StreamFrameMergeIdentity
+}
+
+/**
+ * Returns this frame's merge identity, preferring a non-blank provider item ID over an internal frame key.
+ */
+public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
+    val providerItemId = when (this) {
+        is StreamFrame.TextDelta -> providerItemId
+        is StreamFrame.TextComplete -> providerItemId
+        is StreamFrame.ReasoningDelta -> providerItemId
+        is StreamFrame.ReasoningComplete -> providerItemId
+        is StreamFrame.ToolCallDelta -> providerItemId
+        is StreamFrame.ToolCallComplete -> providerItemId
+        is StreamFrame.CodeExecutionStart -> providerItemId
+        is StreamFrame.CodeExecutionCodeDelta -> providerItemId
+        is StreamFrame.CodeExecutionOutput -> providerItemId
+        is StreamFrame.CodeExecutionFailure -> providerItemId
+        is StreamFrame.CodeExecutionComplete -> providerItemId
+        is StreamFrame.HostedExecutionUpdate -> update.providerItemId
+        is StreamFrame.GeneratedFileComplete -> file.providerItemId
+        is StreamFrame.End -> null
+    }
+    providerItemId?.takeIf(String::isNotBlank)?.let {
+        return StreamFrameMergeIdentity.ProviderItem(it)
+    }
+
+    val internal = when (this) {
+        is StreamFrame.TextDelta -> index?.let { "text-index" to it.toString() }
+        is StreamFrame.TextComplete -> index?.let { "text-index" to it.toString() }
+        is StreamFrame.ReasoningDelta -> id?.let { "reasoning-id" to it } ?: index?.let { "reasoning-index" to it.toString() }
+        is StreamFrame.ReasoningComplete -> id?.let { "reasoning-id" to it } ?: index?.let { "reasoning-index" to it.toString() }
+        is StreamFrame.ToolCallDelta -> index?.let { "tool-index" to it.toString() } ?: id?.let { "call-id" to it }
+        is StreamFrame.ToolCallComplete -> index?.let { "tool-index" to it.toString() } ?: id?.let { "call-id" to it }
+        is StreamFrame.CodeExecutionStart -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
+        is StreamFrame.CodeExecutionCodeDelta -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
+        is StreamFrame.CodeExecutionOutput -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
+        is StreamFrame.CodeExecutionFailure -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
+        is StreamFrame.CodeExecutionComplete -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
+        is StreamFrame.HostedExecutionUpdate ->
+            update.executionId?.let { "execution-id" to it } ?: index?.let { "execution-index" to it.toString() }
+        is StreamFrame.GeneratedFileComplete -> "provider-file-id" to file.providerFileId
+        is StreamFrame.End -> null
+    }
+    return internal?.let { (kind, value) -> StreamFrameMergeIdentity.Internal(kind, value) }
+}
+
+/**
  * Converts a [Message.Assistant] to a list of [StreamFrame].
  * First it emits the delta frames for each content part for each message, then complete frame with the full message content.
  */
@@ -27,7 +90,8 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
                                 id = part.id,
                                 text = it,
                                 summary = null,
-                                index = index
+                                index = index,
+                                providerItemId = part.providerItemId,
                             )
                         )
                     }
@@ -38,7 +102,8 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
                                 id = part.id,
                                 text = null,
                                 summary = it,
-                                index = index
+                                index = index,
+                                providerItemId = part.providerItemId,
                             )
                         )
                     }
@@ -49,19 +114,21 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
                             content = part.content,
                             summary = part.summary,
                             encrypted = part.encrypted,
-                            index = index
+                            index = index,
+                            providerItemId = part.providerItemId,
+                            replay = part.replay,
                         )
                     )
                 }
 
                 is MessagePart.CodeExecution -> {
-                    add(StreamFrame.CodeExecutionStart(part.id, part.containerId, index))
-                    add(StreamFrame.CodeExecutionCodeDelta(part.id, part.containerId, part.code, index))
+                    add(StreamFrame.CodeExecutionStart(part.id, part.containerId, index, part.providerItemId))
+                    add(StreamFrame.CodeExecutionCodeDelta(part.id, part.containerId, part.code, index, part.providerItemId))
                     part.outputs.forEach { output ->
-                        add(StreamFrame.CodeExecutionOutput(part.id, part.containerId, output, index))
+                        add(StreamFrame.CodeExecutionOutput(part.id, part.containerId, output, index, part.providerItemId))
                     }
                     part.failure?.let { failure ->
-                        add(StreamFrame.CodeExecutionFailure(part.id, part.containerId, failure, index))
+                        add(StreamFrame.CodeExecutionFailure(part.id, part.containerId, failure, index, part.providerItemId))
                     }
                     add(
                         StreamFrame.CodeExecutionComplete(
@@ -71,18 +138,34 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
                             outputs = part.outputs,
                             failure = part.failure,
                             index = index,
+                            providerItemId = part.providerItemId,
                         )
                     )
                 }
 
+                is MessagePart.HostedExecution -> {
+                    add(StreamFrame.HostedExecutionUpdate(part, index))
+                }
+
+                is MessagePart.GeneratedFile -> {
+                    add(StreamFrame.GeneratedFileComplete(part, index))
+                }
+
                 is MessagePart.Text -> {
-                    add(StreamFrame.TextDelta(part.text, index))
-                    add(StreamFrame.TextComplete(part.text, index))
+                    add(StreamFrame.TextDelta(part.text, index, part.providerItemId))
+                    add(
+                        StreamFrame.TextComplete(
+                            part.text,
+                            index,
+                            part.providerItemId,
+                            part.generatedFileCitations,
+                        )
+                    )
                 }
 
                 is MessagePart.Tool.Call -> {
-                    add(StreamFrame.ToolCallDelta(part.id, part.tool, part.args, index))
-                    add(StreamFrame.ToolCallComplete(part.id, part.tool, part.args, index))
+                    add(StreamFrame.ToolCallDelta(part.id, part.tool, part.args, index, part.providerItemId))
+                    add(StreamFrame.ToolCallComplete(part.id, part.tool, part.args, index, part.providerItemId))
                 }
 
                 is MessagePart.Attachment -> {
@@ -94,7 +177,8 @@ public fun Message.Assistant.toStreamFrames(): List<StreamFrame> {
         add(
             StreamFrame.End(
                 finishReason = finishReason,
-                metaInfo = metaInfo
+                metaInfo = metaInfo,
+                messageId = id,
             )
         )
     }
@@ -117,16 +201,23 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
                 content = frame.content,
                 summary = frame.summary,
                 encrypted = frame.encrypted,
+                providerItemId = frame.providerItemId,
+                replay = frame.replay,
             )
 
             is StreamFrame.TextComplete ->
-                MessagePart.Text(frame.text)
+                MessagePart.Text(
+                    frame.text,
+                    providerItemId = frame.providerItemId,
+                    generatedFileCitations = frame.generatedFileCitations,
+                )
 
             is StreamFrame.ToolCallComplete ->
                 MessagePart.Tool.Call(
                     id = frame.id,
                     tool = frame.name,
                     args = Json.parseToJsonElement(frame.content).jsonObject,
+                    providerItemId = frame.providerItemId,
                 )
 
             is StreamFrame.CodeExecutionComplete ->
@@ -136,7 +227,12 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
                     containerId = frame.containerId,
                     outputs = frame.outputs,
                     failure = frame.failure,
+                    providerItemId = frame.providerItemId,
                 )
+
+            is StreamFrame.HostedExecutionUpdate -> frame.update
+
+            is StreamFrame.GeneratedFileComplete -> frame.file
 
             is StreamFrame.End -> {
                 end = frame
@@ -150,6 +246,7 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
     return Message.Assistant(
         parts = parts,
         finishReason = end?.finishReason,
-        metaInfo = end?.metaInfo ?: ResponseMetaInfo.Empty
+        metaInfo = end?.metaInfo ?: ResponseMetaInfo.Empty,
+        id = end?.messageId,
     )
 }

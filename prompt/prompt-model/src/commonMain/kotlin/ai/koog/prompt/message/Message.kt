@@ -278,6 +278,8 @@ public sealed interface MessagePart {
     public data class Text @JvmOverloads constructor(
         public val text: String,
         override val cacheControl: CacheControl? = null,
+        public val providerItemId: String? = null,
+        public val generatedFileCitations: List<GeneratedFileCitation> = emptyList(),
     ) : ContentPart
 
     /**
@@ -295,7 +297,7 @@ public sealed interface MessagePart {
      * Represents a reasoning message exchanged in a chat system, encapsulating the content,
      * role, and associated metadata, with an optional reference to the original thinking process.
      *
-     * @property id An optional identifier for the reasoning process.
+     * @property id An optional framework-local identifier for the reasoning process.
      * @property content The content of the reasoning message.
      * @property summary An optional summary of the reasoning process.
      * @property encrypted The encrypted content of the reasoning message.
@@ -307,6 +309,8 @@ public sealed interface MessagePart {
         public val encrypted: String? = null,
         public val id: String? = null,
         override val cacheControl: CacheControl? = null,
+        public val providerItemId: String? = null,
+        public val replay: List<ReasoningReplay> = emptyList(),
     ) : ResponsePart {
 
         /**
@@ -320,34 +324,167 @@ public sealed interface MessagePart {
             summary: List<String>? = null,
             encrypted: String? = null,
             id: String? = null,
-            cacheControl: CacheControl? = null
+            cacheControl: CacheControl? = null,
+            providerItemId: String? = null,
+            replay: List<ReasoningReplay> = emptyList(),
         ) : this(
             listOf(content),
             summary,
             encrypted,
             id,
-            cacheControl
+            cacheControl,
+            providerItemId,
+            replay,
         )
+    }
+
+    /**
+     * Lossless provider replay content associated with a reasoning part.
+     *
+     * Signed text and opaque redacted payloads are deliberately different variants. Opaque payloads must be replayed
+     * unchanged and must not be parsed or exposed as reasoning text.
+     */
+    @Serializable
+    public sealed interface ReasoningReplay {
+
+        /** Signed reasoning text and its provider signature. */
+        @Serializable
+        public data class Signed(
+            public val text: String,
+            public val signature: String,
+        ) : ReasoningReplay
+
+        /** Provider-owned redacted reasoning data that must remain opaque. */
+        @Serializable
+        public data class OpaqueRedacted(
+            public val data: String,
+        ) : ReasoningReplay
+    }
+
+    /**
+     * Metadata for a provider-generated file.
+     *
+     * All descriptive fields are optional because streaming citations may initially contain only a provider file ID.
+     */
+    @Serializable
+    public data class GeneratedFileCitation @JvmOverloads constructor(
+        public val providerFileId: String,
+        public val containerId: String? = null,
+        public val filename: String? = null,
+        public val mediaType: String? = null,
+        public val sizeBytes: Long? = null,
+        public val producingExecutionId: String? = null,
+        public val providerItemId: String? = null,
+        public val startIndex: Int? = null,
+        public val endIndex: Int? = null,
+    )
+
+    /** A generated file returned by provider-hosted execution. */
+    @Serializable
+    public data class GeneratedFile @JvmOverloads constructor(
+        public val providerFileId: String,
+        public val containerId: String? = null,
+        public val filename: String? = null,
+        public val mediaType: String? = null,
+        public val sizeBytes: Long? = null,
+        public val producingExecutionId: String? = null,
+        public val providerItemId: String? = null,
+        override val cacheControl: CacheControl? = null,
+    ) : ResponsePart
+
+    /**
+     * Provider-neutral hosted execution lifecycle content.
+     *
+     * [executionId] is the framework's execution key. [providerItemId] is the provider's replay identity. A provider
+     * container is optional for every lifecycle variant.
+     */
+    @Serializable
+    public sealed interface HostedExecution : ResponsePart {
+        public val executionId: String?
+        public val containerId: String?
+        public val providerItemId: String?
+
+        /** A request to execute [code] in provider-managed infrastructure. */
+        @Serializable
+        public data class Request @JvmOverloads constructor(
+            public val code: String,
+            public val language: String = "python",
+            override val executionId: String? = null,
+            override val containerId: String? = null,
+            override val providerItemId: String? = null,
+            override val cacheControl: CacheControl? = null,
+        ) : HostedExecution
+
+        /** A provider progress update. */
+        @Serializable
+        public data class Progress @JvmOverloads constructor(
+            public val message: String? = null,
+            public val sequence: Int? = null,
+            override val executionId: String? = null,
+            override val containerId: String? = null,
+            override val providerItemId: String? = null,
+            override val cacheControl: CacheControl? = null,
+        ) : HostedExecution
+
+        /**
+         * The complete output observed for an execution at [sequence].
+         *
+         * [output] is cumulative rather than a delta, so consumers can replace prior output safely after reconnects.
+         */
+        @Serializable
+        public data class CumulativeOutput @JvmOverloads constructor(
+            public val output: String,
+            public val sequence: Int? = null,
+            override val executionId: String? = null,
+            override val containerId: String? = null,
+            override val providerItemId: String? = null,
+            override val cacheControl: CacheControl? = null,
+        ) : HostedExecution
+
+        /** A successful terminal execution result. */
+        @Serializable
+        public data class Result @JvmOverloads constructor(
+            public val output: String? = null,
+            public val exitCode: Int? = null,
+            public val generatedFiles: List<GeneratedFile> = emptyList(),
+            override val executionId: String? = null,
+            override val containerId: String? = null,
+            override val providerItemId: String? = null,
+            override val cacheControl: CacheControl? = null,
+        ) : HostedExecution
+
+        /** A terminal hosted execution error. */
+        @Serializable
+        public data class Error @JvmOverloads constructor(
+            public val message: String,
+            public val code: String? = null,
+            override val executionId: String? = null,
+            override val containerId: String? = null,
+            override val providerItemId: String? = null,
+            override val cacheControl: CacheControl? = null,
+        ) : HostedExecution
     }
 
     /**
      * Represents one provider-hosted code execution and its ordered outputs.
      *
-     * @property id The provider item identifier.
+     * @property id The framework execution identifier retained for compatibility.
      * @property code The executed code.
-     * @property containerId The provider container identifier.
+     * @property containerId The optional provider container identifier.
      * @property outputs Ordered log and image outputs.
      * @property failure The terminal failure state, or null when execution completed successfully.
      * @property cacheControl Optional cache-control directive.
+     * @property providerItemId The stable provider replay identifier, when supplied.
      */
     @Serializable
     public data class CodeExecution @JvmOverloads constructor(
         public val id: String,
         public val code: String,
-        public val containerId: String,
+        public val containerId: String?,
         public val outputs: List<Output> = emptyList(),
         public val failure: Failure? = null,
         override val cacheControl: CacheControl? = null,
+        public val providerItemId: String? = null,
     ) : ResponsePart {
 
         /** A typed output produced by provider-hosted code execution. */
@@ -397,7 +534,12 @@ public sealed interface MessagePart {
             override val tool: String,
             public val args: String,
             override val cacheControl: CacheControl? = null,
+            public val providerItemId: String? = null,
         ) : Tool, ResponsePart {
+
+            /** The provider function-call identifier, kept separate from [providerItemId]. */
+            public val callId: String?
+                get() = id
 
             // TODO: replace with JSONObject?
             /** Lazily parsed [JsonObject] view of [args]. */
@@ -416,11 +558,13 @@ public sealed interface MessagePart {
                 tool: String,
                 args: JsonObject,
                 cacheControl: CacheControl? = null,
+                providerItemId: String? = null,
             ) : this(
                 id = id,
                 tool = tool,
                 args = Json.encodeToString(args),
-                cacheControl = cacheControl
+                cacheControl = cacheControl,
+                providerItemId = providerItemId,
             )
         }
 
@@ -441,7 +585,12 @@ public sealed interface MessagePart {
             public val parts: List<ContentPart>,
             public val isError: Boolean = false,
             override val cacheControl: CacheControl? = null,
+            public val providerItemId: String? = null,
         ) : Tool, RequestPart {
+
+            /** The provider function-call identifier, kept separate from [providerItemId]. */
+            public val callId: String?
+                get() = id
 
             /** Convenience constructor for a single text output. */
             @JvmOverloads
@@ -451,8 +600,9 @@ public sealed interface MessagePart {
                 output: String,
                 isError: Boolean = false,
                 cacheControl: CacheControl? = null,
+                providerItemId: String? = null,
             ) :
-                this(id, tool, listOf(Text(output)), isError, cacheControl)
+                this(id, tool, listOf(Text(output)), isError, cacheControl, providerItemId)
 
             /** Returns the concatenated text content of all text parts. */
             public val output: String

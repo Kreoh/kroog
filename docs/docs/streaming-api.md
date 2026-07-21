@@ -1,5 +1,16 @@
 # Streaming API
 
+## JVM migration for provider-aware content
+
+Provider-aware prompt and stream models add optional data-class properties for provider item identity, reasoning replay,
+hosted execution, generated files, citations, and response message identity. Existing Kotlin source continues to use the
+retained constructors and helper overloads because every added property has a default where an older call shape exists.
+
+Previously compiled JVM consumers must be recompiled when adopting this version. Kotlin data classes expose generated
+`componentN`, `copy`, and `copy$default` methods whose JVM signatures change when constructor properties are added, so
+the retained constructors and helpers provide source compatibility rather than binary compatibility. Clean and rebuild
+every JVM module that consumes `prompt-model` or `prompt-executor-clients` before running with the updated JARs.
+
 Koog’s **Streaming API** lets you consume **LLM output incrementally** as a `Flow<StreamFrame>` in Kotlin / `Flow.Publisher<StreamFrame>` in Java.
 Instead of waiting for a full response, your code can:
 
