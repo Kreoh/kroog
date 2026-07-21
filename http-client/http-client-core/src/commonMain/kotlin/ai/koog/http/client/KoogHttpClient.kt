@@ -41,6 +41,20 @@ public interface KoogHttpClient : AutoCloseable {
     ): R
 
     /**
+     * Sends an HTTP GET request and returns the response body without text conversion.
+     *
+     * Implementations that do not support binary responses fail explicitly. This default keeps existing
+     * implementations source-compatible while allowing callers to detect the unsupported operation.
+     */
+    public suspend fun getBytes(
+        path: String,
+        parameters: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
+    ): KoogHttpResponse<ByteArray> = throw UnsupportedOperationException(
+        "$clientName does not support raw byte responses"
+    )
+
+    /**
      * Sends an HTTP POST request to the specified `path` with the provided request body.
      * The type of the request body and the expected response must be explicitly specified
      * using `requestBodyType` and `responseType`, respectively.
@@ -63,6 +77,42 @@ public interface KoogHttpClient : AutoCloseable {
         parameters: Map<String, String> = emptyMap(),
         headers: Map<String, String> = emptyMap(),
     ): R
+
+    /**
+     * Sends an HTTP POST request and returns the response body without text conversion.
+     */
+    public suspend fun <T : Any> postBytes(
+        path: String,
+        requestBody: T,
+        requestBodyType: KClass<T>,
+        parameters: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
+    ): KoogHttpResponse<ByteArray> = throw UnsupportedOperationException(
+        "$clientName does not support raw byte responses"
+    )
+
+    /**
+     * Sends a binary-safe multipart HTTP POST request.
+     */
+    public suspend fun postMultipart(
+        path: String,
+        parts: List<KoogHttpMultipartPart>,
+        parameters: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
+    ): KoogHttpResponse<ByteArray> = throw UnsupportedOperationException(
+        "$clientName does not support multipart requests"
+    )
+
+    /**
+     * Sends an HTTP DELETE request and returns any response body without text conversion.
+     */
+    public suspend fun delete(
+        path: String,
+        parameters: Map<String, String> = emptyMap(),
+        headers: Map<String, String> = emptyMap(),
+    ): KoogHttpResponse<ByteArray> = throw UnsupportedOperationException(
+        "$clientName does not support DELETE requests"
+    )
 
     /**
      * Initiates a Server-Sent Events (SSE) streaming operation over an HTTP POST request.
@@ -156,6 +206,63 @@ public interface KoogHttpClient : AutoCloseable {
 }
 
 /**
+ * An HTTP response whose status, headers and request identifier remain available to callers.
+ *
+ * @property body Response body.
+ * @property statusCode Numeric HTTP status code.
+ * @property headers Response headers. Repeated values retain their wire order.
+ * @property requestId Provider request identifier when supplied in a recognised response header.
+ */
+public data class KoogHttpResponse<out T>(
+    public val body: T,
+    public val statusCode: Int,
+    public val headers: Map<String, List<String>>,
+    public val requestId: String?,
+)
+
+/** A part in a binary-safe multipart request body. */
+public sealed interface KoogHttpMultipartPart {
+    /**
+     * A UTF-8 text form field.
+     *
+     * @property name Form field name.
+     * @property value Text value.
+     */
+    public data class Text(public val name: String, public val value: String) : KoogHttpMultipartPart
+
+    /**
+     * A file form field whose bytes are sent unchanged.
+     *
+     * @property name Form field name.
+     * @property filename Explicit filename supplied in Content-Disposition.
+     * @property mediaType Explicit media type supplied in Content-Type.
+     * @property bytes File bytes. They are never converted to text.
+     */
+    public data class File(
+        public val name: String,
+        public val filename: String,
+        public val mediaType: String,
+        public val bytes: ByteArray,
+    ) : KoogHttpMultipartPart {
+        override fun equals(other: Any?): Boolean =
+            this === other ||
+                other is File &&
+                name == other.name &&
+                filename == other.filename &&
+                mediaType == other.mediaType &&
+                bytes.contentEquals(other.bytes)
+
+        override fun hashCode(): Int {
+            var result = name.hashCode()
+            result = 31 * result + filename.hashCode()
+            result = 31 * result + mediaType.hashCode()
+            result = 31 * result + bytes.contentHashCode()
+            return result
+        }
+    }
+}
+
+/**
  * Sends an HTTP POST request to the specified `path` with the provided request body.
  *
  * @param path The endpoint path to which the HTTP POST request is sent.
@@ -172,6 +279,14 @@ public suspend inline fun <reified T : Any, reified R : Any> KoogHttpClient.post
     parameters: Map<String, String> = emptyMap(),
     headers: Map<String, String> = emptyMap(),
 ): R = post(path, requestBody, T::class, R::class, parameters, headers)
+
+/** Sends an HTTP POST request and returns its raw response bytes and metadata. */
+public suspend inline fun <reified T : Any> KoogHttpClient.postBytes(
+    path: String,
+    requestBody: T,
+    parameters: Map<String, String> = emptyMap(),
+    headers: Map<String, String> = emptyMap(),
+): KoogHttpResponse<ByteArray> = postBytes(path, requestBody, T::class, parameters, headers)
 
 /**
  * Sends an HTTP GET request to the specified `path` with the provided parameters.

@@ -2,6 +2,7 @@ package ai.koog.http.client.test
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
+import ai.koog.http.client.KoogHttpMultipartPart
 import ai.koog.http.client.get
 import ai.koog.http.client.lines
 import ai.koog.http.client.post
@@ -9,7 +10,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -20,7 +23,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.assertThrows
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -37,7 +42,7 @@ abstract class BaseKoogHttpClientTest {
     @Serializable
     data class TestResponse(val response: String)
 
-    private lateinit var mockServer: MockWebServer
+    protected lateinit var mockServer: MockWebServer
 
     @BeforeEach
     fun setUp() {
@@ -458,5 +463,128 @@ abstract class BaseKoogHttpClientTest {
         )
 
         assertEquals(responseBody, result)
+    }
+
+    @Suppress("FunctionName")
+    open fun `test raw bytes preserve zeros status headers and request id`(): Unit = runTest {
+        val bytes = byteArrayOf(0, 1, 0, -1)
+        mockServer.start(
+            rawEndpoints = listOf(
+                MockWebServer.RawEndpointConfig(
+                    path = "/binary",
+                    method = io.ktor.http.HttpMethod.Get,
+                    responseBody = bytes,
+                    responseHeaders = mapOf("x-request-id" to "req-123", "x-provider" to "fixture"),
+                )
+            )
+        )
+
+        val response = createClient().getBytes(mockServer.url("/binary"))
+
+        assertContentEquals(bytes, response.body)
+        assertEquals(200, response.statusCode)
+        assertEquals("req-123", response.requestId)
+        assertEquals("fixture", response.headers["x-provider"]?.single())
+    }
+
+    @Suppress("FunctionName")
+    open fun `test multipart preserves text filename media type and binary zeros`(): Unit = runTest {
+        val bytes = byteArrayOf(0, 65, 0, -1)
+        var textPart: Pair<String?, String>? = null
+        var filePart: List<Any?>? = null
+        mockServer.start(
+            multipartEndpoints = listOf(
+                MockWebServer.MultipartEndpointConfig(
+                    path = "/upload",
+                    responseBody = "{}".encodeToByteArray(),
+                    onTextPart = { name, value -> textPart = name to value },
+                    onFilePart = { name, filename, mediaType, content ->
+                        filePart = listOf(name, filename, mediaType, content)
+                    },
+                )
+            )
+        )
+
+        createClient().postMultipart(
+            mockServer.url("/upload"),
+            listOf(
+                KoogHttpMultipartPart.Text("purpose", "assistants"),
+                KoogHttpMultipartPart.File("file", "zero.bin", "application/octet-stream", bytes),
+            ),
+        )
+
+        assertEquals("purpose" to "assistants", textPart)
+        assertEquals("file", filePart?.get(0))
+        assertEquals("zero.bin", filePart?.get(1))
+        assertEquals("application/octet-stream", filePart?.get(2))
+        assertContentEquals(bytes, filePart?.get(3) as ByteArray)
+    }
+
+    @Suppress("FunctionName")
+    open fun `test delete and structured failures preserve response metadata`(): Unit = runTest {
+        mockServer.start(
+            rawEndpoints = listOf(
+                MockWebServer.RawEndpointConfig(
+                    path = "/deleted",
+                    method = io.ktor.http.HttpMethod.Delete,
+                    statusCode = HttpStatusCode.NoContent,
+                ),
+                MockWebServer.RawEndpointConfig(
+                    path = "/missing",
+                    method = io.ktor.http.HttpMethod.Get,
+                    responseBody = "{\"error\":{\"message\":\"missing\",\"code\":\"not_found\"}}".encodeToByteArray(),
+                    statusCode = HttpStatusCode.NotFound,
+                    contentType = ContentType.Application.Json,
+                    responseHeaders = mapOf("apim-request-id" to "azure-404"),
+                ),
+                MockWebServer.RawEndpointConfig(
+                    path = "/conflict",
+                    method = io.ktor.http.HttpMethod.Get,
+                    responseBody = "{\"error\":{\"message\":\"busy\",\"code\":\"conflict\"}}".encodeToByteArray(),
+                    statusCode = HttpStatusCode.Conflict,
+                    contentType = ContentType.Application.Json,
+                ),
+            )
+        )
+        val client = createClient()
+
+        val deleted = client.delete(mockServer.url("/deleted"))
+        assertEquals(204, deleted.statusCode)
+        assertContentEquals(byteArrayOf(), deleted.body)
+
+        val missing = assertFailsWith<KoogHttpClientException> { client.getBytes(mockServer.url("/missing")) }
+        assertEquals(404, missing.statusCode)
+        assertEquals("azure-404", missing.requestId)
+        assertTrue(missing.errorBody.orEmpty().contains("not_found"))
+
+        val conflict = assertFailsWith<KoogHttpClientException> { client.getBytes(mockServer.url("/conflict")) }
+        assertEquals(409, conflict.statusCode)
+        assertTrue(conflict.errorBody.orEmpty().contains("conflict"))
+    }
+
+    @Suppress("FunctionName")
+    open fun `test raw request propagates cancellation`(): Unit = runTest {
+        val requestStarted = CompletableDeferred<Unit>()
+        mockServer.start(
+            rawEndpoints = listOf(
+                MockWebServer.RawEndpointConfig(
+                    path = "/slow",
+                    method = io.ktor.http.HttpMethod.Get,
+                    responseDelayMillis = 10_000,
+                    onRequest = { requestStarted.complete(Unit) },
+                )
+            )
+        )
+        val request = async { createClient().getBytes(mockServer.url("/slow")) }
+
+        withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(2_000) {
+                requestStarted.await()
+            }
+        }
+        assertTrue(request.isActive)
+        request.cancel()
+
+        assertFailsWith<CancellationException> { request.await() }
     }
 }

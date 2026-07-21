@@ -1051,6 +1051,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                         logger.debug { "Model does not support reasoning, ignoring reasoning message" }
                                     }
                                 }
+
+                                is MessagePart.GeneratedFile,
+                                is MessagePart.HostedExecution -> {
+                                    logger.debug { "Provider-neutral hosted execution replay is not mapped yet" }
+                                }
                             }
                         }
                     }
@@ -1188,7 +1193,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private fun MessagePart.CodeExecution.toOpenAIItem(): Item.CodeInterpreterToolCall =
         Item.CodeInterpreterToolCall(
             code = code,
-            containerId = containerId,
+            containerId = requireNotNull(containerId) {
+                "OpenAI code execution replay requires a provider container ID"
+            },
             id = id,
             outputs =
             outputs.map { output ->

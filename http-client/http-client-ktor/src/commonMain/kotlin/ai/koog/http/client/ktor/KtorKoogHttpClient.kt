@@ -2,6 +2,8 @@ package ai.koog.http.client.ktor
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
+import ai.koog.http.client.KoogHttpMultipartPart
+import ai.koog.http.client.KoogHttpResponse
 import ai.koog.http.client.mergeHeaders
 import ai.koog.utils.io.SuitableForIO
 import io.github.oshai.kotlinlogging.KLogger
@@ -18,21 +20,24 @@ import io.ktor.client.plugins.sse.SSEClientException
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.preparePost
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.http.encodedPath
-import io.ktor.http.headers
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
 import io.ktor.serialization.kotlinx.json.json
@@ -95,18 +100,41 @@ public class KtorKoogHttpClient internal constructor(
             clientName = clientName,
             statusCode = response.status.value,
             errorBody = response.bodyAsText(),
+            responseHeaders = response.headers.asMap(),
+            requestId = response.requestId(),
         )
     }
+
+    private suspend fun processByteResponse(response: HttpResponse): KoogHttpResponse<ByteArray> {
+        if (response.status.isSuccess()) {
+            return KoogHttpResponse(
+                body = response.body(),
+                statusCode = response.status.value,
+                headers = response.headers.asMap(),
+                requestId = response.requestId(),
+            )
+        }
+        throw KoogHttpClientException(
+            clientName = clientName,
+            statusCode = response.status.value,
+            errorBody = response.bodyAsText(),
+            responseHeaders = response.headers.asMap(),
+            requestId = response.requestId(),
+        )
+    }
+
+    private fun HttpResponse.requestId(): String? =
+        REQUEST_ID_HEADERS.firstNotNullOfOrNull { headerName -> headers[headerName] }
+
+    private fun Headers.asMap(): Map<String, List<String>> = entries().associate { it.key to it.value }
 
     private fun HttpRequestBuilder.applyRequestHeaders(headers: Map<String, String>) {
         headers.forEach { (name, value) ->
             if (name.equals(HttpHeaders.ContentType, ignoreCase = true)) {
                 contentType(ContentType.parse(value))
             } else {
-                headers {
-                    remove(name)
-                    append(name, value)
-                }
+                this.headers.remove(name)
+                this.headers.append(name, value)
             }
         }
     }
@@ -124,6 +152,18 @@ public class KtorKoogHttpClient internal constructor(
             applyRequestHeaders(headers)
         }
         processResponse(response, responseType)
+    }
+
+    override suspend fun getBytes(
+        path: String,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): KoogHttpResponse<ByteArray> = withContext(Dispatchers.SuitableForIO) {
+        val response = ktorClient.get(path) {
+            parameters.forEach { (key, value) -> parameter(key, value) }
+            applyRequestHeaders(headers)
+        }
+        processByteResponse(response)
     }
 
     override suspend fun <T : Any, R : Any> post(
@@ -148,6 +188,74 @@ public class KtorKoogHttpClient internal constructor(
         }
 
         processResponse(response, responseType)
+    }
+
+    override suspend fun <T : Any> postBytes(
+        path: String,
+        requestBody: T,
+        requestBodyType: KClass<T>,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): KoogHttpResponse<ByteArray> = withContext(Dispatchers.SuitableForIO) {
+        val response = ktorClient.post(path) {
+            if (requestBodyType == String::class) {
+                @Suppress("UNCHECKED_CAST")
+                setBody(requestBody as String)
+            } else {
+                setBody(requestBody, TypeInfo(requestBodyType))
+            }
+            parameters.forEach { (key, value) -> parameter(key, value) }
+            applyRequestHeaders(headers)
+        }
+        processByteResponse(response)
+    }
+
+    override suspend fun postMultipart(
+        path: String,
+        parts: List<KoogHttpMultipartPart>,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): KoogHttpResponse<ByteArray> = withContext(Dispatchers.SuitableForIO) {
+        val response = ktorClient.post(path) {
+            parameters.forEach { (key, value) -> parameter(key, value) }
+            applyRequestHeaders(headers)
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        parts.forEach { part ->
+                            when (part) {
+                                is KoogHttpMultipartPart.Text -> append(part.name, part.value)
+                                is KoogHttpMultipartPart.File -> append(
+                                    key = part.name,
+                                    value = part.bytes,
+                                    headers = Headers.build {
+                                        append(
+                                            HttpHeaders.ContentDisposition,
+                                            "form-data; name=\"${part.name}\"; filename=\"${part.filename}\""
+                                        )
+                                        append(HttpHeaders.ContentType, part.mediaType)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        processByteResponse(response)
+    }
+
+    override suspend fun delete(
+        path: String,
+        parameters: Map<String, String>,
+        headers: Map<String, String>,
+    ): KoogHttpResponse<ByteArray> = withContext(Dispatchers.SuitableForIO) {
+        val response = ktorClient.request(path) {
+            method = HttpMethod.Delete
+            parameters.forEach { (key, value) -> parameter(key, value) }
+            applyRequestHeaders(headers)
+        }
+        processByteResponse(response)
     }
 
     override fun <T : Any, R : Any, O : Any> sse(
@@ -209,6 +317,8 @@ public class KtorKoogHttpClient internal constructor(
                 clientName = clientName,
                 statusCode = e.response?.status?.value,
                 errorBody = errorBody,
+                responseHeaders = e.response?.headers?.asMap().orEmpty(),
+                requestId = e.response?.requestId(),
                 message = e.message,
                 cause = e
             )
@@ -250,6 +360,8 @@ public class KtorKoogHttpClient internal constructor(
                         clientName = clientName,
                         statusCode = response.status.value,
                         errorBody = response.bodyAsText(),
+                        responseHeaders = response.headers.asMap(),
+                        requestId = response.requestId(),
                     )
                 }
 
@@ -276,6 +388,10 @@ public class KtorKoogHttpClient internal constructor(
     override fun close() {
         logger.debug { "Closing $clientName" }
         ktorClient.close()
+    }
+
+    private companion object {
+        private val REQUEST_ID_HEADERS = listOf("x-request-id", "request-id", "apim-request-id", "x-ms-request-id")
     }
 
     /**

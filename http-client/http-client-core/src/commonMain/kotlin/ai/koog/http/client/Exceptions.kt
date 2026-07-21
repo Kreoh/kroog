@@ -20,4 +20,26 @@ public class KoogHttpClientException(
         }
     },
     cause
-)
+) {
+    /** Response headers retained for structured HTTP failures. */
+    public var responseHeaders: Map<String, List<String>> = emptyMap()
+        private set
+
+    /** Provider request identifier retained for diagnostics. */
+    public var requestId: String? = null
+        private set
+
+    /** Creates a failure that retains response headers and a provider request identifier. */
+    public constructor(
+        clientName: String?,
+        statusCode: Int?,
+        errorBody: String?,
+        responseHeaders: Map<String, List<String>>,
+        requestId: String?,
+        message: String? = null,
+        cause: Throwable? = null,
+    ) : this(clientName, statusCode, errorBody, message, cause) {
+        this.responseHeaders = responseHeaders
+        this.requestId = requestId
+    }
+}

@@ -246,7 +246,7 @@ class OpenAIPrimaryConstructorTest {
                         output = listOf(
                             Item.CodeInterpreterToolCall(
                                 code = returnedPart.code,
-                                containerId = returnedPart.containerId,
+                                containerId = requireNotNull(returnedPart.containerId),
                                 id = returnedPart.id,
                                 outputs = listOf(
                                     Item.CodeInterpreterToolCall.Output.Logs("returned output"),

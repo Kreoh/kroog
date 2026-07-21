@@ -2,7 +2,9 @@ package ai.koog.http.client.ktor
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.post
+import ai.koog.http.client.postBytes
 import ai.koog.http.client.test.BaseKoogHttpClientTest
+import ai.koog.http.client.test.MockWebServer
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -20,6 +22,7 @@ import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNotNull
@@ -87,6 +90,61 @@ abstract class KtorKoogHttpClientTestBase : BaseKoogHttpClientTest() {
     @Test
     override fun `test lines propagates cancellation`() =
         super.`test lines propagates cancellation`()
+
+    @Test
+    override fun `test raw bytes preserve zeros status headers and request id`() =
+        super.`test raw bytes preserve zeros status headers and request id`()
+
+    @Test
+    override fun `test multipart preserves text filename media type and binary zeros`() =
+        super.`test multipart preserves text filename media type and binary zeros`()
+
+    @Test
+    override fun `test delete and structured failures preserve response metadata`() =
+        super.`test delete and structured failures preserve response metadata`()
+
+    @Test
+    override fun `test raw request propagates cancellation`() =
+        super.`test raw request propagates cancellation`()
+
+    @Test
+    fun `post bytes serialises request and preserves binary response metadata`() = runTest {
+        val responseBody = byteArrayOf(0, 12, 0, -1)
+        var observedRequest: MockWebServer.RawRequest? = null
+        mockServer.start(
+            rawEndpoints = listOf(
+                MockWebServer.RawEndpointConfig(
+                    path = "/binary-post",
+                    method = io.ktor.http.HttpMethod.Post,
+                    responseBody = responseBody,
+                    statusCode = HttpStatusCode.Created,
+                    responseHeaders = mapOf(
+                        "x-request-id" to "post-req-123",
+                        "x-provider" to "fixture",
+                    ),
+                    onRequest = { observedRequest = it },
+                )
+            )
+        )
+
+        val response = createClient().postBytes(
+            path = mockServer.url("/binary-post"),
+            requestBody = TestRequest("serialised"),
+            headers = mapOf("x-client-marker" to "ktor-post-bytes"),
+        )
+
+        val request = requireNotNull(observedRequest)
+        assertEquals(io.ktor.http.HttpMethod.Post, request.method)
+        assertEquals("{\"request\":\"serialised\"}", request.body.decodeToString())
+        assertEquals("ktor-post-bytes", request.headers["x-client-marker"])
+        assertTrue(
+            request.headers[HttpHeaders.ContentType]?.startsWith(ContentType.Application.Json.toString()) == true
+        )
+        assertContentEquals(responseBody, response.body)
+        assertEquals(201, response.statusCode)
+        assertEquals("fixture", response.headers["x-provider"]?.single())
+        assertEquals("post-req-123", response.requestId)
+    }
 
     abstract fun ktorClient(
         baseClient: HttpClient,
