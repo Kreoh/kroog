@@ -248,6 +248,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             var inputTokens: Int? = null
             var outputTokens: Int? = null
             val activeBlockTypes = mutableMapOf<Int, String>()
+            val reasoningTextByIndex = mutableMapOf<Int, String>()
+            val reasoningSignatureByIndex = mutableMapOf<Int, String>()
 
             fun updateUsage(usage: AnthropicUsage) {
                 inputTokens = usage.inputTokens ?: inputTokens
@@ -298,12 +300,25 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
                                 is AnthropicContent.Thinking -> {
                                     activeBlockTypes[index] = "thinking"
+                                    reasoningTextByIndex[index] = contentBlock.thinking
+                                    contentBlock.signature.takeIf { it.isNotEmpty() }?.let { signature ->
+                                        reasoningSignatureByIndex[index] = signature
+                                        attachReasoningEncrypted(signature, index = index)
+                                    }
                                     if (contentBlock.thinking.isNotEmpty()) {
                                         emitReasoningDelta(
                                             text = contentBlock.thinking,
                                             index = index,
                                         )
                                     }
+                                }
+
+                                is AnthropicContent.RedactedThinking -> {
+                                    activeBlockTypes[index] = "redacted_thinking"
+                                    attachReasoningReplay(
+                                        MessagePart.ReasoningReplay.OpaqueRedacted(contentBlock.data),
+                                        index = index,
+                                    )
                                 }
 
                                 null -> throw LLMClientException(clientName, "Anthropic stream content block is missing")
@@ -336,17 +351,21 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                                 }
 
                                 AnthropicStreamDeltaContentType.THINKING_DELTA.value -> {
+                                    val thinking = delta.thinking
+                                        ?: throw LLMClientException(clientName, "Reasoning delta is missing")
+                                    reasoningTextByIndex[index] = reasoningTextByIndex[index].orEmpty() + thinking
                                     emitReasoningDelta(
-                                        text = delta.thinking
-                                            ?: throw LLMClientException(clientName, "Reasoning delta is missing"),
+                                        text = thinking,
                                         index = index,
                                     )
                                 }
 
                                 AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value -> {
+                                    val signature = delta.signature
+                                        ?: throw LLMClientException(clientName, "Reasoning signature delta is missing")
+                                    reasoningSignatureByIndex[index] = signature
                                     attachReasoningEncrypted(
-                                        encrypted = delta.signature
-                                            ?: throw LLMClientException(clientName, "Reasoning signature delta is missing"),
+                                        encrypted = signature,
                                         index = index,
                                     )
                                 }
@@ -364,7 +383,22 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                             when (activeBlockTypes.remove(index)) {
                                 "text" -> tryEmitPendingText()
                                 "tool_use" -> tryEmitPendingToolCall()
-                                "thinking" -> tryEmitPendingReasoning()
+                                "thinking" -> {
+                                    val signature = reasoningSignatureByIndex.remove(index)
+                                        ?: throw LLMClientException(
+                                            clientName,
+                                            "Malformed Anthropic thinking block: signature is missing",
+                                        )
+                                    attachReasoningReplay(
+                                        MessagePart.ReasoningReplay.Signed(
+                                            text = reasoningTextByIndex.remove(index).orEmpty(),
+                                            signature = signature,
+                                        ),
+                                        index = index,
+                                    )
+                                    tryEmitPendingReasoning()
+                                }
+                                "redacted_thinking" -> tryEmitPendingReasoning()
                                 null -> throw LLMClientException(
                                     clientName,
                                     "Content block stop has no matching start for index $index",
@@ -575,33 +609,20 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
     @OptIn(ExperimentalUuidApi::class)
     private fun Message.Assistant.toAnthropicAssistantMessage(model: LLModel): AnthropicMessage.Assistant {
         val listOfContent = buildList {
-            parts.forEach {
-                when (it) {
+            parts.forEach { part ->
+                when (part) {
                     is MessagePart.Reasoning -> {
                         require(model.supports(LLMCapability.Thinking)) {
                             "Model ${model.id} does not support thinking"
                         }
-                        add(
-                            AnthropicContent.Thinking(
-                                thinking =
-                                when (it.content.size) {
-                                    0 -> ""
-                                    1 -> it.content.single()
-                                    else -> throw IllegalArgumentException(
-                                        "At most one content value is supported for reasoning messages",
-                                    )
-                                },
-                                signature = it.encrypted
-                                    ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
-                            )
-                        )
+                        addAll(part.toAnthropicReasoningBlocks())
                     }
 
                     is MessagePart.Text -> {
                         add(
                             AnthropicContent.Text(
-                                text = it.text,
-                                cacheControl = it.cacheControl?.toAnthropicCacheControl()
+                                text = part.text,
+                                cacheControl = part.cacheControl?.toAnthropicCacheControl()
                             )
                         )
                     }
@@ -616,16 +637,22 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         )
                     }
 
+                    is MessagePart.HostedExecution, is MessagePart.GeneratedFile -> {
+                        throw IllegalArgumentException(
+                            "Anthropic cannot replay provider-hosted execution items"
+                        )
+                    }
+
                     is MessagePart.Tool.Call -> {
                         require(model.supports(LLMCapability.Tools)) {
                             "Model ${model.id} does not support tools"
                         }
                         add(
                             AnthropicContent.ToolUse(
-                                id = it.id ?: Uuid.random().toString(),
-                                name = it.tool,
-                                input = it.argsJson,
-                                cacheControl = it.cacheControl?.toAnthropicCacheControl()
+                                id = part.id ?: Uuid.random().toString(),
+                                name = part.tool,
+                                input = part.argsJson,
+                                cacheControl = part.cacheControl?.toAnthropicCacheControl()
                             )
                         )
                     }
@@ -633,6 +660,37 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             }
         }
         return AnthropicMessage.Assistant(content = listOfContent)
+    }
+
+    private fun MessagePart.Reasoning.toAnthropicReasoningBlocks(): List<AnthropicContent> {
+        if (replay.isNotEmpty()) {
+            return replay.map { replayBlock ->
+                when (replayBlock) {
+                    is MessagePart.ReasoningReplay.Signed -> AnthropicContent.Thinking(
+                        thinking = replayBlock.text,
+                        signature = replayBlock.signature,
+                    )
+
+                    is MessagePart.ReasoningReplay.OpaqueRedacted ->
+                        AnthropicContent.RedactedThinking(data = replayBlock.data)
+                }
+            }
+        }
+
+        val thinking = when (content.size) {
+            0 -> ""
+            1 -> content.single()
+            else -> throw IllegalArgumentException(
+                "At most one content value is supported for reasoning messages",
+            )
+        }
+        return listOf(
+            AnthropicContent.Thinking(
+                thinking = thinking,
+                signature = encrypted
+                    ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
+            )
+        )
     }
 
     private fun Message.User.toAnthropicUserMessage(model: LLModel): AnthropicMessage.User {
@@ -801,9 +859,20 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 is AnthropicContent.Thinking -> {
                     MessagePart.Reasoning(
                         encrypted = content.signature,
-                        content = listOf(content.thinking),
+                        content = content.thinking.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty(),
+                        replay = listOf(
+                            MessagePart.ReasoningReplay.Signed(
+                                text = content.thinking,
+                                signature = content.signature,
+                            )
+                        ),
                     )
                 }
+
+                is AnthropicContent.RedactedThinking -> MessagePart.Reasoning(
+                    content = emptyList(),
+                    replay = listOf(MessagePart.ReasoningReplay.OpaqueRedacted(content.data)),
+                )
 
                 is AnthropicContent.Text -> {
                     requireUnsupportedCitationsAbsent(content)
@@ -990,57 +1059,140 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
     }
 
     private fun decodeAnthropicStreamResponse(payload: String): AnthropicStreamResponse {
-        val element = json.parseToJsonElement(payload)
-        val root = element as? JsonObject
-            ?: throw LLMClientException(clientName, "Anthropic stream event must be a JSON object")
-        val eventType = (root["type"] as? JsonPrimitive)?.content
-        var signature: String? = null
-        if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_START.value) {
-            val block = root["content_block"] as? JsonObject
-                ?: throw LLMClientException(clientName, "Anthropic stream content block is missing")
-            val blockType = (block["type"] as? JsonPrimitive)?.content
-            if (blockType !in setOf("text", "tool_use", "thinking")) {
-                throw LLMClientException(clientName, "Unsupported Anthropic stream content block type: $blockType")
+        try {
+            val element = json.parseToJsonElement(payload)
+            val root = element as? JsonObject
+                ?: throw LLMClientException(clientName, "Anthropic stream event must be a JSON object")
+            val eventType = (root["type"] as? JsonPrimitive)?.content
+            var signature: String? = null
+            if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_START.value) {
+                val block = root["content_block"] as? JsonObject
+                    ?: throw LLMClientException(clientName, "Anthropic stream content block is missing")
+                val blockType = block.requireStringField("content block", "type")
+                if (blockType !in setOf("text", "tool_use", "thinking", "redacted_thinking")) {
+                    throw LLMClientException(clientName, "Unsupported Anthropic stream content block type: $blockType")
+                }
+                if (block.containsKey("citations")) {
+                    throw LLMClientException(clientName, "Anthropic citations are not supported")
+                }
+                when (blockType) {
+                    "thinking" -> {
+                        block.requireStringField("thinking", "thinking")
+                        if (block.containsKey("signature")) {
+                            block.requireStringField("thinking", "signature")
+                        }
+                    }
+
+                    "redacted_thinking" -> block.requireOpaqueData()
+                }
             }
-            if (block.containsKey("citations")) {
-                throw LLMClientException(clientName, "Anthropic citations are not supported")
+            if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_DELTA.value) {
+                val delta = root["delta"] as? JsonObject
+                    ?: throw LLMClientException(clientName, "Anthropic stream delta is missing")
+                val deltaType = (delta["type"] as? JsonPrimitive)?.content
+                if (
+                    deltaType !in
+                    setOf(
+                        AnthropicStreamDeltaContentType.TEXT_DELTA.value,
+                        AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value,
+                        AnthropicStreamDeltaContentType.THINKING_DELTA.value,
+                        AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value,
+                    )
+                ) {
+                    throw LLMClientException(clientName, "Unsupported Anthropic stream delta type: $deltaType")
+                }
+                if (deltaType == AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value) {
+                    signature = delta.requireStringField("signature_delta", "signature").also {
+                        if (it.isEmpty()) {
+                            throw LLMClientException(
+                                clientName,
+                                "Malformed Anthropic signature_delta block: 'signature' must not be empty",
+                            )
+                        }
+                    }
+                }
             }
-        }
-        if (eventType == AnthropicStreamEventType.CONTENT_BLOCK_DELTA.value) {
-            val delta = root["delta"] as? JsonObject
-                ?: throw LLMClientException(clientName, "Anthropic stream delta is missing")
-            val deltaType = (delta["type"] as? JsonPrimitive)?.content
-            if (
-                deltaType !in
-                setOf(
-                    AnthropicStreamDeltaContentType.TEXT_DELTA.value,
-                    AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value,
-                    AnthropicStreamDeltaContentType.THINKING_DELTA.value,
-                    AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value,
-                )
-            ) {
-                throw LLMClientException(clientName, "Unsupported Anthropic stream delta type: $deltaType")
+            val decodeElement = root.withMissingThinkingStartSignature()
+            return json.decodeFromJsonElement<AnthropicStreamResponse>(decodeElement).also { response ->
+                response.delta?.signature = signature
             }
-            if (deltaType == AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value) {
-                signature = (delta["signature"] as? JsonPrimitive)?.content
-            }
-        }
-        return json.decodeFromJsonElement<AnthropicStreamResponse>(element).also { response ->
-            response.delta?.signature = signature
+        } catch (cause: LLMClientException) {
+            throw cause
+        } catch (cause: Exception) {
+            throw LLMClientException(clientName, "Malformed Anthropic stream event: ${cause.message}", cause)
         }
     }
 
     private fun decodeAnthropicResponse(payload: String): AnthropicResponse {
-        val element = json.parseToJsonElement(payload)
-        val root = element as? JsonObject
-            ?: throw LLMClientException(clientName, "Anthropic response must be a JSON object")
-        (root["content"] as? JsonArray)?.forEach { contentElement ->
-            val content = contentElement as? JsonObject ?: return@forEach
-            val contentType = (content["type"] as? JsonPrimitive)?.content
-            if (contentType == "text" && content.containsKey("citations")) {
-                throw LLMClientException(clientName, "Anthropic citations are not supported")
+        try {
+            val element = json.parseToJsonElement(payload)
+            val root = element as? JsonObject
+                ?: throw LLMClientException(clientName, "Anthropic response must be a JSON object")
+            (root["content"] as? JsonArray)?.forEach { contentElement ->
+                val content = contentElement as? JsonObject
+                    ?: throw LLMClientException(clientName, "Anthropic content block must be a JSON object")
+                when (val contentType = content.requireStringField("content block", "type")) {
+                    "text" -> if (content.containsKey("citations")) {
+                        throw LLMClientException(clientName, "Anthropic citations are not supported")
+                    }
+
+                    "thinking" -> {
+                        content.requireStringField("thinking", "thinking")
+                        content.requireStringField("thinking", "signature").also { signature ->
+                            if (signature.isEmpty()) {
+                                throw LLMClientException(
+                                    clientName,
+                                    "Malformed Anthropic thinking block: 'signature' must not be empty",
+                                )
+                            }
+                        }
+                    }
+
+                    "redacted_thinking" -> content.requireOpaqueData()
+                    "tool_use" -> Unit
+                    else -> throw LLMClientException(
+                        clientName,
+                        "Unsupported Anthropic content block type: $contentType",
+                    )
+                }
+            }
+            return json.decodeFromJsonElement(element)
+        } catch (cause: LLMClientException) {
+            throw cause
+        } catch (cause: Exception) {
+            throw LLMClientException(clientName, "Malformed Anthropic response: ${cause.message}", cause)
+        }
+    }
+
+    private fun JsonObject.requireOpaqueData(): String =
+        requireStringField("redacted_thinking", "data").also { data ->
+            if (data.isEmpty()) {
+                throw LLMClientException(
+                    clientName,
+                    "Malformed Anthropic redacted_thinking block: 'data' must not be empty",
+                )
             }
         }
-        return json.decodeFromJsonElement(element)
+
+    private fun JsonObject.requireStringField(blockType: String, field: String): String {
+        val value = this[field] as? JsonPrimitive
+        if (value == null || !value.isString) {
+            throw LLMClientException(
+                clientName,
+                "Malformed Anthropic $blockType block: '$field' must be a string",
+            )
+        }
+        return value.content
+    }
+
+    private fun JsonObject.withMissingThinkingStartSignature(): JsonObject {
+        if ((this["type"] as? JsonPrimitive)?.content != AnthropicStreamEventType.CONTENT_BLOCK_START.value) {
+            return this
+        }
+        val block = this["content_block"] as? JsonObject ?: return this
+        if ((block["type"] as? JsonPrimitive)?.content != "thinking" || block.containsKey("signature")) {
+            return this
+        }
+        return JsonObject(this + ("content_block" to JsonObject(block + ("signature" to JsonPrimitive("")))))
     }
 }

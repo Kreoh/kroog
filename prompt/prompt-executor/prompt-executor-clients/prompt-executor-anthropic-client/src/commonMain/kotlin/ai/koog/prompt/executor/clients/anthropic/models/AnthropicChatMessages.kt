@@ -246,18 +246,15 @@ public sealed interface AnthropicContent {
         internal var citations: JsonElement? = null
     }
 
-    /**
-     * Represents a thinking process.
-     *
-     * This class captures the model's reasoning and thought process during its operation.
-     * It is serialized with the discriminator "thinking" for polymorphic serialization.
-     *
-     * @property signature An identifier or signature associated with this thought process.
-     * @property thinking The actual content of the model's internal reasoning or thought process.
-     */
+    /** A signed thinking block whose text and provider signature must be replayed together. */
     @Serializable
     @SerialName("thinking")
     public data class Thinking(val signature: String, val thinking: String) : AnthropicContent
+
+    /** Provider-owned redacted thinking data that must remain opaque and be replayed unchanged. */
+    @Serializable
+    @SerialName("redacted_thinking")
+    public data class RedactedThinking(val data: String) : AnthropicContent
 
     /**
      * Represents an image content type within the AnthropicContent hierarchy.

@@ -129,6 +129,10 @@ internal object BedrockAmazonNovaSerialization {
                             throw IllegalArgumentException(
                                 "Amazon Nova cannot replay provider-hosted code execution items"
                             )
+                        is MessagePart.HostedExecution, is MessagePart.GeneratedFile ->
+                            throw IllegalArgumentException(
+                                "Amazon Nova cannot replay provider-hosted execution items"
+                            )
                         is MessagePart.Tool.Call -> add(
                             NovaContent(
                                 toolUse = NovaToolUse(

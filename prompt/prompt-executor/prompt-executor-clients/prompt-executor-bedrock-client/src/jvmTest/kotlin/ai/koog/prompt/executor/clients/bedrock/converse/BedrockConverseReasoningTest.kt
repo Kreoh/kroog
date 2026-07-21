@@ -1,11 +1,11 @@
 package ai.koog.prompt.executor.clients.bedrock.converse
 
 import ai.koog.prompt.Prompt
-import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import aws.sdk.kotlin.services.bedrockruntime.model.ContentBlock
@@ -35,13 +35,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 
-class BedrockConverseReasoningTest {
+class BedrockConverseReplayTest {
     @Test
     fun `adaptive thinking creates exact request document and preserves unrelated properties`() {
         val params = BedrockConverseParams(
@@ -124,6 +125,7 @@ class BedrockConverseReasoningTest {
                     content = listOf("thinking"),
                     encrypted = "signature",
                     index = 2,
+                    replay = listOf(MessagePart.ReasoningReplay.Signed("thinking", "signature")),
                 ),
             ),
             frames,
@@ -176,7 +178,13 @@ class BedrockConverseReasoningTest {
         assertEquals(
             listOf(
                 StreamFrame.ReasoningDelta(text = "thinking", index = 0),
-                StreamFrame.ReasoningComplete(null, listOf("thinking"), encrypted = "signature", index = 0),
+                StreamFrame.ReasoningComplete(
+                    null,
+                    listOf("thinking"),
+                    encrypted = "signature",
+                    index = 0,
+                    replay = listOf(MessagePart.ReasoningReplay.Signed("thinking", "signature")),
+                ),
                 StreamFrame.ToolCallDelta("tool-1", "lookup", null, index = 1),
                 StreamFrame.ToolCallDelta(null, null, "{\"query\":\"koog\"}", index = 1),
                 StreamFrame.ToolCallComplete("tool-1", "lookup", "{\"query\":\"koog\"}", index = 1),
@@ -206,39 +214,53 @@ class BedrockConverseReasoningTest {
     }
 
     @Test
-    fun `redacted reasoning produces a clear client exception`() = runTest {
-        val streamError = assertFailsWith<LLMClientException> {
-            transform(
-                reasoningDelta(ReasoningContentBlockDelta.RedactedContent(byteArrayOf(1)), index = 0),
-            )
-        }
-        assertTrue(streamError.message.orEmpty().contains("Redacted reasoning content"))
+    fun testRedactedReasoningRoundTripsWithoutTextDecoding() = runTest {
+        val opaque = byteArrayOf(0, 1, 2, -1)
+        val opaqueData = "AAEC/w=="
+        val frames = transform(
+            reasoningDelta(ReasoningContentBlockDelta.RedactedContent(opaque), index = 0),
+            contentBlockStop(index = 0),
+        )
+        val streamedReasoning = assertIs<StreamFrame.ReasoningComplete>(frames.single())
+        assertEquals(emptyList(), streamedReasoning.content)
+        val streamedReplay = assertIs<MessagePart.ReasoningReplay.OpaqueRedacted>(streamedReasoning.replay.single())
 
-        val responseError = assertFailsWith<LLMClientException> {
-            BedrockConverseConverters.convertConverseResponse(
-                ConverseResponse {
-                    output = ConverseOutput.Message(
-                        BedrockMessage {
-                            role = ConversationRole.Assistant
-                            content = listOf(
-                                ContentBlock.ReasoningContent(
-                                    ReasoningContentBlock.RedactedContent(byteArrayOf(1))
-                                )
-                            )
-                        }
-                    )
-                    stopReason = StopReason.EndTurn
-                },
-                clock = ai.koog.utils.time.KoogClock.System,
-            )
-        }
-        assertTrue(responseError.message.orEmpty().contains("Redacted reasoning content"))
+        val response = BedrockConverseConverters.convertConverseResponse(
+            ConverseResponse {
+                output = ConverseOutput.Message(
+                    BedrockMessage {
+                        role = ConversationRole.Assistant
+                        content = listOf(
+                            ContentBlock.ReasoningContent(ReasoningContentBlock.RedactedContent(opaque))
+                        )
+                    }
+                )
+                stopReason = StopReason.EndTurn
+            },
+            clock = ai.koog.utils.time.KoogClock.System,
+        )
+        val responseReplay = assertIs<MessagePart.ReasoningReplay.OpaqueRedacted>(
+            assertIs<MessagePart.Reasoning>(response.parts.single()).replay.single()
+        )
+        assertEquals(opaqueData, streamedReplay.data)
+        assertEquals(streamedReplay.data, responseReplay.data)
+
+        val request = BedrockConverseConverters.createConverseRequest(
+            Prompt(messages = listOf(response), id = "redacted-replay"),
+            thinkingModel,
+            emptyList(),
+        )
+        val requestData = assertIs<ReasoningContentBlock.RedactedContent>(
+            assertIs<ContentBlock.ReasoningContent>(request.messages.orEmpty().single().content.single()).value
+        ).value
+        assertContentEquals(opaque, requestData)
     }
 
     @Test
     fun `reasoning streaming preserves usage metadata`() = runTest {
         val frames = transform(
             reasoningText("thinking", index = 0),
+            reasoningSignature("signature", index = 0),
             contentBlockStop(index = 0),
             ConverseStreamOutput.MessageStop(MessageStopEvent { stopReason = StopReason.EndTurn }),
             ConverseStreamOutput.Metadata(

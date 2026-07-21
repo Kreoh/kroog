@@ -124,6 +124,11 @@ public sealed interface BedrockAnthropicInvokeModelContent {
     @SerialName("thinking")
     public data class Thinking(val signature: String, val thinking: String) : BedrockAnthropicInvokeModelContent
 
+    /** Provider-owned redacted thinking data that must remain opaque and be replayed unchanged. */
+    @Serializable
+    @SerialName("redacted_thinking")
+    public data class RedactedThinking(val data: String) : BedrockAnthropicInvokeModelContent
+
     /**
      * Represents the result of a tool invocation in the context of Bedrock's Anthropic API.
      *

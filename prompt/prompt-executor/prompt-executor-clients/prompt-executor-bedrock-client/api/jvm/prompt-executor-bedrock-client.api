@@ -479,6 +479,33 @@ public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/Bedrock
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking : ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent {
+	public static final field Companion Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking$Companion;
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$RedactedThinking$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$ToolCall : ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent {
 	public static final field Companion Lai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockAnthropicInvokeModelContent$ToolCall$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;)V
@@ -837,4 +864,3 @@ public final synthetic class ai/koog/prompt/executor/clients/bedrock/modelfamili
 public final class ai/koog/prompt/executor/clients/bedrock/modelfamilies/meta/LlamaStreamChunk$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
-

@@ -310,7 +310,7 @@ class AnthropicVertexLLMClientTest {
     }
 
     @Test
-    fun `rejects unsafe paths citations redacted thinking server tools and unknown deltas clearly`() = runTest {
+    fun `rejects unsafe paths citations malformed reasoning server tools and unknown deltas clearly`() = runTest {
         listOf("bad/project", "bad?project", "bad%2Fproject", " bad").forEach { invalid ->
             shouldThrow<IllegalArgumentException> {
                 AnthropicVertexClientSettings(invalid, location, mapOf(model to vertexModelVersion))
@@ -334,8 +334,8 @@ class AnthropicVertexLLMClientTest {
         }
 
         failureFor(
-            """{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"opaque"}}""",
-        ) shouldContain "Unsupported Anthropic stream content block type: redacted_thinking"
+            """{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":7}}""",
+        ) shouldContain "Malformed Anthropic redacted_thinking block: 'data' must be a string"
         failureFor(
             """{"type":"content_block_start","index":0,"content_block":{"type":"server_tool_use","id":"x","name":"web_search","input":{}}}""",
         ) shouldContain "Unsupported Anthropic stream content block type: server_tool_use"
@@ -379,7 +379,7 @@ private fun readFileTool(): ToolDescriptor =
 private fun signedToolStream(): List<String> =
     listOf(
         """{"type":"message_start","message":{"id":"m1","type":"message","role":"assistant","content":[],"model":"$vertexModelVersion","usage":{"input_tokens":11,"output_tokens":0}}}""",
-        """{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}""",
+        """{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}""",
         """{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Check the file"}}""",
         """{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"thinking-signature"}}""",
         """{"type":"content_block_stop","index":0}""",
@@ -403,7 +403,7 @@ private fun finalTextStream(): List<String> =
 private fun signatureOnlyToolStream(): List<String> =
     listOf(
         """{"type":"message_start","message":{"id":"m3","type":"message","role":"assistant","content":[],"model":"$vertexModelVersion","usage":{"input_tokens":2,"output_tokens":0}}}""",
-        """{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}""",
+        """{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}""",
         """{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"tool-signature"}}""",
         """{"type":"content_block_stop","index":0}""",
         """{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"call-2","name":"read_file","input":{}}}""",

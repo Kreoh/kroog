@@ -73,6 +73,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import kotlin.io.encoding.Base64
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 import aws.sdk.kotlin.services.bedrockruntime.model.Tool as BedrockTool
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolChoice as BedrockToolChoice
@@ -270,26 +271,12 @@ internal object BedrockConverseConverters {
                             }
                         }
                         is MessagePart.Reasoning -> {
-                            val replayText = when (part.content.size) {
-                                0 -> {
-                                    require(part.encrypted != null) {
-                                        "Reasoning content may be empty only when an encrypted payload is present"
-                                    }
-                                    ""
-                                }
+                            addAll(part.toBedrockReasoningContentBlocks())
+                        }
 
-                                1 -> part.content.single()
-                                else -> throw IllegalArgumentException("Reasoning content must have at most one part")
-                            }
-                            add(
-                                ContentBlock.ReasoningContent(
-                                    ReasoningContentBlock.ReasoningText(
-                                        ReasoningTextBlock {
-                                            this.text = replayText
-                                            this.signature = part.encrypted
-                                        }
-                                    )
-                                )
+                        is MessagePart.HostedExecution, is MessagePart.GeneratedFile -> {
+                            throw IllegalArgumentException(
+                                "Bedrock Converse cannot replay provider-hosted execution items"
                             )
                         }
 
@@ -314,6 +301,58 @@ internal object BedrockConverseConverters {
                 }
             }
         }
+    }
+
+    private fun MessagePart.Reasoning.toBedrockReasoningContentBlocks(): List<ContentBlock> {
+        if (replay.isNotEmpty()) {
+            return replay.map { replayBlock ->
+                when (replayBlock) {
+                    is MessagePart.ReasoningReplay.Signed -> ContentBlock.ReasoningContent(
+                        ReasoningContentBlock.ReasoningText(
+                            ReasoningTextBlock {
+                                text = replayBlock.text
+                                signature = replayBlock.signature
+                            }
+                        )
+                    )
+
+                    is MessagePart.ReasoningReplay.OpaqueRedacted -> ContentBlock.ReasoningContent(
+                        ReasoningContentBlock.RedactedContent(
+                            try {
+                                Base64.decode(replayBlock.data)
+                            } catch (cause: IllegalArgumentException) {
+                                throw IllegalArgumentException(
+                                    "Bedrock redacted reasoning replay data must be valid base64",
+                                    cause,
+                                )
+                            }
+                        )
+                    )
+                }
+            }
+        }
+
+        val replayText = when (content.size) {
+            0 -> {
+                require(encrypted != null) {
+                    "Reasoning content may be empty only when an encrypted payload is present"
+                }
+                ""
+            }
+
+            1 -> content.single()
+            else -> throw IllegalArgumentException("Reasoning content must have at most one part")
+        }
+        return listOf(
+            ContentBlock.ReasoningContent(
+                ReasoningContentBlock.ReasoningText(
+                    ReasoningTextBlock {
+                        text = replayText
+                        signature = encrypted
+                    }
+                )
+            )
+        )
     }
 
     /**
@@ -413,11 +452,28 @@ internal object BedrockConverseConverters {
 
                         MessagePart.Reasoning(
                             encrypted = reasoningBlock.signature,
-                            content = reasoningBlock.text,
+                            content = reasoningBlock.text.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty(),
+                            replay = listOf(
+                                MessagePart.ReasoningReplay.Signed(
+                                    text = reasoningBlock.text,
+                                    signature = reasoningBlock.signature
+                                        ?: throw LLMClientException(
+                                            BEDROCK_CONVERSE_CLIENT_NAME,
+                                            "Malformed signed reasoning block: signature is missing",
+                                        ),
+                                )
+                            ),
                         )
                     }
 
-                    is ReasoningContentBlock.RedactedContent -> throw redactedReasoningException()
+                    is ReasoningContentBlock.RedactedContent -> MessagePart.Reasoning(
+                        content = emptyList(),
+                        replay = listOf(
+                            MessagePart.ReasoningReplay.OpaqueRedacted(
+                                encodeRedactedReasoning(reasoningContent.value)
+                            )
+                        ),
+                    )
                     ReasoningContentBlock.SdkUnknown -> throw LLMClientException(
                         BEDROCK_CONVERSE_CLIENT_NAME,
                         "Unknown reasoning content type from Bedrock Converse API."
@@ -459,6 +515,10 @@ internal object BedrockConverseConverters {
         clock: KoogClock = KoogClock.System,
     ) = buildStreamFrameFlow {
         var finishReason: String? = null
+        val reasoningBlockTypes = mutableMapOf<Int, String>()
+        val reasoningTextByIndex = mutableMapOf<Int, String>()
+        val reasoningSignatureByIndex = mutableMapOf<Int, String>()
+        val redactedReasoningByIndex = mutableMapOf<Int, ByteArray>()
 
         chunkFlow.collect { chunk ->
             when (chunk) {
@@ -501,17 +561,32 @@ internal object BedrockConverseConverters {
                     }
 
                     is ContentBlockDelta.ReasoningContent -> when (val reasoning = delta.value) {
-                        is ReasoningContentBlockDelta.Text -> emitReasoningDelta(
-                            text = reasoning.value,
-                            index = chunk.value.contentBlockIndex,
-                        )
+                        is ReasoningContentBlockDelta.Text -> {
+                            val index = chunk.value.contentBlockIndex
+                            reasoningBlockTypes[index] = "thinking"
+                            reasoningTextByIndex[index] = reasoningTextByIndex[index].orEmpty() + reasoning.value
+                            emitReasoningDelta(
+                                text = reasoning.value,
+                                index = index,
+                            )
+                        }
 
-                        is ReasoningContentBlockDelta.Signature -> attachReasoningEncrypted(
-                            encrypted = reasoning.value,
-                            index = chunk.value.contentBlockIndex,
-                        )
+                        is ReasoningContentBlockDelta.Signature -> {
+                            val index = chunk.value.contentBlockIndex
+                            reasoningBlockTypes[index] = "thinking"
+                            reasoningSignatureByIndex[index] = reasoning.value
+                            attachReasoningEncrypted(
+                                encrypted = reasoning.value,
+                                index = index,
+                            )
+                        }
 
-                        is ReasoningContentBlockDelta.RedactedContent -> throw redactedReasoningException()
+                        is ReasoningContentBlockDelta.RedactedContent -> {
+                            val index = chunk.value.contentBlockIndex
+                            reasoningBlockTypes[index] = "redacted_thinking"
+                            redactedReasoningByIndex[index] =
+                                (redactedReasoningByIndex[index] ?: byteArrayOf()) + reasoning.value
+                        }
                         ReasoningContentBlockDelta.SdkUnknown -> throw LLMClientException(
                             BEDROCK_CONVERSE_CLIENT_NAME,
                             "Unknown reasoning content delta type from Bedrock Converse API."
@@ -537,6 +612,30 @@ internal object BedrockConverseConverters {
 
                 is ConverseStreamOutput.ContentBlockStop -> {
                     logger.debug { "Received content block stop from Converse" }
+                    val index = chunk.value.contentBlockIndex
+                    when (reasoningBlockTypes.remove(index)) {
+                        "thinking" -> {
+                            val signature = reasoningSignatureByIndex.remove(index)
+                                ?: throw LLMClientException(
+                                    BEDROCK_CONVERSE_CLIENT_NAME,
+                                    "Malformed signed reasoning block: signature is missing",
+                                )
+                            attachReasoningReplay(
+                                MessagePart.ReasoningReplay.Signed(
+                                    text = reasoningTextByIndex.remove(index).orEmpty(),
+                                    signature = signature,
+                                ),
+                                index = index,
+                            )
+                        }
+
+                        "redacted_thinking" -> attachReasoningReplay(
+                            MessagePart.ReasoningReplay.OpaqueRedacted(
+                                encodeRedactedReasoning(requireNotNull(redactedReasoningByIndex.remove(index)))
+                            ),
+                            index = index,
+                        )
+                    }
                     tryEmitPendingReasoning()
                     tryEmitPendingText()
                     tryEmitPendingToolCall()
@@ -608,10 +707,15 @@ internal object BedrockConverseConverters {
         return JsonDocumentConverters.convertToDocument(requestFields)
     }
 
-    private fun redactedReasoningException(): LLMClientException = LLMClientException(
-        BEDROCK_CONVERSE_CLIENT_NAME,
-        "Redacted reasoning content from Bedrock Converse cannot be represented by Koog."
-    )
+    private fun encodeRedactedReasoning(data: ByteArray): String {
+        if (data.isEmpty()) {
+            throw LLMClientException(
+                BEDROCK_CONVERSE_CLIENT_NAME,
+                "Malformed redacted reasoning block: data is empty",
+            )
+        }
+        return Base64.encode(data)
+    }
 
     private const val BEDROCK_CONVERSE_CLIENT_NAME = "Bedrock Converse"
 

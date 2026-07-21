@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.bedrock.modelfamilies.anthropic
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamDeltaContentType
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamEventType
@@ -24,9 +25,13 @@ import ai.koog.utils.time.KoogClock
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 
@@ -64,23 +69,20 @@ internal object BedrockAnthropicClaudeSerialization {
 
     private fun Message.Assistant.toAnthropicMessage(): BedrockAnthropicInvokeModelMessage.Assistant {
         return BedrockAnthropicInvokeModelMessage.Assistant(
-            content = parts.map { part ->
+            content = parts.flatMap { part ->
                 when (part) {
-                    is MessagePart.Text -> BedrockAnthropicInvokeModelContent.Text(
-                        text = part.text
+                    is MessagePart.Text -> listOf(
+                        BedrockAnthropicInvokeModelContent.Text(text = part.text)
                     )
 
-                    is MessagePart.Reasoning -> BedrockAnthropicInvokeModelContent.Thinking(
-                        signature = part.encrypted
-                            ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
-                        thinking = part.content.singleOrNull()
-                            ?: throw IllegalArgumentException("Content for reasoning message cannot be single")
-                    )
+                    is MessagePart.Reasoning -> part.toBedrockReasoningBlocks()
 
-                    is MessagePart.Tool.Call -> BedrockAnthropicInvokeModelContent.ToolCall(
-                        part.id!!,
-                        part.tool,
-                        part.argsJson
+                    is MessagePart.Tool.Call -> listOf(
+                        BedrockAnthropicInvokeModelContent.ToolCall(
+                            part.id!!,
+                            part.tool,
+                            part.argsJson
+                        )
                     )
 
                     is MessagePart.CodeExecution ->
@@ -88,9 +90,43 @@ internal object BedrockAnthropicClaudeSerialization {
                             "Bedrock Anthropic cannot replay provider-hosted code execution items"
                         )
 
+                    is MessagePart.HostedExecution, is MessagePart.GeneratedFile ->
+                        throw IllegalArgumentException(
+                            "Bedrock Anthropic cannot replay provider-hosted execution items"
+                        )
+
                     is MessagePart.Attachment -> throw IllegalArgumentException("No attachments are supported in assistant messages")
                 }
             }
+        )
+    }
+
+    private fun MessagePart.Reasoning.toBedrockReasoningBlocks(): List<BedrockAnthropicInvokeModelContent> {
+        if (replay.isNotEmpty()) {
+            return replay.map { replayBlock ->
+                when (replayBlock) {
+                    is MessagePart.ReasoningReplay.Signed -> BedrockAnthropicInvokeModelContent.Thinking(
+                        signature = replayBlock.signature,
+                        thinking = replayBlock.text,
+                    )
+
+                    is MessagePart.ReasoningReplay.OpaqueRedacted ->
+                        BedrockAnthropicInvokeModelContent.RedactedThinking(replayBlock.data)
+                }
+            }
+        }
+
+        val thinking = when (content.size) {
+            0 -> ""
+            1 -> content.single()
+            else -> throw IllegalArgumentException("Reasoning content must have at most one part")
+        }
+        return listOf(
+            BedrockAnthropicInvokeModelContent.Thinking(
+                signature = encrypted
+                    ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
+                thinking = thinking,
+            )
         )
     }
 
@@ -184,7 +220,7 @@ internal object BedrockAnthropicClaudeSerialization {
     }
 
     internal fun parseAnthropicResponse(responseBody: String, clock: KoogClock = KoogClock.System): Message.Assistant {
-        val response = json.decodeFromString<BedrockAnthropicResponse>(responseBody)
+        val response = decodeAnthropicResponse(responseBody)
 
         val inputTokens = response.usage?.inputTokens
         val outputTokens = response.usage?.outputTokens
@@ -204,8 +240,19 @@ internal object BedrockAnthropicClaudeSerialization {
                     )
 
                     is AnthropicContent.Thinking -> MessagePart.Reasoning(
-                        content = content.thinking,
+                        content = content.thinking.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty(),
                         encrypted = content.signature,
+                        replay = listOf(
+                            MessagePart.ReasoningReplay.Signed(
+                                text = content.thinking,
+                                signature = content.signature,
+                            )
+                        ),
+                    )
+
+                    is AnthropicContent.RedactedThinking -> MessagePart.Reasoning(
+                        content = emptyList(),
+                        replay = listOf(MessagePart.ReasoningReplay.OpaqueRedacted(content.data)),
                     )
 
                     is AnthropicContent.ToolUse -> MessagePart.Tool.Call(
@@ -228,6 +275,9 @@ internal object BedrockAnthropicClaudeSerialization {
     ): Flow<StreamFrame> = buildStreamFrameFlow {
         var inputTokens: Int? = null
         var outputTokens: Int? = null
+        val activeBlockTypes = mutableMapOf<Int, String>()
+        val reasoningTextByIndex = mutableMapOf<Int, String>()
+        val reasoningSignatureByIndex = mutableMapOf<Int, String>()
 
         fun updateUsage(usage: AnthropicUsage) {
             inputTokens = usage.inputTokens ?: inputTokens
@@ -242,7 +292,7 @@ internal object BedrockAnthropicClaudeSerialization {
         )
 
         chunkJsonStringFlow.collect { chunkJsonString ->
-            val response = json.decodeFromString<AnthropicStreamResponse>(chunkJsonString)
+            val response = decodeAnthropicStreamResponse(chunkJsonString)
 
             when (response.type) {
                 AnthropicStreamEventType.MESSAGE_START.value -> {
@@ -250,23 +300,52 @@ internal object BedrockAnthropicClaudeSerialization {
                 }
 
                 AnthropicStreamEventType.CONTENT_BLOCK_START.value -> {
+                    val index = response.index
+                        ?: throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Content block index is missing")
                     when (val contentBlock = response.contentBlock) {
                         is AnthropicContent.Text -> {
-                            emitTextDelta(contentBlock.text)
+                            activeBlockTypes[index] = "text"
+                            emitTextDelta(contentBlock.text, index = index)
                         }
 
                         is AnthropicContent.ToolUse -> {
+                            activeBlockTypes[index] = "tool_use"
                             emitToolCallDelta(
-                                index = response.index ?: error("Tool index is missing"),
+                                index = index,
                                 id = contentBlock.id,
                                 name = contentBlock.name,
                             )
                         }
 
-                        else -> {
-                            contentBlock?.let { logger.warn { "Unknown Anthropic stream content block type: ${it::class}" } }
-                                ?: logger.warn { "Anthropic stream content block is missing" }
+                        is AnthropicContent.Thinking -> {
+                            activeBlockTypes[index] = "thinking"
+                            reasoningTextByIndex[index] = contentBlock.thinking
+                            contentBlock.signature.takeIf { it.isNotEmpty() }?.let { signature ->
+                                reasoningSignatureByIndex[index] = signature
+                                attachReasoningEncrypted(signature, index = index)
+                            }
+                            if (contentBlock.thinking.isNotEmpty()) {
+                                emitReasoningDelta(contentBlock.thinking, index = index)
+                            }
                         }
+
+                        is AnthropicContent.RedactedThinking -> {
+                            activeBlockTypes[index] = "redacted_thinking"
+                            attachReasoningReplay(
+                                MessagePart.ReasoningReplay.OpaqueRedacted(contentBlock.data),
+                                index = index,
+                            )
+                        }
+
+                        null -> throw LLMClientException(
+                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                            "Anthropic stream content block is missing",
+                        )
+
+                        else -> throw LLMClientException(
+                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                            "Unsupported Anthropic stream content block type: ${contentBlock::class}",
+                        )
                     }
                 }
 
@@ -277,26 +356,95 @@ internal object BedrockAnthropicClaudeSerialization {
                         when (delta.type) {
                             AnthropicStreamDeltaContentType.INPUT_JSON_DELTA.value -> {
                                 emitToolCallDelta(
-                                    index = response.index ?: error("Tool index is missing"),
-                                    args = delta.partialJson ?: error("Tool args are missing")
+                                    index = response.index
+                                        ?: throw LLMClientException(
+                                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                            "Tool index is missing",
+                                        ),
+                                    args = delta.partialJson
+                                        ?: throw LLMClientException(
+                                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                            "Tool args are missing",
+                                        )
                                 )
                             }
 
                             AnthropicStreamDeltaContentType.TEXT_DELTA.value -> {
                                 emitTextDelta(
-                                    delta.text ?: error("Text delta is missing")
+                                    delta.text
+                                        ?: throw LLMClientException(
+                                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                            "Text delta is missing",
+                                        ),
+                                    index = response.index,
                                 )
                             }
 
-                            else -> {
-                                logger.warn { "Unknown Anthropic stream delta type: ${delta.type}" }
+                            AnthropicStreamDeltaContentType.THINKING_DELTA.value -> {
+                                val index = response.index
+                                    ?: throw LLMClientException(
+                                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                        "Reasoning index is missing",
+                                    )
+                                val thinking = delta.thinking
+                                    ?: throw LLMClientException(
+                                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                        "Reasoning delta is missing",
+                                    )
+                                reasoningTextByIndex[index] = reasoningTextByIndex[index].orEmpty() + thinking
+                                emitReasoningDelta(thinking, index = index)
                             }
+
+                            AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value -> {
+                                val index = response.index
+                                    ?: throw LLMClientException(
+                                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                        "Reasoning index is missing",
+                                    )
+                                val signature = delta.signature
+                                    ?: throw LLMClientException(
+                                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                        "Reasoning signature delta is missing",
+                                    )
+                                reasoningSignatureByIndex[index] = signature
+                                attachReasoningEncrypted(signature, index = index)
+                            }
+
+                            else -> throw LLMClientException(
+                                BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                "Unsupported Anthropic stream delta type: ${delta.type}",
+                            )
                         }
-                    }
+                    } ?: throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Anthropic stream delta is missing")
                 }
 
                 AnthropicStreamEventType.CONTENT_BLOCK_STOP.value -> {
-                    tryEmitPendingToolCall()
+                    val index = response.index
+                        ?: throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Content block stop index is missing")
+                    when (activeBlockTypes.remove(index)) {
+                        "text" -> tryEmitPendingText()
+                        "tool_use" -> tryEmitPendingToolCall()
+                        "thinking" -> {
+                            val signature = reasoningSignatureByIndex.remove(index)
+                                ?: throw LLMClientException(
+                                    BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                    "Malformed Anthropic thinking block: signature is missing",
+                                )
+                            attachReasoningReplay(
+                                MessagePart.ReasoningReplay.Signed(
+                                    reasoningTextByIndex.remove(index).orEmpty(),
+                                    signature,
+                                ),
+                                index = index,
+                            )
+                            tryEmitPendingReasoning()
+                        }
+                        "redacted_thinking" -> tryEmitPendingReasoning()
+                        null -> throw LLMClientException(
+                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                            "Content block stop has no matching start for index $index",
+                        )
+                    }
                 }
 
                 AnthropicStreamEventType.MESSAGE_DELTA.value -> {
@@ -312,7 +460,7 @@ internal object BedrockAnthropicClaudeSerialization {
                 }
 
                 AnthropicStreamEventType.ERROR.value -> {
-                    error("Anthropic error: ${response.error}")
+                    throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Anthropic error: ${response.error}")
                 }
 
                 AnthropicStreamEventType.PING.value -> {
@@ -321,4 +469,126 @@ internal object BedrockAnthropicClaudeSerialization {
             }
         }
     }
+
+    private fun decodeAnthropicResponse(payload: String): BedrockAnthropicResponse =
+        parseAnthropicPayload(payload, "response") { root ->
+            validateReasoningBlocks(root["content"] as? JsonArray)
+            json.decodeFromJsonElement(root)
+        }
+
+    private fun decodeAnthropicStreamResponse(payload: String): AnthropicStreamResponse =
+        parseAnthropicPayload(payload, "stream event") { root ->
+            var signature: String? = null
+            when ((root["type"] as? JsonPrimitive)?.content) {
+                AnthropicStreamEventType.CONTENT_BLOCK_START.value -> {
+                    val block = root["content_block"] as? JsonObject
+                        ?: throw LLMClientException(
+                            BEDROCK_ANTHROPIC_CLIENT_NAME,
+                            "Anthropic stream content block is missing",
+                        )
+                    validateReasoningBlock(block, allowMissingOrEmptySignature = true)
+                }
+
+                AnthropicStreamEventType.CONTENT_BLOCK_DELTA.value -> {
+                    val delta = root["delta"] as? JsonObject
+                        ?: throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Anthropic stream delta is missing")
+                    if ((delta["type"] as? JsonPrimitive)?.content == AnthropicStreamDeltaContentType.SIGNATURE_DELTA.value) {
+                        signature = delta.requireStringField("signature_delta", "signature")
+                        if (signature.isNullOrEmpty()) {
+                            throw LLMClientException(
+                                BEDROCK_ANTHROPIC_CLIENT_NAME,
+                                "Malformed Anthropic signature_delta block: 'signature' must not be empty",
+                            )
+                        }
+                    }
+                }
+            }
+            json.decodeFromJsonElement<AnthropicStreamResponse>(
+                root.withMissingThinkingStartSignature()
+            ).also { response -> response.delta?.signature = signature }
+        }
+
+    private inline fun <T> parseAnthropicPayload(
+        payload: String,
+        description: String,
+        decode: (JsonObject) -> T,
+    ): T {
+        try {
+            val root = json.parseToJsonElement(payload) as? JsonObject
+                ?: throw LLMClientException(
+                    BEDROCK_ANTHROPIC_CLIENT_NAME,
+                    "Anthropic $description must be a JSON object",
+                )
+            return decode(root)
+        } catch (cause: LLMClientException) {
+            throw cause
+        } catch (cause: Exception) {
+            throw LLMClientException(
+                BEDROCK_ANTHROPIC_CLIENT_NAME,
+                "Malformed Anthropic $description: ${cause.message}",
+                cause,
+            )
+        }
+    }
+
+    private fun validateReasoningBlocks(content: JsonArray?) {
+        content?.forEach { element ->
+            val block = element as? JsonObject
+                ?: throw LLMClientException(BEDROCK_ANTHROPIC_CLIENT_NAME, "Anthropic content block must be an object")
+            validateReasoningBlock(block, allowMissingOrEmptySignature = false)
+        }
+    }
+
+    private fun validateReasoningBlock(block: JsonObject, allowMissingOrEmptySignature: Boolean) {
+        when ((block["type"] as? JsonPrimitive)?.content) {
+            "thinking" -> {
+                block.requireStringField("thinking", "thinking")
+                val signature = if (allowMissingOrEmptySignature && !block.containsKey("signature")) {
+                    null
+                } else {
+                    block.requireStringField("thinking", "signature")
+                }
+                if (!allowMissingOrEmptySignature && signature.isNullOrEmpty()) {
+                    throw LLMClientException(
+                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                        "Malformed Anthropic thinking block: 'signature' must not be empty",
+                    )
+                }
+            }
+
+            "redacted_thinking" -> {
+                val data = block.requireStringField("redacted_thinking", "data")
+                if (data.isEmpty()) {
+                    throw LLMClientException(
+                        BEDROCK_ANTHROPIC_CLIENT_NAME,
+                        "Malformed Anthropic redacted_thinking block: 'data' must not be empty",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun JsonObject.withMissingThinkingStartSignature(): JsonObject {
+        if ((this["type"] as? JsonPrimitive)?.content != AnthropicStreamEventType.CONTENT_BLOCK_START.value) {
+            return this
+        }
+        val block = this["content_block"] as? JsonObject ?: return this
+        if ((block["type"] as? JsonPrimitive)?.content != "thinking" || block.containsKey("signature")) {
+            return this
+        }
+        return JsonObject(this + ("content_block" to JsonObject(block + ("signature" to JsonPrimitive("")))))
+    }
+
+    private fun JsonObject.requireStringField(blockType: String, field: String): String {
+        val value = this[field] as? JsonPrimitive
+        if (value == null || !value.isString) {
+            throw LLMClientException(
+                BEDROCK_ANTHROPIC_CLIENT_NAME,
+                "Malformed Anthropic $blockType block: '$field' must be a string",
+            )
+        }
+        return value.content
+    }
+
+    private const val BEDROCK_ANTHROPIC_CLIENT_NAME = "Bedrock Anthropic"
 }
