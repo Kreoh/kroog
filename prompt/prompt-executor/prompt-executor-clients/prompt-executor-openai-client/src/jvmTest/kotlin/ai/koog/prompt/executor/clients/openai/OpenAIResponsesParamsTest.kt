@@ -144,12 +144,10 @@ class OpenAIResponsesParamsTest {
                 OpenAICodeInterpreterConfig(containerId = invalidId)
             }.message shouldBe "Code Interpreter containerId must be a non-blank provider container ID"
         }
-        shouldThrow<IllegalArgumentException> {
-            OpenAICodeInterpreterConfig(
-                fileIds = listOf("file_123"),
-                containerId = "cntr_123",
-            )
-        }.message shouldBe "Code Interpreter fileIds cannot be combined with a reused containerId"
+        OpenAICodeInterpreterConfig(
+            fileIds = listOf("file_123"),
+            containerId = "cntr_123",
+        ) shouldBe OpenAICodeInterpreterConfig(listOf("file_123"), "cntr_123")
 
         OpenAIResponsesParams().codeInterpreter shouldBe null
         OpenAICodeInterpreterConfig() shouldBe OpenAICodeInterpreterConfig(emptyList(), null)

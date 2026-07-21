@@ -304,8 +304,8 @@ public class OpenAIChatParams(
  * Configures the OpenAI Responses Code Interpreter hosted tool.
  *
  * When [containerId] is null, OpenAI creates an automatic container and makes [fileIds]
- * available to it. When [containerId] is present, that existing container is reused and
- * [fileIds] must be empty.
+ * available to it. When [containerId] is present, that existing container is reused. In
+ * that mode [fileIds] are retained solely for a bounded stale-container reconstruction.
  *
  * @property fileIds Validated provider file identifiers for a new automatic container.
  * @property containerId A validated existing provider container identifier to reuse.
@@ -323,9 +323,6 @@ public data class OpenAICodeInterpreterConfig @JvmOverloads constructor(
         }
         require(containerId == null || (containerId.isNotBlank() && containerId == containerId.trim())) {
             "Code Interpreter containerId must be a non-blank provider container ID"
-        }
-        require(containerId == null || fileIds.isEmpty()) {
-            "Code Interpreter fileIds cannot be combined with a reused containerId"
         }
     }
 }
@@ -362,6 +359,8 @@ public data class OpenAICodeInterpreterConfig @JvmOverloads constructor(
  * @property topLogprobs Number of top alternatives per position (0–20). Requires [logprobs] = true.
  * @property topP Nucleus sampling in (0.0, 1.0]; use **instead of** [temperature].
  * @property codeInterpreter Optional typed configuration for the hosted Code Interpreter tool.
+ * @property stateless Whether this is the ASK-compatible stateless path. Stateless requests always use
+ *   `store=false`, include encrypted reasoning, and rebuild complete typed history without a previous response ID.
  */
 @Experimental
 public class OpenAIResponsesParams(
@@ -387,6 +386,7 @@ public class OpenAIResponsesParams(
     public val topLogprobs: Int? = null,
     public val topP: Double? = null,
     public val codeInterpreter: OpenAICodeInterpreterConfig? = null,
+    public val stateless: Boolean = false,
 ) : LLMParams(
     temperature,
     maxTokens,
@@ -446,6 +446,59 @@ public class OpenAIResponsesParams(
         topLogprobs = topLogprobs,
         topP = topP,
         codeInterpreter = null,
+        stateless = false,
+    )
+
+    /**
+     * Preserves the JVM constructor layout and synthetic default constructor published with [codeInterpreter].
+     */
+    public constructor(
+        temperature: Double?,
+        maxTokens: Int? = null,
+        numberOfChoices: Int? = null,
+        speculation: String? = null,
+        schema: Schema? = null,
+        toolChoice: ToolChoice? = null,
+        user: String? = null,
+        additionalProperties: Map<String, JsonElement>? = null,
+        background: Boolean? = null,
+        include: List<OpenAIInclude>? = null,
+        maxToolCalls: Int? = null,
+        parallelToolCalls: Boolean? = null,
+        reasoning: ReasoningConfig? = null,
+        truncation: Truncation? = null,
+        promptCacheKey: String? = null,
+        safetyIdentifier: String? = null,
+        serviceTier: ServiceTier? = null,
+        store: Boolean? = null,
+        logprobs: Boolean? = null,
+        topLogprobs: Int? = null,
+        topP: Double? = null,
+        codeInterpreter: OpenAICodeInterpreterConfig? = null,
+    ) : this(
+        temperature = temperature,
+        maxTokens = maxTokens,
+        numberOfChoices = numberOfChoices,
+        speculation = speculation,
+        schema = schema,
+        toolChoice = toolChoice,
+        user = user,
+        additionalProperties = additionalProperties,
+        background = background,
+        include = include,
+        maxToolCalls = maxToolCalls,
+        parallelToolCalls = parallelToolCalls,
+        reasoning = reasoning,
+        truncation = truncation,
+        promptCacheKey = promptCacheKey,
+        safetyIdentifier = safetyIdentifier,
+        serviceTier = serviceTier,
+        store = store,
+        logprobs = logprobs,
+        topLogprobs = topLogprobs,
+        topP = topP,
+        codeInterpreter = codeInterpreter,
+        stateless = false,
     )
 
     init {
@@ -481,6 +534,9 @@ public class OpenAIResponsesParams(
         // maxToolCalls bounds
         if (maxToolCalls != null) {
             require(maxToolCalls >= 0) { "maxToolCalls must be >= 0" }
+        }
+        require(!stateless || store != true) {
+            "Stateless Responses requests require store=false"
         }
     }
 
@@ -565,6 +621,7 @@ public class OpenAIResponsesParams(
         topLogprobs = topLogprobs,
         topP = topP,
         codeInterpreter = this.codeInterpreter,
+        stateless = this.stateless,
     )
 
     /**
@@ -594,7 +651,35 @@ public class OpenAIResponsesParams(
             topLogprobs = topLogprobs,
             topP = topP,
             codeInterpreter = codeInterpreter,
+            stateless = stateless,
         )
+
+    /** Returns an ASK-compatible stateless copy that never permits provider-side response storage. */
+    public fun asStateless(): OpenAIResponsesParams = OpenAIResponsesParams(
+        temperature = temperature,
+        maxTokens = maxTokens,
+        numberOfChoices = numberOfChoices,
+        speculation = speculation,
+        schema = schema,
+        toolChoice = toolChoice,
+        user = user,
+        additionalProperties = additionalProperties,
+        background = background,
+        include = include,
+        maxToolCalls = maxToolCalls,
+        parallelToolCalls = parallelToolCalls,
+        reasoning = reasoning,
+        truncation = truncation,
+        promptCacheKey = promptCacheKey,
+        safetyIdentifier = safetyIdentifier,
+        serviceTier = serviceTier,
+        store = false,
+        logprobs = logprobs,
+        topLogprobs = topLogprobs,
+        topP = topP,
+        codeInterpreter = codeInterpreter,
+        stateless = true,
+    )
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true
@@ -621,7 +706,8 @@ public class OpenAIResponsesParams(
                 logprobs == other.logprobs &&
                 topLogprobs == other.topLogprobs &&
                 topP == other.topP &&
-                codeInterpreter == other.codeInterpreter
+                codeInterpreter == other.codeInterpreter &&
+                stateless == other.stateless
     }
 
     override fun hashCode(): Int = listOf(
@@ -632,6 +718,7 @@ public class OpenAIResponsesParams(
         truncation, promptCacheKey, safetyIdentifier,
         serviceTier, store, logprobs, topLogprobs, topP,
         codeInterpreter,
+        stateless,
     ).fold(0) { acc, element ->
         31 * acc + (element?.hashCode() ?: 0)
     }
@@ -660,6 +747,7 @@ public class OpenAIResponsesParams(
         append(", topLogprobs=$topLogprobs")
         append(", topP=$topP")
         append(", codeInterpreter=$codeInterpreter")
+        append(", stateless=$stateless")
         append(")")
     }
 }

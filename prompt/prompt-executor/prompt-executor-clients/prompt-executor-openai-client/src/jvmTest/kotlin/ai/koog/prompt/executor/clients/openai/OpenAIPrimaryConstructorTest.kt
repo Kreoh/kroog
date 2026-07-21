@@ -278,7 +278,25 @@ class OpenAIPrimaryConstructorTest {
             model = OpenAIModels.Chat.GPT4o,
         )
 
-        assertEquals(returnedPart, response.parts.single())
+        val returnedExecutionId = "execution:${returnedPart.id}"
+        assertEquals(
+            listOf(
+                returnedPart.copy(id = returnedExecutionId, providerItemId = returnedPart.id),
+                MessagePart.HostedExecution.Request(
+                    code = returnedPart.code,
+                    executionId = returnedExecutionId,
+                    containerId = returnedPart.containerId,
+                    providerItemId = returnedPart.id,
+                ),
+                MessagePart.HostedExecution.Result(
+                    output = "returned outputhttps://example.test/returned.png",
+                    executionId = returnedExecutionId,
+                    containerId = returnedPart.containerId,
+                    providerItemId = returnedPart.id,
+                ),
+            ),
+            response.parts,
+        )
         val input = Json.parseToJsonElement(transport.lastRequest.toString()).jsonObject
             .getValue("input")
             .jsonArray
@@ -412,27 +430,61 @@ class OpenAIPrimaryConstructorTest {
             MessagePart.CodeExecution.Output.Logs("hello\n"),
             MessagePart.CodeExecution.Output.Image("https://example.test/chart.png"),
         )
+        val executionId = "execution:$itemId"
         assertEquals(
             listOf(
-                StreamFrame.CodeExecutionStart(itemId, containerId, outputIndex),
-                StreamFrame.CodeExecutionCodeDelta(itemId, containerId, "print(", outputIndex),
-                StreamFrame.CodeExecutionCodeDelta(itemId, containerId, "'hello')", outputIndex),
-                StreamFrame.CodeExecutionOutput(itemId, containerId, outputs[0], outputIndex),
-                StreamFrame.CodeExecutionOutput(itemId, containerId, outputs[1], outputIndex),
+                StreamFrame.CodeExecutionStart(executionId, containerId, outputIndex, itemId),
+                StreamFrame.CodeExecutionCodeDelta(executionId, containerId, "print(", outputIndex, itemId),
+                StreamFrame.CodeExecutionCodeDelta(executionId, containerId, "'hello')", outputIndex, itemId),
+                StreamFrame.CodeExecutionOutput(executionId, containerId, outputs[0], outputIndex, itemId),
+                StreamFrame.CodeExecutionOutput(executionId, containerId, outputs[1], outputIndex, itemId),
                 StreamFrame.CodeExecutionComplete(
-                    id = itemId,
+                    id = executionId,
                     code = "print('hello')",
                     containerId = containerId,
                     outputs = outputs,
                     index = outputIndex,
+                    providerItemId = itemId,
+                ),
+                StreamFrame.HostedExecutionUpdate(
+                    MessagePart.HostedExecution.Request(
+                        code = "print('hello')",
+                        executionId = executionId,
+                        containerId = containerId,
+                        providerItemId = itemId,
+                    ),
+                    outputIndex,
+                ),
+                StreamFrame.HostedExecutionUpdate(
+                    MessagePart.HostedExecution.Result(
+                        output = "hello\nhttps://example.test/chart.png",
+                        executionId = executionId,
+                        containerId = containerId,
+                        providerItemId = itemId,
+                    ),
+                    outputIndex,
                 ),
             ),
             frames.dropLast(1),
         )
         assertIs<StreamFrame.End>(frames.last())
         assertEquals(
-            MessagePart.CodeExecution(itemId, "print('hello')", containerId, outputs),
-            frames.toMessageResponse().parts.single(),
+            listOf(
+                MessagePart.CodeExecution(executionId, "print('hello')", containerId, outputs, providerItemId = itemId),
+                MessagePart.HostedExecution.Request(
+                    code = "print('hello')",
+                    executionId = executionId,
+                    containerId = containerId,
+                    providerItemId = itemId,
+                ),
+                MessagePart.HostedExecution.Result(
+                    output = "hello\nhttps://example.test/chart.png",
+                    executionId = executionId,
+                    containerId = containerId,
+                    providerItemId = itemId,
+                ),
+            ),
+            frames.toMessageResponse().parts,
         )
     }
 
@@ -488,17 +540,38 @@ class OpenAIPrimaryConstructorTest {
                 model = OpenAIModels.Chat.GPT4o,
             ).toList()
 
+            val executionId = "execution:$itemId"
             assertEquals(
                 listOf(
-                    StreamFrame.CodeExecutionStart(itemId, containerId, testIndex),
-                    StreamFrame.CodeExecutionFailure(itemId, containerId, failure, testIndex),
+                    StreamFrame.CodeExecutionStart(executionId, containerId, testIndex, itemId),
+                    StreamFrame.CodeExecutionFailure(executionId, containerId, failure, testIndex, itemId),
                     StreamFrame.CodeExecutionComplete(
-                        id = itemId,
+                        id = executionId,
                         code = "raise RuntimeError()",
                         containerId = containerId,
                         outputs = emptyList(),
                         failure = failure,
                         index = testIndex,
+                        providerItemId = itemId,
+                    ),
+                    StreamFrame.HostedExecutionUpdate(
+                        MessagePart.HostedExecution.Request(
+                            code = "raise RuntimeError()",
+                            executionId = executionId,
+                            containerId = containerId,
+                            providerItemId = itemId,
+                        ),
+                        testIndex,
+                    ),
+                    StreamFrame.HostedExecutionUpdate(
+                        MessagePart.HostedExecution.Error(
+                            message = status.name.lowercase(),
+                            code = status.name.lowercase(),
+                            executionId = executionId,
+                            containerId = containerId,
+                            providerItemId = itemId,
+                        ),
+                        testIndex,
                     ),
                 ),
                 frames.dropLast(1),
@@ -734,16 +807,21 @@ class OpenAIPrimaryConstructorTest {
 
         assertEquals(3, frames.size)
         assertEquals(
-            StreamFrame.ReasoningDelta(id = reasoningId, text = reasoningDelta, index = 0),
+            StreamFrame.ReasoningDelta(
+                text = reasoningDelta,
+                index = 0,
+                providerItemId = reasoningId,
+            ),
             frames[0]
         )
         assertEquals(
             StreamFrame.ReasoningComplete(
-                id = reasoningId,
+                id = null,
                 content = listOf(reasoningContent),
                 summary = listOf(reasoningSummary),
                 encrypted = encryptedReasoning,
-                index = 0
+                index = 0,
+                providerItemId = reasoningId,
             ),
             frames[1]
         )
@@ -843,11 +921,11 @@ class OpenAIPrimaryConstructorTest {
 
         assertEquals(
             listOf(
-                StreamFrame.ToolCallDelta(firstCallId, firstName, "{\"first\":", 0),
-                StreamFrame.ToolCallDelta(secondCallId, secondName, "{\"second\":true}", 1),
-                StreamFrame.ToolCallDelta(firstCallId, firstName, "true}", 0),
-                StreamFrame.ToolCallComplete(secondCallId, secondName, "{\"second\":true}", 1),
-                StreamFrame.ToolCallComplete(firstCallId, firstName, "{\"first\":true}", 0)
+                StreamFrame.ToolCallDelta(firstCallId, firstName, "{\"first\":", 0, firstItemId),
+                StreamFrame.ToolCallDelta(secondCallId, secondName, "{\"second\":true}", 1, secondItemId),
+                StreamFrame.ToolCallDelta(firstCallId, firstName, "true}", 0, firstItemId),
+                StreamFrame.ToolCallComplete(secondCallId, secondName, "{\"second\":true}", 1, secondItemId),
+                StreamFrame.ToolCallComplete(firstCallId, firstName, "{\"first\":true}", 0, firstItemId)
             ),
             frames.dropLast(1)
         )
@@ -900,8 +978,8 @@ class OpenAIPrimaryConstructorTest {
 
         assertEquals(
             listOf(
-                StreamFrame.TextDelta(text, index = 0),
-                StreamFrame.TextComplete(text, index = 0)
+                StreamFrame.TextDelta(text, index = 0, providerItemId = itemId),
+                StreamFrame.TextComplete(text, index = 0, providerItemId = itemId)
             ),
             frames.dropLast(1)
         )

@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
+import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationCategory
 import ai.koog.prompt.dsl.ModerationCategoryResult
@@ -34,6 +35,8 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAICodeInterpreterContai
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
+import ai.koog.prompt.executor.clients.openai.models.OpenAIAnnotations
+import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
 import ai.koog.prompt.executor.clients.openai.models.OpenAIModelsResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIOutputFormat
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIRequest
@@ -66,12 +69,19 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmOverloads
@@ -79,15 +89,36 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import ai.koog.prompt.executor.clients.openai.base.models.Content as OpenAIContent
 
+/** Wire dialect used by the Responses client. Compatible endpoints must declare Responses support explicitly. */
+public enum class OpenAIResponsesDialect { OpenAI, Azure, Compatible }
+
+/** Authentication header mechanism applied by the factory-backed client constructor. */
+public enum class OpenAICredentialMechanism { Bearer, ApiKey }
+
+/** Closed declaration of Responses support for one configured source. */
+public sealed interface OpenAIResponsesCapability {
+    /** The source supports the Responses API. */
+    public data object Supported : OpenAIResponsesCapability
+
+    /** The source does not declare Responses support and cannot serve a Responses request. */
+    public data class Unsupported(public val reason: String) : OpenAIResponsesCapability
+}
+
+/** Typed configuration failure raised before an unsupported Responses source performs inference. */
+public class OpenAIResponsesConfigurationException(public val reason: String) : IllegalArgumentException(reason)
+
 /**
  * Represents the settings for configuring an OpenAI client.
  *
- * @property baseUrl The base URL of the OpenAI API. Defaults to "https://api.openai.com".
- * @property timeoutConfig Configuration for connection timeouts, including request, connect, and socket timeouts.
- * @property chatCompletionsPath The path of the OpenAI Chat Completions API. Defaults to "v1/chat/completions".
- * @property embeddingsPath The path of the OpenAI Embeddings API. Defaults to "v1/embeddings".
- * @property moderationsPath The path of the OpenAI Moderations API. Defaults to "v1/moderations".
- * @property modelsPath The path of the OpenAI Models API. Defaults to "v1/models".
+ * @property responsesAPIPath Explicit Responses endpoint path.
+ * @property embeddingsPath Explicit embeddings endpoint path.
+ * @property moderationsPath Explicit moderation endpoint path.
+ * @property modelsPath Explicit model-catalogue endpoint path.
+ * @property responsesDialect Provider wire dialect, never inferred from the hostname.
+ * @property credentialMechanism Authentication header mechanism used by the factory constructor.
+ * @property queryParameters Provider query parameters, including an explicit Azure API version.
+ * @property deployment Explicit Azure deployment name when the dialect is Azure.
+ * @property apiVersion Explicit Azure API version when the dialect is Azure.
  */
 public class OpenAIClientSettings(
     baseUrl: String = "https://api.openai.com",
@@ -97,7 +128,42 @@ public class OpenAIClientSettings(
     public val embeddingsPath: String = "v1/embeddings",
     public val moderationsPath: String = "v1/moderations",
     public val modelsPath: String = "v1/models",
-) : OpenAIBaseSettings(baseUrl, chatCompletionsPath, timeoutConfig)
+    public val responsesDialect: OpenAIResponsesDialect = OpenAIResponsesDialect.OpenAI,
+    declaredResponsesCapability: OpenAIResponsesCapability? = null,
+    public val credentialMechanism: OpenAICredentialMechanism = OpenAICredentialMechanism.Bearer,
+    public val queryParameters: Map<String, String> = emptyMap(),
+    public val deployment: String? = null,
+    public val apiVersion: String? = null,
+) : OpenAIBaseSettings(baseUrl, chatCompletionsPath, timeoutConfig) {
+    /** Preserves the pre-Responses-settings JVM constructor for already compiled callers. */
+    public constructor(
+        baseUrl: String,
+        timeoutConfig: ConnectionTimeoutConfig = ConnectionTimeoutConfig(),
+        chatCompletionsPath: String = "v1/chat/completions",
+        responsesAPIPath: String = "v1/responses",
+        embeddingsPath: String = "v1/embeddings",
+        moderationsPath: String = "v1/moderations",
+        modelsPath: String = "v1/models",
+    ) : this(
+        baseUrl = baseUrl,
+        timeoutConfig = timeoutConfig,
+        chatCompletionsPath = chatCompletionsPath,
+        responsesAPIPath = responsesAPIPath,
+        embeddingsPath = embeddingsPath,
+        moderationsPath = moderationsPath,
+        modelsPath = modelsPath,
+        responsesDialect = OpenAIResponsesDialect.OpenAI,
+    )
+
+    /** Effective capability. Compatible endpoints default to unsupported until callers declare support. */
+    public val responsesCapability: OpenAIResponsesCapability = declaredResponsesCapability ?: when (responsesDialect) {
+        OpenAIResponsesDialect.OpenAI,
+        OpenAIResponsesDialect.Azure -> OpenAIResponsesCapability.Supported
+        OpenAIResponsesDialect.Compatible -> OpenAIResponsesCapability.Unsupported(
+            "OpenAI-compatible source must declare Responses support"
+        )
+    }
+}
 
 /**
  * Implementation of [LLMClient] for OpenAI API.
@@ -130,11 +196,18 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         toolsConverter: OpenAICompatibleToolDescriptorSchemaGenerator = OpenAICompatibleToolDescriptorSchemaGenerator(),
     ) : this(
         settings = settings,
-        httpClient = createConfiguredHttpClient(
-            apiKey = apiKey,
-            settings = settings,
-            httpClientFactory = httpClientFactory,
-            clientName = OPENAI_CLIENT_NAME
+        httpClient = httpClientFactory.create(
+            clientName = OPENAI_CLIENT_NAME,
+            baseUrl = settings.baseUrl,
+            headers = when (settings.credentialMechanism) {
+                OpenAICredentialMechanism.Bearer -> mapOf("Authorization" to "Bearer $apiKey")
+                OpenAICredentialMechanism.ApiKey -> mapOf("api-key" to apiKey)
+            },
+            queryParameters = settings.queryParameters,
+            requestTimeoutMillis = settings.timeoutConfig.requestTimeoutMillis,
+            connectTimeoutMillis = settings.timeoutConfig.connectTimeoutMillis,
+            socketTimeoutMillis = settings.timeoutConfig.socketTimeoutMillis,
+            json = defaultOpenAIJson,
         ),
         clock = clock,
         toolsConverter = toolsConverter
@@ -224,6 +297,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         params: OpenAIResponsesParams,
         stream: Boolean
     ): String {
+        if (params.stateless) {
+            require(params.store != true) { "Stateless Responses requests require store=false" }
+        }
         val responseFormat = params.schema?.let { schema ->
             require(model.supports(schema.capability)) {
                 "Model ${model.id} does not support structured output schema ${schema.name}"
@@ -246,18 +322,18 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
         val request = OpenAIResponsesAPIRequest(
             background = params.background,
-            include = params.include,
+            include = params.include.withEncryptedReasoningForStateless(params.stateless),
             input = messages,
             maxOutputTokens = params.maxTokens,
             maxToolCalls = params.maxToolCalls,
-            model = model.id,
+            model = settings.deployment ?: model.id,
             parallelToolCalls = params.parallelToolCalls,
             promptCacheKey = params.promptCacheKey,
             reasoning = model.takeIf { it.supports(LLMCapability.Thinking) }
                 ?.let { params.reasoning },
             safetyIdentifier = params.safetyIdentifier,
             serviceTier = params.serviceTier,
-            store = params.store,
+            store = if (params.stateless) false else params.store,
             stream = stream,
             temperature = model.reasoningTemperature(params.temperature, params.reasoning?.effort),
             text = responseFormat,
@@ -270,6 +346,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         )
 
         return json.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
+    }
+
+    private fun List<OpenAIInclude>?.withEncryptedReasoningForStateless(stateless: Boolean): List<OpenAIInclude>? {
+        if (!stateless) return this
+        return (orEmpty() + OpenAIInclude.REASONING_ENCRYPTED_CONTENT).distinct()
     }
 
     private fun LLModel.reasoningTemperature(
@@ -297,6 +378,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private companion object {
         private const val OPENAI_CLIENT_NAME = "OpenAILLMClient"
         private val staticLogger = KotlinLogging.logger { }
+        private val defaultOpenAIJson = kotlinx.serialization.json.Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            encodeDefaults = true
+            explicitNulls = false
+            namingStrategy = kotlinx.serialization.json.JsonNamingStrategy.SnakeCase
+        }
     }
 
     override fun processProviderChatResponse(response: OpenAIChatCompletionResponse): List<Message.Assistant> {
@@ -347,8 +435,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             when (params) {
                 is OpenAIResponsesParams -> {
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
-                    val response = getResponseWithResponsesAPI(prompt, params, model, tools)
-                    processResponsesAPIResponse(response)
+                    val result = getResponseWithResponsesAPI(prompt, params, model, tools)
+                    processResponsesAPIResponse(result.response, result.recoveredContainerId)
                 }
 
                 is OpenAIChatParams -> {
@@ -400,9 +488,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         )
         val toolCallsByItemId = mutableMapOf<String, Item.FunctionToolCall>()
         val codeContainerByItemId = mutableMapOf<String, String>()
+        val citationsByItemId = mutableMapOf<String, MutableList<MessagePart.GeneratedFileCitation>>()
+        var providerEventSeen = false
 
-        return try {
-            httpClient.sse(
+        return httpClient.sse(
                 path = settings.responsesAPIPath,
                 requestBody = request,
                 requestBodyType = String::class,
@@ -410,6 +499,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     json.decodeFromString<OpenAIStreamEvent>(it)
                 },
                 processStreamingChunk = { event ->
+                    providerEventSeen = true
                     buildList {
                         when (event) {
                             is OpenAIStreamEvent.ResponseOutputItemAdded -> {
@@ -420,9 +510,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                         codeContainerByItemId[item.id] = item.containerId
                                         add(
                                             StreamFrame.CodeExecutionStart(
-                                                id = item.id,
+                                                id = "execution:${item.id}",
                                                 containerId = item.containerId,
                                                 index = event.outputIndex,
+                                                providerItemId = item.id,
                                             )
                                         )
                                     }
@@ -431,20 +522,39 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             }
 
                             is OpenAIStreamEvent.ResponseOutputTextDelta -> {
-                                add(StreamFrame.TextDelta(text = event.delta, index = event.outputIndex))
+                                add(
+                                    StreamFrame.TextDelta(
+                                        text = event.delta,
+                                        index = event.outputIndex,
+                                        providerItemId = event.itemId,
+                                    )
+                                )
                             }
 
                             is OpenAIStreamEvent.ResponseOutputTextDone -> {
-                                add(StreamFrame.TextComplete(text = event.text, index = event.outputIndex))
+                                add(
+                                    StreamFrame.TextComplete(
+                                        text = event.text,
+                                        index = event.outputIndex,
+                                        providerItemId = event.itemId,
+                                        generatedFileCitations = citationsByItemId.remove(event.itemId).orEmpty(),
+                                    )
+                                )
+                            }
+
+                            is OpenAIStreamEvent.ResponseOutputTextAnnotationAdded -> {
+                                event.annotation.toGeneratedFileCitation(event.itemId)?.let { citation ->
+                                    citationsByItemId.getOrPut(event.itemId, ::mutableListOf).add(citation)
+                                }
                             }
 
                             is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
                                 // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
                                 add(
                                     StreamFrame.ReasoningDelta(
-                                        id = event.itemId,
                                         text = event.delta,
                                         index = event.outputIndex,
+                                        providerItemId = event.itemId,
                                     )
                                 )
                             }
@@ -453,9 +563,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
                                 add(
                                     StreamFrame.ReasoningDelta(
-                                        id = event.itemId,
                                         summary = event.delta,
                                         index = event.outputIndex,
+                                        providerItemId = event.itemId,
                                     )
                                 )
                             }
@@ -468,6 +578,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                         name = toolCall?.name,
                                         content = event.delta,
                                         index = event.outputIndex,
+                                        providerItemId = event.itemId,
                                     )
                                 )
                             }
@@ -478,10 +589,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
                                 add(
                                     StreamFrame.CodeExecutionCodeDelta(
-                                        id = event.itemId,
+                                        id = "execution:${event.itemId}",
                                         containerId = containerId,
                                         code = event.delta,
                                         index = event.outputIndex,
+                                        providerItemId = event.itemId,
                                     )
                                 )
                             }
@@ -494,16 +606,21 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
                                     is Item.Reasoning -> {
                                         // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.done
-                                        if (item.summary.isEmpty() && item.content.isNullOrEmpty()) {
+                                        if (
+                                            item.summary.isEmpty() &&
+                                            item.content.isNullOrEmpty() &&
+                                            item.encryptedContent == null
+                                        ) {
                                             logger.debug { "Got and empty (hidden) reasoning from the model, ignoring it." }
                                         } else {
                                             add(
                                                 StreamFrame.ReasoningComplete(
-                                                    id = item.id,
+                                                    id = null,
                                                     content = item.content?.map { content -> content.text } ?: emptyList(),
                                                     summary = item.summary.map { content -> content.text },
                                                     encrypted = item.encryptedContent,
                                                     index = event.outputIndex,
+                                                    providerItemId = item.id,
                                                 )
                                             )
                                         }
@@ -517,6 +634,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                                 name = item.name,
                                                 content = item.arguments,
                                                 index = event.outputIndex,
+                                                providerItemId = item.id,
                                             )
                                         )
                                     }
@@ -531,6 +649,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                                     containerId = part.containerId,
                                                     output = output,
                                                     index = event.outputIndex,
+                                                    providerItemId = item.id,
                                                 )
                                             )
                                         }
@@ -541,6 +660,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                                     containerId = part.containerId,
                                                     failure = failure,
                                                     index = event.outputIndex,
+                                                    providerItemId = item.id,
                                                 )
                                             )
                                         }
@@ -552,8 +672,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                                 outputs = part.outputs,
                                                 failure = part.failure,
                                                 index = event.outputIndex,
+                                                providerItemId = item.id,
                                             )
                                         )
+                                        item.toHostedExecutionParts().forEach { hostedPart ->
+                                            add(StreamFrame.HostedExecutionUpdate(hostedPart, event.outputIndex))
+                                        }
                                     }
 
                                     else -> Unit
@@ -581,15 +705,26 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
                 }
             ).transform { frames ->
-                frames.forEach { emit(it) }
-            }.requireEndFrame()
-        } catch (e: Exception) {
-            throw LLMClientException(
-                clientName = clientName,
-                message = e.message,
-                cause = e
-            )
-        }
+            frames.forEach { emit(it) }
+        }.catch { failure ->
+            if (failure is CancellationException) throw failure
+            val recoveryParams = params.staleContainerRecoveryParams(failure, providerEventSeen)
+            if (recoveryParams != null) {
+                val staleContainerId = requireNotNull(params.codeInterpreter?.containerId)
+                emit(
+                    StreamFrame.HostedExecutionUpdate(
+                        MessagePart.HostedExecution.Progress(
+                            message = "stale_container_recovered",
+                            executionId = staleContainerRecoveryExecutionId(staleContainerId),
+                            containerId = staleContainerId,
+                        )
+                    )
+                )
+                emitAll(executeResponsesStreaming(prompt, model, tools, recoveryParams))
+            } else {
+                throw LLMClientException(clientName = clientName, message = failure.message, cause = failure)
+            }
+        }.requireEndFrame()
     }
 
     override suspend fun executeMultipleChoices(
@@ -611,8 +746,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 coroutineScope {
                     List(choices) {
                         async {
-                            val response = getResponseWithResponsesAPI(prompt, params, model, tools)
-                            processResponsesAPIResponse(response)
+                            val result = getResponseWithResponsesAPI(prompt, params, model, tools)
+                            processResponsesAPIResponse(result.response, result.recoveredContainerId)
                         }
                     }.awaitAll()
                 }
@@ -853,12 +988,17 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         )
     }
 
+    private data class ResponsesExecutionResult(
+        val response: OpenAIResponsesAPIResponse,
+        val recoveredContainerId: String? = null,
+    )
+
     private suspend fun getResponseWithResponsesAPI(
         prompt: Prompt,
         params: OpenAIResponsesParams,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): OpenAIResponsesAPIResponse {
+    ): ResponsesExecutionResult {
         logger.debug { "Executing prompt: $prompt with tools: $tools and model: $model" }
 
         if (tools.isNotEmpty() || params.codeInterpreter != null) {
@@ -875,21 +1015,33 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
         val messages = convertPromptToResponsesMessages(prompt, model)
 
-        val request = serializeResponsesAPIRequest(
-            messages,
-            model,
-            llmTools,
-            prompt.params.toolChoice?.toOpenAIResponseToolChoice(),
-            params,
-            false
-        )
+        suspend fun post(requestParams: OpenAIResponsesParams): OpenAIResponsesAPIResponse {
+            val request = serializeResponsesAPIRequest(
+                messages,
+                model,
+                llmTools,
+                prompt.params.toolChoice?.toOpenAIResponseToolChoice(),
+                requestParams,
+                false
+            )
+            return httpClient.post(
+                path = settings.responsesAPIPath,
+                requestBody = request,
+                requestBodyType = String::class,
+                responseType = OpenAIResponsesAPIResponse::class
+            )
+        }
 
-        return httpClient.post(
-            path = settings.responsesAPIPath,
-            requestBody = request,
-            requestBodyType = String::class,
-            responseType = OpenAIResponsesAPIResponse::class
-        )
+        return try {
+            ResponsesExecutionResult(post(params))
+        } catch (failure: Exception) {
+            val recoveryParams = params.staleContainerRecoveryParams(failure, providerEventSeen = false)
+                ?: throw failure
+            ResponsesExecutionResult(
+                response = post(recoveryParams),
+                recoveredContainerId = params.codeInterpreter?.containerId,
+            )
+        }
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -972,7 +1124,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 add(
                                     Item.FunctionToolCallOutput(
                                         callId = part.id ?: Uuid.random().toString(),
-                                        output = output
+                                        output = output,
+                                        id = part.providerItemId,
                                     )
                                 )
                             } else {
@@ -994,6 +1147,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
 
                     is Message.Assistant -> {
+                        val codeInterpreterReplay = message.parts.canonicalOpenAICodeInterpreterReplay()
+                        val emittedCodeInterpreterIds = mutableSetOf<String>()
                         message.parts.forEach { part ->
                             when (part) {
                                 is MessagePart.ContentPart -> {
@@ -1002,8 +1157,14 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                             add(
                                                 Item.OutputMessage(
                                                     content = listOf(
-                                                        OutputContent.Text(text = part.text, annotations = emptyList())
+                                                        OutputContent.Text(
+                                                            text = part.text,
+                                                            annotations = part.generatedFileCitations.map {
+                                                                it.toOpenAIAnnotation()
+                                                            },
+                                                        )
                                                     ),
+                                                    id = part.providerItemId,
                                                 )
                                             )
                                         }
@@ -1022,7 +1183,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                                 name = part.tool,
                                                 // `args` already holds the JSON-encoded arguments; re-encoding here would
                                                 // double-encode it into a quoted string that strict backends (e.g. DashScope) reject.
-                                                arguments = part.args
+                                                arguments = part.args,
+                                                id = part.providerItemId,
                                             )
                                         )
                                     } else {
@@ -1032,14 +1194,17 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
                                 is MessagePart.CodeExecution -> {
                                     model.requireCapability(LLMCapability.Tools)
-                                    add(part.toOpenAIItem())
+                                    val replayId = part.openAIReplayId()
+                                    if (emittedCodeInterpreterIds.add(replayId)) {
+                                        addAll(codeInterpreterReplay.getValue(replayId))
+                                    }
                                 }
 
                                 is MessagePart.Reasoning -> {
                                     if (model.supports(LLMCapability.Thinking)) {
                                         add(
                                             Item.Reasoning(
-                                                id = part.id ?: Uuid.random().toString(),
+                                                id = part.providerItemId ?: part.id ?: Uuid.random().toString(),
                                                 content = part.content.map { Item.Reasoning.Content(text = it) }
                                                     .ifEmpty { null },
                                                 encryptedContent = part.encrypted,
@@ -1052,9 +1217,15 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     }
                                 }
 
-                                is MessagePart.GeneratedFile,
+                                is MessagePart.GeneratedFile -> {
+                                    add(part.toOpenAIItem())
+                                }
+
                                 is MessagePart.HostedExecution -> {
-                                    logger.debug { "Provider-neutral hosted execution replay is not mapped yet" }
+                                    val replayId = part.openAIReplayId()
+                                    if (emittedCodeInterpreterIds.add(replayId)) {
+                                        addAll(codeInterpreterReplay.getValue(replayId))
+                                    }
                                 }
                             }
                         }
@@ -1120,7 +1291,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
     }
 
-    private fun processResponsesAPIResponse(response: OpenAIResponsesAPIResponse): Message.Assistant {
+    private fun processResponsesAPIResponse(
+        response: OpenAIResponsesAPIResponse,
+        recoveredContainerId: String? = null,
+    ): Message.Assistant {
         require(response.output.isNotEmpty()) { "Empty output in response" }
 
         val metaInfo = ResponseMetaInfo.create(
@@ -1133,15 +1307,25 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         var finishReason: String? = null
 
         val parts = buildList {
+            recoveredContainerId?.let { staleContainerId ->
+                add(
+                    MessagePart.HostedExecution.Progress(
+                        message = "stale_container_recovered",
+                        executionId = staleContainerRecoveryExecutionId(staleContainerId),
+                        containerId = staleContainerId,
+                    )
+                )
+            }
             response.output.forEach { output ->
                 when (output) {
                     is Item.Reasoning -> {
                         add(
                             MessagePart.Reasoning(
-                                id = output.id,
+                                id = null,
                                 encrypted = output.encryptedContent,
                                 content = output.content?.map { it.text } ?: emptyList(),
                                 summary = output.summary.map { it.text },
+                                providerItemId = output.id,
                             )
                         )
                     }
@@ -1151,11 +1335,19 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         output.content.forEach { content ->
                             when (content) {
                                 is OutputContent.Text -> {
-                                    add(MessagePart.Text(content.text))
+                                    add(
+                                        MessagePart.Text(
+                                            text = content.text,
+                                            providerItemId = output.id,
+                                            generatedFileCitations = content.annotations.mapNotNull {
+                                                it.toGeneratedFileCitation(output.id)
+                                            },
+                                        )
+                                    )
                                 }
 
                                 is OutputContent.Refusal -> {
-                                    add(MessagePart.Text(content.refusal))
+                                    add(MessagePart.Text(content.refusal, providerItemId = output.id))
                                 }
                             }
                         }
@@ -1167,12 +1359,14 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 id = output.callId,
                                 tool = output.name,
                                 args = output.arguments,
+                                providerItemId = output.id,
                             )
                         )
                     }
 
                     is Item.CodeInterpreterToolCall -> {
                         add(output.toMessagePart())
+                        addAll(output.toHostedExecutionParts())
                     }
 
                     else -> throw LLMClientException(
@@ -1196,7 +1390,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             containerId = requireNotNull(containerId) {
                 "OpenAI code execution replay requires a provider container ID"
             },
-            id = id,
+            id = providerItemId ?: id,
             outputs =
             outputs.map { output ->
                 when (output) {
@@ -1216,7 +1410,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
     private fun Item.CodeInterpreterToolCall.toMessagePart(): MessagePart.CodeExecution =
         MessagePart.CodeExecution(
-            id = id,
+            id = "execution:$id",
             code = code.orEmpty(),
             containerId = containerId,
             outputs =
@@ -1234,7 +1428,193 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 OpenAIInputStatus.INCOMPLETE -> MessagePart.CodeExecution.Failure.INCOMPLETE
                 else -> null
             },
+            providerItemId = id,
         )
+
+    private fun Item.CodeInterpreterToolCall.toHostedExecutionParts(): List<MessagePart.HostedExecution> {
+        val executionId = "execution:$id"
+        val request = MessagePart.HostedExecution.Request(
+            code = code.orEmpty(),
+            executionId = executionId,
+            containerId = containerId,
+            providerItemId = id,
+        )
+        val terminal = when (status) {
+            OpenAIInputStatus.FAILED,
+            OpenAIInputStatus.INCOMPLETE -> MessagePart.HostedExecution.Error(
+                message = requireNotNull(status).name.lowercase(),
+                code = status.name.lowercase(),
+                executionId = executionId,
+                containerId = containerId,
+                providerItemId = id,
+            )
+
+            else -> MessagePart.HostedExecution.Result(
+                output = outputs.orEmpty().joinToString(separator = "") { output ->
+                    when (output) {
+                        is Item.CodeInterpreterToolCall.Output.Logs -> output.logs
+                        is Item.CodeInterpreterToolCall.Output.Image -> output.url
+                    }
+                },
+                executionId = executionId,
+                containerId = containerId,
+                providerItemId = id,
+            )
+        }
+        return listOf(request, terminal)
+    }
+
+    private fun MessagePart.CodeExecution.openAIReplayId(): String = providerItemId ?: id
+
+    private fun MessagePart.HostedExecution.openAIReplayId(): String = providerItemId ?: executionId
+        ?: throw IllegalArgumentException("OpenAI hosted execution replay requires a provider item ID")
+
+    private fun List<MessagePart.ResponsePart>.canonicalOpenAICodeInterpreterReplay(): Map<String, List<Item>> =
+        filter { it is MessagePart.CodeExecution || it is MessagePart.HostedExecution }
+            .groupBy { part ->
+                when (part) {
+                    is MessagePart.CodeExecution -> part.openAIReplayId()
+                    is MessagePart.HostedExecution -> part.openAIReplayId()
+                    else -> error("Only code execution parts are grouped")
+                }
+            }
+            .mapValues { (wireId, parts) ->
+                val codeExecution = parts.filterIsInstance<MessagePart.CodeExecution>().lastOrNull()
+                val hostedParts = parts.filterIsInstance<MessagePart.HostedExecution>()
+                val generatedFiles = hostedParts.filterIsInstance<MessagePart.HostedExecution.Result>()
+                    .flatMap { it.generatedFiles }
+                buildList {
+                    if (codeExecution != null) {
+                        add(codeExecution.toOpenAIItem())
+                    } else {
+                        val request = hostedParts.filterIsInstance<MessagePart.HostedExecution.Request>().lastOrNull()
+                        val error = hostedParts.filterIsInstance<MessagePart.HostedExecution.Error>().lastOrNull()
+                        val result = hostedParts.filterIsInstance<MessagePart.HostedExecution.Result>().lastOrNull()
+                        val cumulativeOutput = hostedParts
+                            .filterIsInstance<MessagePart.HostedExecution.CumulativeOutput>()
+                            .lastOrNull()
+                        val progress = hostedParts.filterIsInstance<MessagePart.HostedExecution.Progress>().lastOrNull()
+                        val resultOutput = result?.output
+                        val progressMessage = progress?.message
+                        val output = when {
+                            error != null -> listOf(Item.CodeInterpreterToolCall.Output.Logs(error.message))
+                            resultOutput != null -> listOf(Item.CodeInterpreterToolCall.Output.Logs(resultOutput))
+                            cumulativeOutput != null -> {
+                                listOf(Item.CodeInterpreterToolCall.Output.Logs(cumulativeOutput.output))
+                            }
+                            progressMessage != null -> {
+                                listOf(Item.CodeInterpreterToolCall.Output.Logs(progressMessage))
+                            }
+                            else -> emptyList()
+                        }
+                        add(
+                            Item.CodeInterpreterToolCall(
+                                code = request?.code,
+                                containerId = requireNotNull(hostedParts.mapNotNull { it.containerId }.lastOrNull()) {
+                                    "OpenAI hosted execution replay requires a provider container ID"
+                                },
+                                id = wireId,
+                                outputs = output,
+                                status = when {
+                                    error != null -> OpenAIInputStatus.FAILED
+                                    result != null -> OpenAIInputStatus.COMPLETED
+                                    else -> OpenAIInputStatus.IN_PROGRESS
+                                },
+                            )
+                        )
+                    }
+                    generatedFiles.forEach { add(it.toOpenAIItem()) }
+                }
+            }
+
+    private fun MessagePart.GeneratedFile.toOpenAIItem(): Item.OutputMessage = Item.OutputMessage(
+        content = listOf(
+            OutputContent.Text(
+                text = "",
+                annotations = listOf(asCitation().toOpenAIAnnotation()),
+            )
+        ),
+        id = providerItemId,
+        status = OpenAIInputStatus.COMPLETED,
+    )
+
+    private fun MessagePart.GeneratedFile.asCitation(): MessagePart.GeneratedFileCitation =
+        MessagePart.GeneratedFileCitation(
+            providerFileId = providerFileId,
+            containerId = containerId,
+            filename = filename,
+            mediaType = mediaType,
+            sizeBytes = sizeBytes,
+            producingExecutionId = producingExecutionId,
+            providerItemId = providerItemId,
+        )
+
+    private fun MessagePart.GeneratedFileCitation.toOpenAIAnnotation(): OpenAIAnnotations = when {
+        containerId != null && filename != null -> OpenAIAnnotations.ContainerFileCitation(
+            containerId = requireNotNull(containerId),
+            fileId = providerFileId,
+            filename = requireNotNull(filename),
+            startIndex = startIndex ?: 0,
+            endIndex = endIndex ?: startIndex ?: 0,
+        )
+        filename != null -> OpenAIAnnotations.FileCitation(
+            fileId = providerFileId,
+            filename = requireNotNull(filename),
+            index = startIndex ?: 0,
+        )
+        else -> OpenAIAnnotations.FilePath(fileId = providerFileId, index = startIndex ?: 0)
+    }
+
+    private fun OpenAIAnnotations.toGeneratedFileCitation(providerItemId: String?): MessagePart.GeneratedFileCitation? =
+        when (this) {
+            is OpenAIAnnotations.ContainerFileCitation -> MessagePart.GeneratedFileCitation(
+                providerFileId = fileId,
+                containerId = containerId,
+                filename = filename,
+                providerItemId = providerItemId,
+                startIndex = startIndex,
+                endIndex = endIndex,
+            )
+            is OpenAIAnnotations.FileCitation -> MessagePart.GeneratedFileCitation(
+                providerFileId = fileId,
+                filename = filename,
+                providerItemId = providerItemId,
+                startIndex = index,
+            )
+            is OpenAIAnnotations.FilePath -> MessagePart.GeneratedFileCitation(
+                providerFileId = fileId,
+                providerItemId = providerItemId,
+                startIndex = index,
+            )
+            is OpenAIAnnotations.UrlCitation -> null
+        }
+
+    private fun JsonObject.toGeneratedFileCitation(providerItemId: String): MessagePart.GeneratedFileCitation? {
+        fun string(name: String): String? = get(name)?.jsonPrimitive?.content
+        fun integer(name: String): Int? = get(name)?.jsonPrimitive?.intOrNull
+        return when (string("type")) {
+            "container_file_citation" -> MessagePart.GeneratedFileCitation(
+                providerFileId = string("file_id") ?: return null,
+                containerId = string("container_id"),
+                filename = string("filename"),
+                providerItemId = providerItemId,
+                startIndex = integer("start_index"),
+                endIndex = integer("end_index"),
+            )
+            "file_citation" -> MessagePart.GeneratedFileCitation(
+                providerFileId = string("file_id") ?: return null,
+                filename = string("filename"),
+                providerItemId = providerItemId,
+                startIndex = integer("index"),
+            )
+            "file_path" -> MessagePart.GeneratedFileCitation(
+                providerFileId = string("file_id") ?: return null,
+                providerItemId = providerItemId,
+                startIndex = integer("index"),
+            )
+            else -> null
+        }
+    }
 
     private fun LLMParams.ToolChoice.toOpenAIResponseToolChoice() = when (this) {
         LLMParams.ToolChoice.Auto -> OpenAIResponsesToolChoice.Mode("auto")
@@ -1244,8 +1624,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     internal fun determineParams(params: LLMParams, model: LLModel): OpenAIParams = when {
-        "openai.azure.com" in settings.baseUrl -> params.toOpenAIChatParams() // TODO: create a separate Azure Client
         params is OpenAIResponsesParams -> {
+            settings.requireResponsesCapability()
             model.requireCapability(
                 LLMCapability.OpenAIEndpoint.Responses,
                 message = "Must be supported to use OpenAI responses params."
@@ -1262,9 +1642,49 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
 
         model.supports(LLMCapability.OpenAIEndpoint.Completions) -> params.toOpenAIChatParams()
-        model.supports(LLMCapability.OpenAIEndpoint.Responses) -> params.toOpenAIResponsesParams()
+        model.supports(LLMCapability.OpenAIEndpoint.Responses) -> {
+            settings.requireResponsesCapability()
+            params.toOpenAIResponsesParams()
+        }
         else -> throw LLMClientException(clientName, "Cannot determine proper LLM params for OpenAI model: ${model.id}")
     }
+
+    private fun OpenAIClientSettings.requireResponsesCapability() {
+        when (val capability = responsesCapability) {
+            OpenAIResponsesCapability.Supported -> Unit
+            is OpenAIResponsesCapability.Unsupported -> throw OpenAIResponsesConfigurationException(capability.reason)
+        }
+    }
+
+    private fun OpenAIResponsesParams.staleContainerRecoveryParams(
+        failure: Throwable,
+        providerEventSeen: Boolean,
+    ): OpenAIResponsesParams? {
+        val interpreter = codeInterpreter ?: return null
+        val staleContainerId = interpreter.containerId ?: return null
+        if (!stateless || providerEventSeen) return null
+        val httpFailure = generateSequence(failure as Throwable?) { it.cause }
+            .filterIsInstance<KoogHttpClientException>()
+            .firstOrNull() ?: return null
+        if (httpFailure.statusCode != 404) return null
+        val providerError = httpFailure.errorBody?.let { body ->
+            runCatching {
+                val envelope = json.parseToJsonElement(body).jsonObject
+                envelope["error"]?.jsonObject ?: envelope
+            }.getOrNull()
+        } ?: return null
+        val errorCode = providerError["code"]?.jsonPrimitive?.contentOrNull?.lowercase()
+        val errorParam = providerError["param"]?.jsonPrimitive?.contentOrNull?.lowercase()
+        val identifiesContainer = errorCode in setOf("container_not_found", "invalid_container") &&
+            errorParam?.contains("container") == true
+        if (!identifiesContainer) return null
+        return withCodeInterpreter(
+            OpenAICodeInterpreterConfig(fileIds = interpreter.fileIds)
+        )
+    }
+
+    private fun staleContainerRecoveryExecutionId(containerId: String): String =
+        "stale-container-recovery:$containerId"
 
     private inline fun <T> selectExecutionStrategy(
         prompt: Prompt,
