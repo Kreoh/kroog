@@ -1432,6 +1432,196 @@ public final class ai/koog/prompt/message/UserMessageBuilder {
 	public final fun metaInfo (Lai/koog/prompt/message/RequestMetaInfo;)Lai/koog/prompt/message/UserMessageBuilder;
 }
 
+public final class ai/koog/prompt/models/ModelCatalogue {
+	public static final field INSTANCE Lai/koog/prompt/models/ModelCatalogue;
+	public static final field sourceConfigSha256 Ljava/lang/String;
+	public static final field sourceModelsSha256 Ljava/lang/String;
+	public static final field sourceRevision Ljava/lang/String;
+	public static final field sourceTypesSha256 Ljava/lang/String;
+	public final fun find (Ljava/lang/String;)Lai/koog/prompt/models/ModelCatalogueEntry;
+	public final fun getEntries ()Ljava/util/List;
+	public final fun normalisedSnapshot ()Ljava/lang/String;
+	public final fun validate (Ljava/util/List;)Ljava/util/List;
+}
+
+public final class ai/koog/prompt/models/ModelCatalogueEntry {
+	public fun <init> (Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZ)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun compatibility (Lai/koog/prompt/provider/ProviderApi;)Lai/koog/prompt/models/ModelProviderApiCompatibility;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()Lai/koog/prompt/models/TemperatureSupport;
+	public final fun component11 ()Ljava/util/Set;
+	public final fun component12 ()Z
+	public final fun component13 ()Z
+	public final fun component2 ()Ljava/util/Set;
+	public final fun component3 ()Lai/koog/prompt/models/ModelPublisher;
+	public final fun component4 ()Lai/koog/prompt/models/ModelKind;
+	public final fun component5 ()Ljava/util/Set;
+	public final fun component6 ()Ljava/util/Map;
+	public final fun component7 ()Lai/koog/prompt/models/ReasoningSupport;
+	public final fun component8 ()J
+	public final fun component9 ()J
+	public final fun copy (Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZ)Lai/koog/prompt/models/ModelCatalogueEntry;
+	public static synthetic fun copy$default (Lai/koog/prompt/models/ModelCatalogueEntry;Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZILjava/lang/Object;)Lai/koog/prompt/models/ModelCatalogueEntry;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAliases ()Ljava/util/Set;
+	public final fun getHostedExecution ()Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getKind ()Lai/koog/prompt/models/ModelKind;
+	public final fun getMaxInputTokens ()J
+	public final fun getMaxOutputTokens ()J
+	public final fun getProviderApis ()Ljava/util/Set;
+	public final fun getPublisher ()Lai/koog/prompt/models/ModelPublisher;
+	public final fun getReasoning ()Lai/koog/prompt/models/ReasoningSupport;
+	public final fun getStructuredOutput ()Z
+	public final fun getSupportedMimeTypes ()Ljava/util/Set;
+	public final fun getSupportsImages ()Z
+	public final fun getTemperature ()Lai/koog/prompt/models/TemperatureSupport;
+	public final fun getUnsupportedProviderApis ()Ljava/util/Map;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ModelCatalogueIssue {
+	public fun <init> (Lai/koog/prompt/models/ModelCatalogueIssueKind;Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Lai/koog/prompt/models/ModelCatalogueIssueKind;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/models/ModelCatalogueIssue;
+	public static synthetic fun copy$default (Lai/koog/prompt/models/ModelCatalogueIssue;Lai/koog/prompt/models/ModelCatalogueIssueKind;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/models/ModelCatalogueIssue;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDetail ()Ljava/lang/String;
+	public final fun getKind ()Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public final fun getModelId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ModelCatalogueIssueKind : java/lang/Enum {
+	public static final field DUPLICATE_ALIAS Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field DUPLICATE_MODEL_ID Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field EXECUTION_REQUIREMENT_CONTRADICTION Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field INVALID_REASONING Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field INVALID_REASONING_EFFORT Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field INVALID_TEMPERATURE Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field INVALID_TOKEN_LIMIT Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field MODEL_ID_ALIAS_COLLISION Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field PROVIDER_API_CONTRADICTION Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field PROVIDER_API_SUPPORT_CONTRADICTION Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static final field TEMPERATURE_PROVIDER_CONTRADICTION Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ModelCatalogueIssueKind;
+	public static fun values ()[Lai/koog/prompt/models/ModelCatalogueIssueKind;
+}
+
+public final class ai/koog/prompt/models/ModelKind : java/lang/Enum {
+	public static final field EMBEDDING Lai/koog/prompt/models/ModelKind;
+	public static final field REALTIME Lai/koog/prompt/models/ModelKind;
+	public static final field TEXT Lai/koog/prompt/models/ModelKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ModelKind;
+	public static fun values ()[Lai/koog/prompt/models/ModelKind;
+}
+
+public abstract interface class ai/koog/prompt/models/ModelProviderApiCompatibility {
+}
+
+public final class ai/koog/prompt/models/ModelProviderApiCompatibility$Supported : ai/koog/prompt/models/ModelProviderApiCompatibility {
+	public static final field INSTANCE Lai/koog/prompt/models/ModelProviderApiCompatibility$Supported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ModelProviderApiCompatibility$Undeclared : ai/koog/prompt/models/ModelProviderApiCompatibility {
+	public static final field INSTANCE Lai/koog/prompt/models/ModelProviderApiCompatibility$Undeclared;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ModelProviderApiCompatibility$Unsupported : ai/koog/prompt/models/ModelProviderApiCompatibility {
+	public fun <init> (Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;)V
+	public final fun component1 ()Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
+	public final fun copy (Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;)Lai/koog/prompt/models/ModelProviderApiCompatibility$Unsupported;
+	public static synthetic fun copy$default (Lai/koog/prompt/models/ModelProviderApiCompatibility$Unsupported;Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;ILjava/lang/Object;)Lai/koog/prompt/models/ModelProviderApiCompatibility$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ModelProviderApiUnsupportedReason : java/lang/Enum {
+	public static final field MODEL_SUPPORT_NOT_ESTABLISHED Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
+	public static fun values ()[Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
+}
+
+public final class ai/koog/prompt/models/ModelPublisher : java/lang/Enum {
+	public static final field ANTHROPIC Lai/koog/prompt/models/ModelPublisher;
+	public static final field DEEPSEEK Lai/koog/prompt/models/ModelPublisher;
+	public static final field GOOGLE Lai/koog/prompt/models/ModelPublisher;
+	public static final field OPENAI Lai/koog/prompt/models/ModelPublisher;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ModelPublisher;
+	public static fun values ()[Lai/koog/prompt/models/ModelPublisher;
+}
+
+public final class ai/koog/prompt/models/ReasoningMode : java/lang/Enum {
+	public static final field CATEGORICAL Lai/koog/prompt/models/ReasoningMode;
+	public static final field TOKEN_BUDGET Lai/koog/prompt/models/ReasoningMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ReasoningMode;
+	public static fun values ()[Lai/koog/prompt/models/ReasoningMode;
+}
+
+public abstract interface class ai/koog/prompt/models/ReasoningSupport {
+}
+
+public final class ai/koog/prompt/models/ReasoningSupport$Supported : ai/koog/prompt/models/ReasoningSupport {
+	public fun <init> (Lai/koog/prompt/models/ReasoningMode;Ljava/util/Map;Ljava/lang/Integer;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Lai/koog/prompt/models/ReasoningMode;Ljava/util/Map;Ljava/lang/Integer;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lai/koog/prompt/models/ReasoningMode;
+	public final fun component2 ()Ljava/util/Map;
+	public final fun component3 ()Ljava/lang/Integer;
+	public final fun component4 ()Ljava/lang/Integer;
+	public final fun copy (Lai/koog/prompt/models/ReasoningMode;Ljava/util/Map;Ljava/lang/Integer;Ljava/lang/Integer;)Lai/koog/prompt/models/ReasoningSupport$Supported;
+	public static synthetic fun copy$default (Lai/koog/prompt/models/ReasoningSupport$Supported;Lai/koog/prompt/models/ReasoningMode;Ljava/util/Map;Ljava/lang/Integer;Ljava/lang/Integer;ILjava/lang/Object;)Lai/koog/prompt/models/ReasoningSupport$Supported;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEfforts ()Ljava/util/Map;
+	public final fun getMaxBudgetTokens ()Ljava/lang/Integer;
+	public final fun getMinBudgetTokens ()Ljava/lang/Integer;
+	public final fun getMode ()Lai/koog/prompt/models/ReasoningMode;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/ReasoningSupport$Unsupported : ai/koog/prompt/models/ReasoningSupport {
+	public static final field INSTANCE Lai/koog/prompt/models/ReasoningSupport$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/models/TemperatureSupport {
+	public fun <init> (DDLjava/util/Set;Ljava/util/Set;)V
+	public synthetic fun <init> (DDLjava/util/Set;Ljava/util/Set;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun component3 ()Ljava/util/Set;
+	public final fun component4 ()Ljava/util/Set;
+	public final fun copy (DDLjava/util/Set;Ljava/util/Set;)Lai/koog/prompt/models/TemperatureSupport;
+	public static synthetic fun copy$default (Lai/koog/prompt/models/TemperatureSupport;DDLjava/util/Set;Ljava/util/Set;ILjava/lang/Object;)Lai/koog/prompt/models/TemperatureSupport;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAllowedReasoningEfforts ()Ljava/util/Set;
+	public final fun getMaximum ()D
+	public final fun getMinimum ()D
+	public final fun getOmittedProviderApis ()Ljava/util/Set;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public class ai/koog/prompt/params/LLMParams {
 	public static final field Companion Lai/koog/prompt/params/LLMParams$Companion;
 	public fun <init> ()V
@@ -1611,6 +1801,163 @@ public final class ai/koog/prompt/params/LLMParams$ToolChoice$Required : ai/koog
 
 public final class ai/koog/prompt/params/LLMParamsKt {
 	public static final fun additionalPropertiesOf ([Lkotlin/Pair;)Ljava/util/Map;
+}
+
+public final class ai/koog/prompt/provider/CompatibleTransportRejectionReason : java/lang/Enum {
+	public static final field NO_COMPATIBLE_TRANSPORT_DECLARED Lai/koog/prompt/provider/CompatibleTransportRejectionReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/CompatibleTransportRejectionReason;
+	public static fun values ()[Lai/koog/prompt/provider/CompatibleTransportRejectionReason;
+}
+
+public abstract interface class ai/koog/prompt/provider/CompatibleTransportSelection {
+}
+
+public final class ai/koog/prompt/provider/CompatibleTransportSelection$Rejected : ai/koog/prompt/provider/CompatibleTransportSelection {
+	public fun <init> (Lai/koog/prompt/provider/CompatibleTransportRejectionReason;)V
+	public final fun component1 ()Lai/koog/prompt/provider/CompatibleTransportRejectionReason;
+	public final fun copy (Lai/koog/prompt/provider/CompatibleTransportRejectionReason;)Lai/koog/prompt/provider/CompatibleTransportSelection$Rejected;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/CompatibleTransportSelection$Rejected;Lai/koog/prompt/provider/CompatibleTransportRejectionReason;ILjava/lang/Object;)Lai/koog/prompt/provider/CompatibleTransportSelection$Rejected;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Lai/koog/prompt/provider/CompatibleTransportRejectionReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/provider/CompatibleTransportSelection$Selected : ai/koog/prompt/provider/CompatibleTransportSelection {
+	public fun <init> (Lai/koog/prompt/provider/ProviderApi;)V
+	public final fun component1 ()Lai/koog/prompt/provider/ProviderApi;
+	public final fun copy (Lai/koog/prompt/provider/ProviderApi;)Lai/koog/prompt/provider/CompatibleTransportSelection$Selected;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/CompatibleTransportSelection$Selected;Lai/koog/prompt/provider/ProviderApi;ILjava/lang/Object;)Lai/koog/prompt/provider/CompatibleTransportSelection$Selected;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApi ()Lai/koog/prompt/provider/ProviderApi;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/provider/CompatibleTransportSupport {
+	public fun <init> (ZZ)V
+	public final fun component1 ()Z
+	public final fun component2 ()Z
+	public final fun copy (ZZ)Lai/koog/prompt/provider/CompatibleTransportSupport;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/CompatibleTransportSupport;ZZILjava/lang/Object;)Lai/koog/prompt/provider/CompatibleTransportSupport;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChatCompletions ()Z
+	public final fun getResponses ()Z
+	public fun hashCode ()I
+	public final fun select ()Lai/koog/prompt/provider/CompatibleTransportSelection;
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ai/koog/prompt/provider/HostedExecutionCapability {
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionCapability$Supported : ai/koog/prompt/provider/HostedExecutionCapability {
+	public fun <init> (Lai/koog/prompt/provider/HostedExecutionConfiguration;)V
+	public final fun component1 ()Lai/koog/prompt/provider/HostedExecutionConfiguration;
+	public final fun copy (Lai/koog/prompt/provider/HostedExecutionConfiguration;)Lai/koog/prompt/provider/HostedExecutionCapability$Supported;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/HostedExecutionCapability$Supported;Lai/koog/prompt/provider/HostedExecutionConfiguration;ILjava/lang/Object;)Lai/koog/prompt/provider/HostedExecutionCapability$Supported;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConfiguration ()Lai/koog/prompt/provider/HostedExecutionConfiguration;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionCapability$Unsupported : ai/koog/prompt/provider/HostedExecutionCapability {
+	public fun <init> (Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;)V
+	public final fun component1 ()Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public final fun copy (Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;)Lai/koog/prompt/provider/HostedExecutionCapability$Unsupported;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/HostedExecutionCapability$Unsupported;Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;ILjava/lang/Object;)Lai/koog/prompt/provider/HostedExecutionCapability$Unsupported;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getReason ()Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionConfiguration {
+	public fun <init> (Lai/koog/prompt/provider/HostedExecutionMode;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;ZLai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/ProviderClientIntegration;)V
+	public synthetic fun <init> (Lai/koog/prompt/provider/HostedExecutionMode;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;ZLai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/ProviderClientIntegration;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lai/koog/prompt/provider/HostedExecutionMode;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun component5 ()Z
+	public final fun component6 ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun component7 ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun component8 ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun component9 ()Lai/koog/prompt/provider/ProviderClientIntegration;
+	public final fun copy (Lai/koog/prompt/provider/HostedExecutionMode;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;ZLai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/ProviderClientIntegration;)Lai/koog/prompt/provider/HostedExecutionConfiguration;
+	public static synthetic fun copy$default (Lai/koog/prompt/provider/HostedExecutionConfiguration;Lai/koog/prompt/provider/HostedExecutionMode;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;ZLai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/HostedExecutionFeatureSupport;Lai/koog/prompt/provider/ProviderClientIntegration;ILjava/lang/Object;)Lai/koog/prompt/provider/HostedExecutionConfiguration;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCallerAddressableContainer ()Z
+	public final fun getClientIntegration ()Lai/koog/prompt/provider/ProviderClientIntegration;
+	public final fun getCombinesWithCustomTools ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun getFiles ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun getManagedService ()Ljava/lang/String;
+	public final fun getMode ()Lai/koog/prompt/provider/HostedExecutionMode;
+	public final fun getProviderTool ()Ljava/lang/String;
+	public final fun getReplay ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public final fun getStreaming ()Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionFeatureSupport : java/lang/Enum {
+	public static final field SUPPORTED Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public static final field UNSUPPORTED Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+	public static fun values ()[Lai/koog/prompt/provider/HostedExecutionFeatureSupport;
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionMode : java/lang/Enum {
+	public static final field INLINE_PROVIDER_TOOL Lai/koog/prompt/provider/HostedExecutionMode;
+	public static final field PROVIDER_MANAGED_SANDBOX Lai/koog/prompt/provider/HostedExecutionMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/HostedExecutionMode;
+	public static fun values ()[Lai/koog/prompt/provider/HostedExecutionMode;
+}
+
+public final class ai/koog/prompt/provider/HostedExecutionUnsupportedReason : java/lang/Enum {
+	public static final field API_DOES_NOT_EXPOSE_HOSTED_EXECUTION Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static final field CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static final field CODEX_EXECUTION_IS_OUT_OF_SCOPE Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static final field MODEL_API_IS_NOT_AN_EXECUTION_API Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static fun values ()[Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+}
+
+public final class ai/koog/prompt/provider/ProviderApi : java/lang/Enum {
+	public static final field AZURE_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;
+	public static final field AZURE_REALTIME Lai/koog/prompt/provider/ProviderApi;
+	public static final field AZURE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
+	public static final field BEDROCK_ANTHROPIC_MESSAGES Lai/koog/prompt/provider/ProviderApi;
+	public static final field BEDROCK_CONVERSE Lai/koog/prompt/provider/ProviderApi;
+	public static final field CODEX_RESPONSES Lai/koog/prompt/provider/ProviderApi;
+	public static final field OPENAI_COMPATIBLE_CHAT_COMPLETIONS Lai/koog/prompt/provider/ProviderApi;
+	public static final field OPENAI_COMPATIBLE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
+	public static final field OPENAI_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;
+	public static final field OPENAI_REALTIME Lai/koog/prompt/provider/ProviderApi;
+	public static final field OPENAI_RESPONSES Lai/koog/prompt/provider/ProviderApi;
+	public static final field VERTEX_ANTHROPIC_MESSAGES Lai/koog/prompt/provider/ProviderApi;
+	public static final field VERTEX_GEMINI_GENERATE_CONTENT Lai/koog/prompt/provider/ProviderApi;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/ProviderApi;
+	public static fun values ()[Lai/koog/prompt/provider/ProviderApi;
+}
+
+public final class ai/koog/prompt/provider/ProviderCapabilityMatrix {
+	public static final field INSTANCE Lai/koog/prompt/provider/ProviderCapabilityMatrix;
+	public final fun hostedExecution (Lai/koog/prompt/provider/ProviderApi;)Lai/koog/prompt/provider/HostedExecutionCapability;
+}
+
+public final class ai/koog/prompt/provider/ProviderClientIntegration : java/lang/Enum {
+	public static final field IMPLEMENTED Lai/koog/prompt/provider/ProviderClientIntegration;
+	public static final field REQUIRES_CLIENT_INTEGRATION Lai/koog/prompt/provider/ProviderClientIntegration;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/provider/ProviderClientIntegration;
+	public static fun values ()[Lai/koog/prompt/provider/ProviderClientIntegration;
 }
 
 public final class ai/koog/prompt/streaming/IncompleteStreamException : java/lang/Exception {
