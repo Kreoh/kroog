@@ -19,6 +19,55 @@ public final class ai/koog/prompt/executor/clients/google/GoogleClientSettings {
 	public final fun getTimeoutConfig ()Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;
 }
 
+public final class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig {
+	public fun <init> ()V
+	public fun <init> (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+	public final fun copy (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getToolCombination ()Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision {
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$CustomToolsTakePrecedence : ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$CustomToolsTakePrecedence;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$Included : ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision {
+	public fun <init> (Z)V
+	public final fun component1 ()Z
+	public final fun copy (Z)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$Included;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$Included;ZILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$Included;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCombinedWithCustomTools ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$NotRequested : ai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision$NotRequested;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination : java/lang/Enum {
+	public static final field CUSTOM_TOOLS_TAKE_PRECEDENCE Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+	public static final field SUPPORTED Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+	public static fun values ()[Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionToolCombination;
+}
+
 public class ai/koog/prompt/executor/clients/google/GoogleLLMClient : ai/koog/prompt/executor/clients/LLMClient {
 	public fun <init> (Lai/koog/http/client/KoogHttpClient;)V
 	public fun <init> (Lai/koog/prompt/executor/clients/google/GoogleClientSettings;Lai/koog/http/client/KoogHttpClient;)V
@@ -39,6 +88,7 @@ public class ai/koog/prompt/executor/clients/google/GoogleLLMClient : ai/koog/pr
 	public fun getClientName ()Ljava/lang/String;
 	public fun getStandardJsonSchemaGenerator ()Lai/koog/prompt/executor/clients/google/structure/GoogleStandardJsonSchemaGenerator;
 	public synthetic fun getStandardJsonSchemaGenerator ()Lai/koog/prompt/structure/json/generator/StandardJsonSchemaGenerator;
+	public final fun hostedExecutionDecision (Lai/koog/prompt/params/LLMParams;Z)Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionDecision;
 	public fun llmProvider ()Lai/koog/prompt/llm/LLMProvider;
 	public fun models (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -68,16 +118,20 @@ public final class ai/koog/prompt/executor/clients/google/GoogleParams : ai/koog
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)V
 	public synthetic fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/executor/clients/google/GoogleParams;
 	public synthetic fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;)Lai/koog/prompt/params/LLMParams;
 	public final fun copy (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;)Lai/koog/prompt/executor/clients/google/GoogleParams;
 	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/google/GoogleParams;Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/google/GoogleParams;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getHostedExecution ()Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;
 	public final fun getThinkingConfig ()Lai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig;
 	public final fun getTopK ()Ljava/lang/Integer;
 	public final fun getTopP ()Ljava/lang/Double;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+	public final fun withHostedExecution (Lai/koog/prompt/executor/clients/google/GoogleHostedExecutionConfig;)Lai/koog/prompt/executor/clients/google/GoogleParams;
 }
 
 public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingConfig {

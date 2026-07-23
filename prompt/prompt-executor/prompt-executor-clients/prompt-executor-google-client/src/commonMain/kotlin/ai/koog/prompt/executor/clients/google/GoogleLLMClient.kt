@@ -10,6 +10,9 @@ import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.google.models.FunctionResponseInlineData
+import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionLanguage
+import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionOutcome
+import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionTool
 import ai.koog.prompt.executor.clients.google.models.GoogleCandidate
 import ai.koog.prompt.executor.clients.google.models.GoogleContent
 import ai.koog.prompt.executor.clients.google.models.GoogleData
@@ -162,7 +165,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
-        require(model.supports(LLMCapability.Tools) || tools.isEmpty()) {
+        require(model.supports(LLMCapability.Tools) ||
+            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
             "Model ${model.id} does not support tools"
         }
 
@@ -179,6 +183,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
+        require(model.supports(LLMCapability.Tools) ||
+            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
+            "Model ${model.id} does not support tools"
+        }
 
         val request = createGoogleRequest(prompt, model, tools)
 
@@ -187,6 +195,60 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             var finishReason: String? = null
             var nextPartIndex = 0
             var previousChunkParts = emptyMap<Pair<Int, Int>, GoogleStreamingPart>()
+            val latestExecutionByCandidate = mutableMapOf<Int, Pair<String, String?>>()
+            var executionOrdinal = 0
+
+            suspend fun emitBufferedHostedPart(streamingPart: GoogleStreamingPart) {
+                val part = streamingPart.part
+                part.thoughtSignature?.let { signature ->
+                    attachReasoningEncrypted(
+                        encrypted = signature,
+                        index = streamingPart.index,
+                    )
+                }
+                when (part) {
+                    is GooglePart.ExecutableCode -> {
+                        require(part.executableCode.language == GoogleCodeExecutionLanguage.PYTHON) {
+                            "Unsupported Gemini hosted execution language: ${part.executableCode.language}"
+                        }
+                        val executionId = part.executableCode.id
+                            ?: "google-execution-${streamingPart.candidateIndex}-${executionOrdinal++}"
+                        latestExecutionByCandidate[streamingPart.candidateIndex] =
+                            executionId to part.executableCode.id
+                        emitHostedExecutionUpdate(
+                            MessagePart.HostedExecution.Request(
+                                code = part.executableCode.code,
+                                language = "python",
+                                executionId = executionId,
+                                providerItemId = part.executableCode.id,
+                            ),
+                            index = streamingPart.index,
+                        )
+                    }
+
+                    is GooglePart.CodeExecutionResult -> {
+                        val latestExecution = latestExecutionByCandidate[streamingPart.candidateIndex]
+                        val providerItemId = part.codeExecutionResult.id ?: latestExecution?.second
+                        val executionId = part.codeExecutionResult.id ?: latestExecution?.first
+                            ?: "google-execution-${streamingPart.candidateIndex}-${executionOrdinal++}"
+                        emitHostedExecutionUpdate(
+                            part.codeExecutionResult.toHostedExecution(executionId, providerItemId),
+                            index = streamingPart.index,
+                        )
+                    }
+
+                    else -> error("Expected a buffered Gemini hosted execution part")
+                }
+            }
+
+            suspend fun flushBufferedHostedParts(parts: Collection<GoogleStreamingPart>) {
+                parts
+                    .filter { it.part.isHostedExecutionPart() }
+                    .distinctBy { it.index }
+                    .sortedBy { it.index }
+                    .forEach { emitBufferedHostedPart(it) }
+            }
+
             httpClient.sse(
                 path = "${settings.defaultPath}/${model.id}:${settings.streamGenerateContentMethod}",
                 requestBody = request,
@@ -207,9 +269,21 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 }
                 response.candidates.firstOrNull()?.let { candidate ->
                     candidate.content?.parts?.let { parts ->
+                        val candidateIndex = candidate.index ?: 0
+                        val incomingParts = parts.mapIndexed { localIndex, part ->
+                            (candidateIndex to localIndex) to part
+                        }.toMap()
+                        flushBufferedHostedParts(
+                            previousChunkParts
+                                .filter { (key, previous) ->
+                                    val incoming = incomingParts[key]
+                                    incoming == null || !previous.part.canContinueStreamingWith(incoming)
+                                }
+                                .values
+                        )
                         val currentChunkParts = mutableMapOf<Pair<Int, Int>, GoogleStreamingPart>()
                         parts.forEachIndexed { localIndex, part ->
-                            val key = (candidate.index ?: 0) to localIndex
+                            val key = candidateIndex to localIndex
                             val previous = previousChunkParts[key]
                             val index =
                                 if (previous != null && previous.part.canContinueStreamingWith(part)) {
@@ -217,16 +291,29 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                                 } else {
                                     nextPartIndex++
                                 }
-                            currentChunkParts[key] = GoogleStreamingPart(part, index)
-                            when (part) {
+                            val accumulatedPart = if (previous != null &&
+                                previous.part.canContinueStreamingWith(part) && part.isHostedExecutionPart()) {
+                                previous.part.mergeStreamingPart(part)
+                            } else {
+                                part
+                            }
+                            currentChunkParts[key] = GoogleStreamingPart(accumulatedPart, index, candidateIndex)
+                            val precedingHostedParts = currentChunkParts.filterValues { buffered ->
+                                buffered.part.isHostedExecutionPart() && buffered.index < index
+                            }
+                            flushBufferedHostedParts(precedingHostedParts.values)
+                            precedingHostedParts.keys.forEach(currentChunkParts::remove)
+                            when (accumulatedPart) {
+                                is GooglePart.ExecutableCode, is GooglePart.CodeExecutionResult -> Unit
+
                                 is GooglePart.Text -> {
-                                    if (part.thought == true) {
+                                    if (accumulatedPart.thought == true) {
                                         emitReasoningDelta(
-                                            id = part.thoughtSignature,
-                                            text = part.text,
+                                            id = accumulatedPart.thoughtSignature,
+                                            text = accumulatedPart.text,
                                             index = index,
                                         )
-                                        part.thoughtSignature?.let { signature ->
+                                        accumulatedPart.thoughtSignature?.let { signature ->
                                             attachReasoningEncrypted(
                                                 encrypted = signature,
                                                 id = signature,
@@ -234,18 +321,18 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                                             )
                                         }
                                     } else {
-                                        emitTextDelta(part.text, index)
+                                        emitTextDelta(accumulatedPart.text, index)
                                     }
                                 }
 
                                 is GooglePart.FunctionCall -> {
-                                    part.thoughtSignature?.let { signature ->
+                                    accumulatedPart.thoughtSignature?.let { signature ->
                                         attachReasoningEncrypted(signature, index = index)
                                     }
                                     emitToolCallDelta(
-                                        id = part.functionCall.id,
-                                        name = part.functionCall.name,
-                                        args = part.functionCall.args?.toString() ?: "{}",
+                                        id = accumulatedPart.functionCall.id,
+                                        name = accumulatedPart.functionCall.name,
+                                        args = accumulatedPart.functionCall.args?.toString() ?: "{}",
                                         index = index,
                                     )
                                 }
@@ -255,9 +342,16 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
                         previousChunkParts = currentChunkParts
                     }
-                    candidate.finishReason?.let { finishReason = it }
+                    candidate.finishReason?.let {
+                        finishReason = it
+                        flushBufferedHostedParts(previousChunkParts.values)
+                        previousChunkParts = previousChunkParts.filterValues {
+                            !it.part.isHostedExecutionPart()
+                        }
+                    }
                 }
             }
+            flushBufferedHostedParts(previousChunkParts.values)
             finishReason?.let { emitEnd(it, latestMeta) }
         } catch (e: CancellationException) {
             throw e
@@ -273,6 +367,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     private data class GoogleStreamingPart(
         val part: GooglePart,
         val index: Int,
+        val candidateIndex: Int,
     )
 
     private fun GooglePart.canContinueStreamingWith(next: GooglePart): Boolean =
@@ -282,8 +377,55 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                     (thoughtSignature == null || next.thoughtSignature == null || thoughtSignature == next.thoughtSignature)
             this is GooglePart.FunctionCall && next is GooglePart.FunctionCall ->
                 functionCall.id != null && functionCall.id == next.functionCall.id
+            this is GooglePart.ExecutableCode && next is GooglePart.ExecutableCode ->
+                executableCode.language == next.executableCode.language &&
+                    idsCanContinue(executableCode.id, next.executableCode.id)
+            this is GooglePart.CodeExecutionResult && next is GooglePart.CodeExecutionResult ->
+                codeExecutionResult.outcome == next.codeExecutionResult.outcome &&
+                    idsCanContinue(codeExecutionResult.id, next.codeExecutionResult.id)
             else -> false
         }
+
+    private fun GooglePart.isHostedExecutionPart(): Boolean =
+        this is GooglePart.ExecutableCode || this is GooglePart.CodeExecutionResult
+
+    private fun GooglePart.mergeStreamingPart(next: GooglePart): GooglePart = when {
+        this is GooglePart.ExecutableCode && next is GooglePart.ExecutableCode -> GooglePart.ExecutableCode(
+            executableCode = GoogleData.ExecutableCode(
+                id = next.executableCode.id ?: executableCode.id,
+                language = executableCode.language,
+                code = mergeStreamingFragment(executableCode.code, next.executableCode.code).orEmpty(),
+            ),
+            thought = next.thought ?: thought,
+            thoughtSignature = mergeStreamingFragment(thoughtSignature, next.thoughtSignature),
+        )
+
+        this is GooglePart.CodeExecutionResult && next is GooglePart.CodeExecutionResult ->
+            GooglePart.CodeExecutionResult(
+                codeExecutionResult = GoogleData.CodeExecutionResult(
+                    id = next.codeExecutionResult.id ?: codeExecutionResult.id,
+                    outcome = next.codeExecutionResult.outcome,
+                    output = mergeStreamingFragment(
+                        codeExecutionResult.output,
+                        next.codeExecutionResult.output,
+                    ).orEmpty(),
+                ),
+                thought = next.thought ?: thought,
+                thoughtSignature = mergeStreamingFragment(thoughtSignature, next.thoughtSignature),
+            )
+
+        else -> next
+    }
+
+    private fun idsCanContinue(previous: String?, next: String?): Boolean =
+        previous == null || next == null || previous == next
+
+    private fun mergeStreamingFragment(previous: String?, next: String?): String? = when {
+        previous == null -> next
+        next == null || next == previous || previous.startsWith(next) -> previous
+        next.startsWith(previous) -> next
+        else -> previous + next
+    }
 
     override suspend fun executeMultipleChoices(
         prompt: Prompt,
@@ -294,7 +436,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
-        require(model.supports(LLMCapability.Tools) || tools.isEmpty()) {
+        require(model.supports(LLMCapability.Tools) ||
+            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
             "Model ${model.id} does not support tools"
         }
         require(model.supports(LLMCapability.MultipleChoices)) {
@@ -352,6 +495,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     internal fun createGoogleRequest(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): GoogleRequest {
         val systemMessageParts = mutableListOf<GooglePart.Text>()
         val contents = mutableListOf<GoogleContent>()
+        val googleParams = prompt.params.toGoogleParams()
 
         for (message in prompt.messages) {
             when (message) {
@@ -371,7 +515,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
-        val googleTools = tools
+        val customGoogleTool = tools
             .map { tool ->
                 val properties = (tool.requiredParameters + tool.optionalParameters)
                     .associate { it.name to buildGoogleParamType(it) }
@@ -388,13 +532,19 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 )
             }
             .takeIf { it.isNotEmpty() }
-            ?.let { declarations -> listOf(GoogleTool(functionDeclarations = declarations)) }
+            ?.let { declarations -> GoogleTool(functionDeclarations = declarations) }
+
+        val hostedExecutionDecision = hostedExecutionDecision(googleParams, tools.isNotEmpty())
+        val googleTools = buildList {
+            customGoogleTool?.let(::add)
+            if (hostedExecutionDecision is GoogleHostedExecutionDecision.Included) {
+                add(GoogleTool(codeExecution = GoogleCodeExecutionTool()))
+            }
+        }.ifEmpty { null }
 
         val googleSystemInstruction = systemMessageParts
             .takeIf { it.isNotEmpty() }
             ?.let { GoogleContent(parts = it) }
-
-        val googleParams = prompt.params.toGoogleParams()
 
         val responseFormat: GoogleResponseFormat? = googleParams.schema?.let { schema ->
             require(model.supports(schema.capability)) {
@@ -456,6 +606,25 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         )
     }
 
+    /**
+     * Resolves a hosted execution request against the configured custom-tool combination support.
+     *
+     * The returned decision is deterministic and is the same decision used by [createGoogleRequest].
+     */
+    public fun hostedExecutionDecision(
+        params: LLMParams,
+        hasCustomTools: Boolean,
+    ): GoogleHostedExecutionDecision {
+        val config = params.toGoogleParams().hostedExecution
+            ?: return GoogleHostedExecutionDecision.NotRequested
+        return if (hasCustomTools &&
+            config.toolCombination == GoogleHostedExecutionToolCombination.CUSTOM_TOOLS_TAKE_PRECEDENCE) {
+            GoogleHostedExecutionDecision.CustomToolsTakePrecedence
+        } else {
+            GoogleHostedExecutionDecision.Included(combinedWithCustomTools = hasCustomTools)
+        }
+    }
+
     private fun Message.Assistant.toGoogleContent(model: LLModel): GoogleContent {
         var lastSignature: String? = null
 
@@ -485,7 +654,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
 
                         is MessagePart.Text -> {
-                            add(GooglePart.Text(part.text))
+                            add(GooglePart.Text(part.text, thoughtSignature = lastSignature))
+                            lastSignature = null
                         }
 
                         is MessagePart.Attachment -> {
@@ -494,8 +664,42 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
 
                         is MessagePart.CodeExecution -> {
+                            require(part.outputs.all { it is MessagePart.CodeExecution.Output.Logs }) {
+                                "Gemini hosted execution replay supports textual outputs only"
+                            }
+                            val providerItemId = part.providerItemId
+                            add(
+                                GooglePart.ExecutableCode(
+                                    executableCode = GoogleData.ExecutableCode(
+                                        id = providerItemId,
+                                        language = GoogleCodeExecutionLanguage.PYTHON,
+                                        code = part.code,
+                                    ),
+                                    thoughtSignature = lastSignature,
+                                )
+                            )
+                            lastSignature = null
+                            add(
+                                GooglePart.CodeExecutionResult(
+                                    codeExecutionResult = GoogleData.CodeExecutionResult(
+                                        id = providerItemId,
+                                        outcome = part.failure.toGoogleOutcome(),
+                                        output = part.outputs
+                                            .filterIsInstance<MessagePart.CodeExecution.Output.Logs>()
+                                            .joinToString(separator = "") { it.logs },
+                                    )
+                                )
+                            )
+                        }
+
+                        is MessagePart.HostedExecution -> {
+                            add(part.toGooglePart(lastSignature))
+                            lastSignature = null
+                        }
+
+                        is MessagePart.GeneratedFile -> {
                             throw IllegalArgumentException(
-                                "Google cannot replay provider-hosted code execution items"
+                                "Gemini hosted execution cannot replay generated-file metadata"
                             )
                         }
 
@@ -528,6 +732,72 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 }
             }
         )
+    }
+
+    private fun MessagePart.HostedExecution.toGooglePart(thoughtSignature: String?): GooglePart = when (this) {
+        is MessagePart.HostedExecution.Request -> {
+            require(language.equals("python", ignoreCase = true)) {
+                "Gemini hosted execution supports Python only"
+            }
+            GooglePart.ExecutableCode(
+                executableCode = GoogleData.ExecutableCode(
+                    id = providerItemId,
+                    language = GoogleCodeExecutionLanguage.PYTHON,
+                    code = code,
+                ),
+                thoughtSignature = thoughtSignature,
+            )
+        }
+
+        is MessagePart.HostedExecution.CumulativeOutput -> GooglePart.CodeExecutionResult(
+            codeExecutionResult = GoogleData.CodeExecutionResult(
+                id = providerItemId,
+                outcome = GoogleCodeExecutionOutcome.OUTCOME_OK,
+                output = output,
+            ),
+            thoughtSignature = thoughtSignature,
+        )
+
+        is MessagePart.HostedExecution.Result -> {
+            require(generatedFiles.isEmpty()) {
+                "Gemini hosted execution cannot replay generated-file metadata"
+            }
+            GooglePart.CodeExecutionResult(
+                codeExecutionResult = GoogleData.CodeExecutionResult(
+                    id = providerItemId,
+                    outcome = if (exitCode == null || exitCode == 0) {
+                        GoogleCodeExecutionOutcome.OUTCOME_OK
+                    } else {
+                        GoogleCodeExecutionOutcome.OUTCOME_FAILED
+                    },
+                    output = output.orEmpty(),
+                ),
+                thoughtSignature = thoughtSignature,
+            )
+        }
+
+        is MessagePart.HostedExecution.Error -> GooglePart.CodeExecutionResult(
+            codeExecutionResult = GoogleData.CodeExecutionResult(
+                id = providerItemId,
+                outcome = when (code) {
+                    GoogleCodeExecutionOutcome.OUTCOME_DEADLINE_EXCEEDED.name ->
+                        GoogleCodeExecutionOutcome.OUTCOME_DEADLINE_EXCEEDED
+                    else -> GoogleCodeExecutionOutcome.OUTCOME_FAILED
+                },
+                output = message,
+            ),
+            thoughtSignature = thoughtSignature,
+        )
+
+        is MessagePart.HostedExecution.Progress -> throw IllegalArgumentException(
+            "Gemini hosted execution cannot replay a progress-only item"
+        )
+    }
+
+    private fun MessagePart.CodeExecution.Failure?.toGoogleOutcome(): GoogleCodeExecutionOutcome = when (this) {
+        null -> GoogleCodeExecutionOutcome.OUTCOME_OK
+        MessagePart.CodeExecution.Failure.FAILED -> GoogleCodeExecutionOutcome.OUTCOME_FAILED
+        MessagePart.CodeExecution.Failure.INCOMPLETE -> GoogleCodeExecutionOutcome.OUTCOME_DEADLINE_EXCEEDED
     }
 
     private fun Message.User.toGoogleContent(model: LLModel): GoogleContent {
@@ -732,6 +1002,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         candidate: GoogleCandidate,
         metaInfo: ResponseMetaInfo
     ): Message.Assistant {
+        var executionOrdinal = 0
+        var latestExecutionId: String? = null
+        var latestProviderItemId: String? = null
         val parts = buildList {
             candidate.content?.parts.orEmpty().forEach { part ->
                 val signature = part.thoughtSignature
@@ -772,6 +1045,33 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         )
                     }
 
+                    is GooglePart.ExecutableCode -> {
+                        val executable = part.executableCode
+                        require(executable.language == GoogleCodeExecutionLanguage.PYTHON) {
+                            "Unsupported Gemini hosted execution language: ${executable.language}"
+                        }
+                        val executionId = executable.id
+                            ?: "google-execution-${candidate.index ?: 0}-${executionOrdinal++}"
+                        latestExecutionId = executionId
+                        latestProviderItemId = executable.id
+                        add(
+                            MessagePart.HostedExecution.Request(
+                                code = executable.code,
+                                language = "python",
+                                executionId = executionId,
+                                providerItemId = executable.id,
+                            )
+                        )
+                    }
+
+                    is GooglePart.CodeExecutionResult -> {
+                        val result = part.codeExecutionResult
+                        val providerItemId = result.id ?: latestProviderItemId
+                        val executionId = result.id ?: latestExecutionId
+                            ?: "google-execution-${candidate.index ?: 0}-${executionOrdinal++}"
+                        add(result.toHostedExecution(executionId, providerItemId))
+                    }
+
                     is GooglePart.InlineData -> {
                         val inlineData = part.inlineData
                         val source = when (val mimeType = inlineData.mimeType) {
@@ -803,6 +1103,36 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             parts = parts,
             finishReason = candidate.finishReason?.let { candidate.finishReason },
             metaInfo = metaInfo
+        )
+    }
+
+    private fun GoogleData.CodeExecutionResult.toHostedExecution(
+        executionId: String,
+        providerItemId: String?,
+    ): MessagePart.HostedExecution = when (outcome) {
+        GoogleCodeExecutionOutcome.OUTCOME_OK -> MessagePart.HostedExecution.Result(
+            output = output,
+            exitCode = 0,
+            executionId = executionId,
+            providerItemId = providerItemId,
+        )
+
+        GoogleCodeExecutionOutcome.OUTCOME_FAILED -> MessagePart.HostedExecution.Error(
+            message = output,
+            code = outcome.name,
+            executionId = executionId,
+            providerItemId = providerItemId,
+        )
+
+        GoogleCodeExecutionOutcome.OUTCOME_DEADLINE_EXCEEDED -> MessagePart.HostedExecution.Error(
+            message = output,
+            code = outcome.name,
+            executionId = executionId,
+            providerItemId = providerItemId,
+        )
+
+        GoogleCodeExecutionOutcome.OUTCOME_UNSPECIFIED -> throw IllegalArgumentException(
+            "Gemini returned an unspecified hosted execution outcome"
         )
     }
 
