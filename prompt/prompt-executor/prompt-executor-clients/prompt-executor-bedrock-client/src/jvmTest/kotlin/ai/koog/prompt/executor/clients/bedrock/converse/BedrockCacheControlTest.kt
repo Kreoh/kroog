@@ -8,6 +8,8 @@ import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockModels
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.ResponseMetaInfo
 import aws.sdk.kotlin.services.bedrockruntime.model.CachePointType
 import aws.sdk.kotlin.services.bedrockruntime.model.CacheTtl
@@ -109,24 +111,76 @@ class BedrockCacheControlTest {
     }
 
     @Test
-    fun testUserWithoutCacheControl() {
+    fun testUserWithoutCacheControlGetsAutomaticFiveMinuteBreakpoint() {
         val prompt = Prompt.build("test") { user("Hello") }
         val content = converseRequest(prompt).messages!![0].content
-        assertEquals(1, content.size)
+        assertEquals(2, content.size)
         assertIs<ContentBlock.Text>(content[0])
+        val cachePoint = assertIs<ContentBlock.CachePoint>(content[1])
+        assertEquals(CacheTtl.FiveMinutes, cachePoint.value.ttl)
     }
 
     // --- Assistant ---
 
     @Test
-    fun testAssistantWithoutCacheControl() {
+    fun testAssistantWithoutCacheControlGetsAutomaticFiveMinuteBreakpoint() {
         val prompt = Prompt.build("test") {
             user("Hi")
             assistant("Hello!")
         }
         val content = converseRequest(prompt).messages!![1].content
-        assertEquals(1, content.size)
+        assertEquals(2, content.size)
         assertIs<ContentBlock.Text>(content[0])
+        assertIs<ContentBlock.CachePoint>(content[1])
+    }
+
+    @Test
+    fun testToolCallWithProviderNeutralCacheControlEmitsCachePointAfterToolUse() {
+        val prompt = toolCallPrompt(
+            PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+        )
+
+        val content = converseRequest(prompt).messages!![0].content
+        assertEquals(2, content.size)
+        assertIs<ContentBlock.ToolUse>(content[0])
+        val cachePoint = assertIs<ContentBlock.CachePoint>(content[1])
+        assertEquals(CacheTtl.OneHour, cachePoint.value.ttl)
+    }
+
+    @Test
+    fun testLatestToolCallGetsAutomaticFiveMinuteBreakpointAfterToolUse() {
+        val content = converseRequest(toolCallPrompt()).messages!![0].content
+
+        assertEquals(2, content.size)
+        assertIs<ContentBlock.ToolUse>(content[0])
+        val cachePoint = assertIs<ContentBlock.CachePoint>(content[1])
+        assertEquals(CacheTtl.FiveMinutes, cachePoint.value.ttl)
+    }
+
+    @Test
+    fun testProviderNeutralOneHourCacheControlMapsToConverseEnvelope() {
+        val prompt = Prompt.build("test") {
+            user(
+                "Cached",
+                PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            )
+        }
+        val cachePoint = assertIs<ContentBlock.CachePoint>(converseRequest(prompt).messages!![0].content[1])
+
+        assertEquals(CacheTtl.OneHour, cachePoint.value.ttl)
+    }
+
+    @Test
+    fun testInvalidProviderNeutralTtlOrderFailsDuringConverseConstruction() {
+        val prompt = Prompt.build("test") {
+            user("short", PromptCacheControl(cacheable = true))
+            user(
+                "long",
+                PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> { converseRequest(prompt) }
     }
 
     @Test
@@ -162,4 +216,19 @@ class BedrockCacheControlTest {
             ),
             failure = MessagePart.CodeExecution.Failure.FAILED,
         )
+
+    private fun toolCallPrompt(cacheControl: PromptCacheControl? = null): Prompt = Prompt(
+        messages = listOf(
+            Message.Assistant(
+                part = MessagePart.Tool.Call(
+                    id = "call-1",
+                    tool = "lookup",
+                    args = "{}",
+                    cacheControl = cacheControl,
+                ),
+                metaInfo = ResponseMetaInfo.Empty,
+            )
+        ),
+        id = "tool-call-cache",
+    )
 }

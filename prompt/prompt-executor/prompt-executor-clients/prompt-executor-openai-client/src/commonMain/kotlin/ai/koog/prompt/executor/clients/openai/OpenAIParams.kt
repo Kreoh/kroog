@@ -14,6 +14,19 @@ import kotlin.jvm.JvmOverloads
 
 internal sealed interface OpenAIParams
 
+/** Raw application identity used only as input to Kroog's OpenAI prompt-cache digest. */
+public data class OpenAIPromptCacheIdentity(
+    public val userId: String,
+    public val chatId: String,
+) {
+    init {
+        require(userId.isNotBlank()) { "Prompt-cache userId must be non-blank" }
+        require(chatId.isNotBlank()) { "Prompt-cache chatId must be non-blank" }
+    }
+
+    override fun toString(): String = "OpenAIPromptCacheIdentity(<redacted>)"
+}
+
 internal fun LLMParams.toOpenAIChatParams(): OpenAIChatParams {
     if (this is OpenAIChatParams) return this
     return OpenAIChatParams(
@@ -133,7 +146,6 @@ public class OpenAIChatParams(
         require(promptCacheKey == null || promptCacheKey.isNotBlank()) {
             "promptCacheKey must be non-blank"
         }
-
         require(safetyIdentifier == null || safetyIdentifier.isNotBlank()) {
             "safetyIdentifier must be non-blank"
         }
@@ -361,6 +373,7 @@ public data class OpenAICodeInterpreterConfig @JvmOverloads constructor(
  * @property codeInterpreter Optional typed configuration for the hosted Code Interpreter tool.
  * @property stateless Whether this is the ASK-compatible stateless path. Stateless requests always use
  *   `store=false`, include encrypted reasoning, and rebuild complete typed history without a previous response ID.
+ * @property promptCacheIdentity Raw user and chat identity which Kroog hashes before constructing the wire request.
  */
 @Experimental
 public class OpenAIResponsesParams(
@@ -398,6 +411,10 @@ public class OpenAIResponsesParams(
     additionalProperties
 ),
     OpenAIParams {
+    /** Raw identity retained inside Kroog and replaced with a digest in the wire request. */
+    public var promptCacheIdentity: OpenAIPromptCacheIdentity? = null
+        private set
+
     /**
      * Preserves the JVM constructor layout published before [codeInterpreter] was added.
      */
@@ -521,7 +538,6 @@ public class OpenAIResponsesParams(
         require(promptCacheKey == null || promptCacheKey.isNotBlank()) {
             "promptCacheKey must be non-blank"
         }
-
         require(safetyIdentifier == null || safetyIdentifier.isNotBlank()) {
             "safetyIdentifier must be non-blank"
         }
@@ -622,7 +638,12 @@ public class OpenAIResponsesParams(
         topP = topP,
         codeInterpreter = this.codeInterpreter,
         stateless = this.stateless,
-    )
+    ).also {
+        require(promptCacheKey == null || this.promptCacheIdentity == null) {
+            "promptCacheKey and promptCacheIdentity are mutually exclusive"
+        }
+        it.promptCacheIdentity = this.promptCacheIdentity
+    }
 
     /**
      * Returns a copy using [codeInterpreter] as its hosted Code Interpreter configuration.
@@ -652,7 +673,40 @@ public class OpenAIResponsesParams(
             topP = topP,
             codeInterpreter = codeInterpreter,
             stateless = stateless,
-        )
+        ).also { it.promptCacheIdentity = promptCacheIdentity }
+
+    /** Returns a copy carrying raw identity for Kroog's request-time cache-key digest. */
+    public fun withPromptCacheIdentity(identity: OpenAIPromptCacheIdentity?): OpenAIResponsesParams =
+        OpenAIResponsesParams(
+            temperature = temperature,
+            maxTokens = maxTokens,
+            numberOfChoices = numberOfChoices,
+            speculation = speculation,
+            schema = schema,
+            toolChoice = toolChoice,
+            user = user,
+            additionalProperties = additionalProperties,
+            background = background,
+            include = include,
+            maxToolCalls = maxToolCalls,
+            parallelToolCalls = parallelToolCalls,
+            reasoning = reasoning,
+            truncation = truncation,
+            promptCacheKey = promptCacheKey,
+            safetyIdentifier = safetyIdentifier,
+            serviceTier = serviceTier,
+            store = store,
+            logprobs = logprobs,
+            topLogprobs = topLogprobs,
+            topP = topP,
+            codeInterpreter = codeInterpreter,
+            stateless = stateless,
+        ).also {
+            require(promptCacheKey == null || identity == null) {
+                "promptCacheKey and promptCacheIdentity are mutually exclusive"
+            }
+            it.promptCacheIdentity = identity
+        }
 
     /** Returns an ASK-compatible stateless copy that never permits provider-side response storage. */
     public fun asStateless(): OpenAIResponsesParams = OpenAIResponsesParams(
@@ -679,7 +733,7 @@ public class OpenAIResponsesParams(
         topP = topP,
         codeInterpreter = codeInterpreter,
         stateless = true,
-    )
+    ).also { it.promptCacheIdentity = promptCacheIdentity }
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true
@@ -707,7 +761,8 @@ public class OpenAIResponsesParams(
                 topLogprobs == other.topLogprobs &&
                 topP == other.topP &&
                 codeInterpreter == other.codeInterpreter &&
-                stateless == other.stateless
+                stateless == other.stateless &&
+                promptCacheIdentity == other.promptCacheIdentity
     }
 
     override fun hashCode(): Int = listOf(
@@ -719,6 +774,7 @@ public class OpenAIResponsesParams(
         serviceTier, store, logprobs, topLogprobs, topP,
         codeInterpreter,
         stateless,
+        promptCacheIdentity,
     ).fold(0) { acc, element ->
         31 * acc + (element?.hashCode() ?: 0)
     }
@@ -748,6 +804,7 @@ public class OpenAIResponsesParams(
         append(", topP=$topP")
         append(", codeInterpreter=$codeInterpreter")
         append(", stateless=$stateless")
+        append(", promptCacheIdentity=${promptCacheIdentity?.let { "<set>" }}")
         append(")")
     }
 }

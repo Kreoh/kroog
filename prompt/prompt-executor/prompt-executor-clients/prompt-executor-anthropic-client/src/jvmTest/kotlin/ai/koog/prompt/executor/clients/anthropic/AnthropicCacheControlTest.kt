@@ -6,6 +6,8 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.anthropic.models.CacheTtl
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.utils.time.KoogClock
 import kotlinx.serialization.json.Json
@@ -148,7 +150,40 @@ class AnthropicCacheControlTest {
     }
 
     @Test
-    fun testUserMessageWithoutCacheControlHasNoCacheControlInJson() {
+    fun testProviderNeutralOneHourCacheControlMapsToAnthropicEnvelope() {
+        val prompt = Prompt.build("test") {
+            user(
+                "Hello",
+                PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            )
+        }
+        val request = json.parseToJsonElement(
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        ).jsonObject
+        val cacheControl = request.getValue("messages").jsonArray[0].jsonObject
+            .getValue("content").jsonArray[0].jsonObject
+            .getValue("cache_control").jsonObject
+
+        assertEquals("1h", cacheControl.getValue("ttl").jsonPrimitive.content)
+    }
+
+    @Test
+    fun testInvalidProviderNeutralTtlOrderFailsDuringRequestConstruction() {
+        val prompt = Prompt.build("test") {
+            user("short", PromptCacheControl(cacheable = true))
+            user(
+                "long",
+                PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        }
+    }
+
+    @Test
+    fun testUserMessageWithoutCacheControlGetsAutomaticFiveMinuteCacheControlInJson() {
         val prompt = Prompt.build("test") {
             user("Hello")
         }
@@ -160,15 +195,16 @@ class AnthropicCacheControlTest {
         val userMsg = messages[0].jsonObject
         val content = userMsg["content"]?.jsonArray
         assertNotNull(content)
-        assertNull(content[0].jsonObject["cache_control"])
+        val cacheControl = content[0].jsonObject["cache_control"]?.jsonObject
+        assertNotNull(cacheControl)
+        assertEquals("ephemeral", cacheControl["type"]?.jsonPrimitive?.content)
+        assertNull(cacheControl["ttl"])
     }
 
     // --- Assistant messages ---
 
     @Test
-    fun testAssistantMessageWithoutCacheControlHasNoCacheControlInJson() {
-        // TODO: FIX ME, Assistant can not have a chache point
-
+    fun testAssistantMessageWithoutCacheControlGetsAutomaticCacheControlInJson() {
         val prompt = Prompt.build("test") {
             user("Hi")
             assistant("Hello!")
@@ -181,13 +217,13 @@ class AnthropicCacheControlTest {
         val assistantMsg = messages[1].jsonObject
         val content = assistantMsg["content"]?.jsonArray
         assertNotNull(content)
-        assertNull(content[0].jsonObject["cache_control"])
+        assertNotNull(content[0].jsonObject["cache_control"])
     }
 
     // --- Tool result messages ---
 
     @Test
-    fun testToolResultWithoutCacheControlHasNoCacheControlInJson() {
+    fun testToolResultWithoutCacheControlGetsAutomaticCacheControlInJson() {
         // TODO: FIX ME, Assistant can not have a chache point
         val prompt = Prompt.build("test") {
             user {
@@ -208,7 +244,7 @@ class AnthropicCacheControlTest {
         val toolResultMsg = messages[0].jsonObject
         val content = toolResultMsg["content"]?.jsonArray
         assertNotNull(content)
-        assertNull(content[0].jsonObject["cache_control"])
+        assertNotNull(content[0].jsonObject["cache_control"])
     }
 
     // --- Tool definitions ---

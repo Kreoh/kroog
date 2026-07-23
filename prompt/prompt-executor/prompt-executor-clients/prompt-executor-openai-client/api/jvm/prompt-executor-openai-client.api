@@ -199,6 +199,19 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesDialect
 	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIResponsesDialect;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChatId ()Ljava/lang/String;
+	public final fun getUserId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams : ai/koog/prompt/params/LLMParams, ai/koog/prompt/executor/clients/openai/OpenAIParams {
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Boolean;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;Lai/koog/prompt/executor/clients/openai/models/Truncation;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Ljava/lang/Boolean;Ljava/lang/Integer;Ljava/lang/Double;)V
@@ -220,6 +233,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public final fun getMaxToolCalls ()Ljava/lang/Integer;
 	public final fun getParallelToolCalls ()Ljava/lang/Boolean;
 	public final fun getPromptCacheKey ()Ljava/lang/String;
+	public final fun getPromptCacheIdentity ()Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;
 	public final fun getReasoning ()Lai/koog/prompt/executor/clients/openai/models/ReasoningConfig;
 	public final fun getSafetyIdentifier ()Ljava/lang/String;
 	public final fun getServiceTier ()Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;
@@ -231,6 +245,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 	public final fun withCodeInterpreter (Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
+	public final fun withPromptCacheIdentity (Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 }
 
 public final class ai/koog/prompt/executor/clients/openai/azure/AzureKt {

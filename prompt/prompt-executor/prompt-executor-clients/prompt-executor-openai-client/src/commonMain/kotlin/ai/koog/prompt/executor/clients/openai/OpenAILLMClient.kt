@@ -328,7 +328,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             maxToolCalls = params.maxToolCalls,
             model = settings.deployment ?: model.id,
             parallelToolCalls = params.parallelToolCalls,
-            promptCacheKey = params.promptCacheKey,
+            promptCacheKey = params.promptCacheIdentity?.let { identity ->
+                OpenAIPromptCacheKey.derive(
+                    dialect = settings.responsesDialect,
+                    model = settings.deployment ?: model.id,
+                    identity = identity,
+                )
+            } ?: params.promptCacheKey,
             reasoning = model.takeIf { it.supports(LLMCapability.Thinking) }
                 ?.let { params.reasoning },
             safetyIdentifier = params.safetyIdentifier,

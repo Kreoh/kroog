@@ -13,6 +13,8 @@ import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
@@ -37,6 +39,26 @@ import kotlin.reflect.KClass
 import kotlin.test.Test
 
 class AnthropicVertexLLMClientTest {
+    @Test
+    fun `maps provider-neutral cache metadata through Vertex Anthropic`() {
+        val client = vertexClient(RecordingAnthropicVertexHttpClient())
+        val prompt = Prompt.build("vertex-cache") {
+            user(
+                "stable prefix",
+                PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            )
+        }
+
+        val request = Json.parseToJsonElement(
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        ).jsonObject
+        val cacheControl = request.getValue("messages").jsonArray[0].jsonObject
+            .getValue("content").jsonArray[0].jsonObject
+            .getValue("cache_control").jsonObject
+
+        cacheControl.getValue("ttl").jsonPrimitive.content shouldBe "1h"
+    }
+
     @Test
     fun `builds Vertex adaptive requests with typed output config winning collisions`() {
         val transport = RecordingAnthropicVertexHttpClient()

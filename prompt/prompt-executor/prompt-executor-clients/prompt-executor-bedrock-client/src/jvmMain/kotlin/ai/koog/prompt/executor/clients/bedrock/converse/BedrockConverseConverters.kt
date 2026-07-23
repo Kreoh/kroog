@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.bedrock.converse
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockGuardrailsSettings
@@ -11,11 +12,13 @@ import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
+import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.MessagePart.ContentPart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.ResponseMetaInfo
-import ai.koog.prompt.message.require
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.buildStreamFrameFlow
 import ai.koog.utils.time.KoogClock
@@ -87,21 +90,37 @@ internal object BedrockConverseConverters {
         explicitNulls = false
     }
 
-    private fun BedrockCacheControl.toBedrockCachePointContentBlock(): ContentBlock =
-        ContentBlock.CachePoint(toBedrockCachePointBlock())
+    private fun CacheControl.toBedrockCachePointContentBlock(): ContentBlock? =
+        toBedrockCachePointBlock()?.let { ContentBlock.CachePoint(it) }
 
-    private fun BedrockCacheControl.toBedrockSystemCachePoint(): SystemContentBlock =
-        SystemContentBlock.CachePoint(toBedrockCachePointBlock())
+    private fun CacheControl.toBedrockSystemCachePoint(): SystemContentBlock? =
+        toBedrockCachePointBlock()?.let { SystemContentBlock.CachePoint(it) }
 
-    private fun BedrockCacheControl.toBedrockCachePointBlock(): CachePointBlock =
-        CachePointBlock {
-            type = CachePointType.Default
-            ttl = when (this@toBedrockCachePointBlock) {
-                BedrockCacheControl.Default -> null
-                BedrockCacheControl.FiveMinutes -> CacheTtl.FiveMinutes
-                BedrockCacheControl.OneHour -> CacheTtl.OneHour
+    private fun CacheControl.toBedrockCachePointBlock(): CachePointBlock? {
+        val cacheTtl = when (this) {
+            is PromptCacheControl -> when {
+                !cacheable -> return null
+                ttl == PromptCacheTtl.FiveMinutes -> CacheTtl.FiveMinutes
+                else -> CacheTtl.OneHour
             }
+            BedrockCacheControl.Default -> null
+            BedrockCacheControl.FiveMinutes -> CacheTtl.FiveMinutes
+            BedrockCacheControl.OneHour -> CacheTtl.OneHour
+            else -> error("Unsupported Bedrock cache control: $this")
         }
+        return CachePointBlock {
+            type = CachePointType.Default
+            ttl = cacheTtl
+        }
+    }
+
+    private fun CacheControl.toPromptCacheMetadata(): PromptCacheControl? = when (this) {
+        is PromptCacheControl -> this
+        BedrockCacheControl.Default,
+        BedrockCacheControl.FiveMinutes -> PromptCacheControl(cacheable = true)
+        BedrockCacheControl.OneHour -> PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour)
+        else -> null
+    }
 
     /**
      * Even though [ConverseRequest] and [ConverseStreamRequest] are structurally identical, they don't share a common
@@ -131,18 +150,26 @@ internal object BedrockConverseConverters {
         guardrailSettings: BedrockGuardrailsSettings? = null,
     ): ConverseRequestParams {
         val params = prompt.params.toBedrockConverseParams()
+        val toolBreakpoints = tools.mapNotNull { tool ->
+            tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
+        }
+        val requestPrompt = PromptCachePolicy.requestView(
+            prompt = prompt,
+            leadingBreakpoints = toolBreakpoints,
+            metadata = { it.toPromptCacheMetadata() },
+        )
 
         val systemMessages = mutableListOf<SystemContentBlock>()
         val messages = mutableListOf<BedrockMessage>()
 
         // Convert Prompt messages to bedrock message formats
-        prompt.messages.forEach { message ->
+        requestPrompt.messages.forEach { message ->
             when (message) {
                 is Message.System -> {
                     message.parts.forEach {
                         systemMessages.add(SystemContentBlock.Text(it.text))
-                        it.cacheControl?.let { cc ->
-                            systemMessages += cc.require<BedrockCacheControl>().toBedrockSystemCachePoint()
+                        it.cacheControl.takeIf { _ -> it.text.isNotBlank() }?.let { cc ->
+                            cc.toBedrockSystemCachePoint()?.let(systemMessages::add)
                         }
                     }
                 }
@@ -234,8 +261,8 @@ internal object BedrockConverseConverters {
                     when (part) {
                         is MessagePart.ContentPart -> {
                             add(part.toConverseContentBlock(model))
-                            part.cacheControl?.let { cc ->
-                                add(cc.require<BedrockCacheControl>().toBedrockCachePointContentBlock())
+                            part.cacheControl.takeIf { _ -> part.isBedrockCacheableContent() }?.let { cc ->
+                                cc.toBedrockCachePointContentBlock()?.let(::add)
                             }
                         }
 
@@ -243,13 +270,15 @@ internal object BedrockConverseConverters {
                             add(
                                 ContentBlock.ToolResult(
                                     ToolResultBlock {
-                                        this.toolUseId = part.id
+                                        this.toolUseId = requireNotNull(part.id) {
+                                            "Bedrock tool-result replay requires a call ID"
+                                        }
                                         this.content = part.parts.map { it.toToolResultContentBlock(model) }
                                     }
                                 )
                             )
-                            part.cacheControl?.let { cc ->
-                                add(cc.require<BedrockCacheControl>().toBedrockCachePointContentBlock())
+                            part.cacheControl.takeIf { _ -> part.hasBedrockCacheableContent() }?.let { cc ->
+                                cc.toBedrockCachePointContentBlock()?.let(::add)
                             }
                         }
                     }
@@ -266,8 +295,8 @@ internal object BedrockConverseConverters {
                     when (part) {
                         is MessagePart.ContentPart -> {
                             add(part.toConverseContentBlock(model))
-                            part.cacheControl?.let { cc ->
-                                add(cc.require<BedrockCacheControl>().toBedrockCachePointContentBlock())
+                            part.cacheControl.takeIf { _ -> part.isBedrockCacheableContent() }?.let { cc ->
+                                cc.toBedrockCachePointContentBlock()?.let(::add)
                             }
                         }
                         is MessagePart.Reasoning -> {
@@ -291,11 +320,16 @@ internal object BedrockConverseConverters {
                                 ContentBlock.ToolUse(
                                     ToolUseBlock {
                                         this.name = part.tool
-                                        this.toolUseId = part.id
+                                        this.toolUseId = requireNotNull(part.id) {
+                                            "Bedrock tool-call replay requires a call ID"
+                                        }
                                         this.input = JsonDocumentConverters.convertToDocument(part.argsJson)
                                     }
                                 )
                             )
+                            part.cacheControl?.let { cc ->
+                                cc.toBedrockCachePointContentBlock()?.let(::add)
+                            }
                         }
                     }
                 }
@@ -1019,9 +1053,16 @@ internal object BedrockConverseConverters {
 
         return listOfNotNull(
             toolSpec,
-            tool.cacheControl?.let { cc ->
-                BedrockTool.CachePoint(cc.require<BedrockCacheControl>().toBedrockCachePointBlock())
-            }
+            tool.cacheControl?.toBedrockCachePointBlock()?.let { BedrockTool.CachePoint(it) }
         )
     }
+
+    private fun MessagePart.isBedrockCacheableContent(): Boolean = when (this) {
+        is MessagePart.Text -> text.isNotBlank()
+        is MessagePart.Attachment -> true
+        else -> false
+    }
+
+    private fun MessagePart.Tool.Result.hasBedrockCacheableContent(): Boolean =
+        parts.any { it.isBedrockCacheableContent() }
 }

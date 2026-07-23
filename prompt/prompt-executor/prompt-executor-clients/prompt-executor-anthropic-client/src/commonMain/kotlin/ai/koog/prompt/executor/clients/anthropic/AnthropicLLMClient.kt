@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.agents.core.tools.annotations.InternalAgentToolsApi
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
@@ -40,6 +41,8 @@ import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.require
 import ai.koog.prompt.params.LLMParams
@@ -62,8 +65,6 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlin.jvm.JvmOverloads
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicCacheControl as AnthropicCacheControlBlock
 
 /**
@@ -445,31 +446,53 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         }.requireEndFrame()
     }
 
-    internal fun CacheControl.toAnthropicCacheControl(): AnthropicCacheControlBlock {
-        return when (this.require<AnthropicCacheControl>()) {
-            AnthropicCacheControl.Default -> AnthropicCacheControlBlock.Ephemeral()
-            AnthropicCacheControl.OneHour -> AnthropicCacheControlBlock.Ephemeral(CacheTtl.OneHour)
+    internal fun CacheControl.toAnthropicCacheControl(): AnthropicCacheControlBlock? {
+        return when (this) {
+            is PromptCacheControl -> when {
+                !cacheable -> null
+                ttl == PromptCacheTtl.FiveMinutes -> AnthropicCacheControlBlock.Ephemeral()
+                else -> AnthropicCacheControlBlock.Ephemeral(CacheTtl.OneHour)
+            }
+            else -> when (require<AnthropicCacheControl>()) {
+                AnthropicCacheControl.Default -> AnthropicCacheControlBlock.Ephemeral()
+                AnthropicCacheControl.OneHour -> AnthropicCacheControlBlock.Ephemeral(CacheTtl.OneHour)
+            }
         }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
+    private fun CacheControl.toPromptCacheMetadata(): PromptCacheControl? = when (this) {
+        is PromptCacheControl -> this
+        AnthropicCacheControl.Default -> PromptCacheControl(cacheable = true)
+        AnthropicCacheControl.OneHour -> PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour)
+        else -> null
+    }
+
     internal fun createAnthropicRequest(
         prompt: Prompt,
         tools: List<ToolDescriptor>,
         model: LLModel,
         stream: Boolean
     ): String {
+        val toolBreakpoints = tools.mapNotNull { tool ->
+            tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
+        }
+        val requestPrompt = PromptCachePolicy.requestView(
+            prompt = prompt,
+            leadingBreakpoints = toolBreakpoints,
+            metadata = { it.toPromptCacheMetadata() },
+        )
         val systemMessage = mutableListOf<SystemAnthropicMessage>()
         val messages = mutableListOf<AnthropicMessage>()
 
-        for (message in prompt.messages) {
+        for (message in requestPrompt.messages) {
             when (message) {
                 is Message.System -> {
                     message.parts.forEach { part ->
                         systemMessage.add(
                             SystemAnthropicMessage(
                                 part.text,
-                                cacheControl = part.cacheControl?.toAnthropicCacheControl()
+                                cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                                    ?.toAnthropicCacheControl()
                             )
                         )
                     }
@@ -606,7 +629,6 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             AnthropicEffort.MAX -> "max"
         }
 
-    @OptIn(ExperimentalUuidApi::class)
     private fun Message.Assistant.toAnthropicAssistantMessage(model: LLModel): AnthropicMessage.Assistant {
         val listOfContent = buildList {
             parts.forEach { part ->
@@ -622,7 +644,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         add(
                             AnthropicContent.Text(
                                 text = part.text,
-                                cacheControl = part.cacheControl?.toAnthropicCacheControl()
+                                cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                                    ?.toAnthropicCacheControl()
                             )
                         )
                     }
@@ -649,7 +672,9 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         }
                         add(
                             AnthropicContent.ToolUse(
-                                id = part.id ?: Uuid.random().toString(),
+                                id = requireNotNull(part.id) {
+                                    "Anthropic tool-call replay requires a call ID"
+                                },
                                 name = part.tool,
                                 input = part.argsJson,
                                 cacheControl = part.cacheControl?.toAnthropicCacheControl()
@@ -700,7 +725,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                     is MessagePart.Text -> add(
                         AnthropicContent.Text(
                             part.text,
-                            cacheControl = part.cacheControl?.toAnthropicCacheControl()
+                            cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                                ?.toAnthropicCacheControl()
                         )
                     )
 
@@ -710,10 +736,13 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                         }
                         add(
                             AnthropicContent.ToolResult(
-                                toolUseId = part.id ?: "",
+                                toolUseId = requireNotNull(part.id) {
+                                    "Anthropic tool-result replay requires a call ID"
+                                },
                                 content = part.toAnthropicToolResultContent(model),
                                 isError = part.isError,
-                                cacheControl = part.cacheControl?.toAnthropicCacheControl()
+                                cacheControl = part.cacheControl.takeIf { part.hasAnthropicCacheableContent() }
+                                    ?.toAnthropicCacheControl()
                             )
                         )
                     }
@@ -792,7 +821,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             when (part) {
                 is MessagePart.Text -> AnthropicContent.Text(
                     part.text,
-                    cacheControl = part.cacheControl?.toAnthropicCacheControl()
+                    cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                        ?.toAnthropicCacheControl()
                 )
 
                 is MessagePart.Attachment -> {
@@ -832,6 +862,10 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 }
             }
         }
+
+    private fun MessagePart.Tool.Result.hasAnthropicCacheableContent(): Boolean = parts.any { part ->
+        part is MessagePart.Attachment || part is MessagePart.Text && part.text.isNotBlank()
+    }
 
     private fun processAnthropicResponse(response: AnthropicResponse): Message.Assistant {
         // Extract token count from the response
