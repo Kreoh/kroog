@@ -38,6 +38,27 @@ internal val MessagePart.traceString: String
         is MessagePart.Reasoning -> "type: ${this::class.simpleName}, content: $content"
         is MessagePart.CodeExecution ->
             "type: ${this::class.simpleName}, id: $id, containerId: $containerId, code: $code, outputs: $outputs, failure: $failure"
+        is MessagePart.GeneratedFile -> buildString {
+            append("type: GeneratedFile, status: generated")
+            sizeBytes?.let { append(", sizeBytes: ").append(it) }
+        }
+        is MessagePart.HostedExecution.Request ->
+            "type: HostedExecution.Request, lifecycle: request, status: requested"
+        is MessagePart.HostedExecution.Progress -> buildString {
+            append("type: HostedExecution.Progress, lifecycle: progress, status: running")
+            sequence?.let { append(", sequence: ").append(it) }
+        }
+        is MessagePart.HostedExecution.CumulativeOutput -> buildString {
+            append("type: HostedExecution.CumulativeOutput, lifecycle: output, status: running")
+            sequence?.let { append(", sequence: ").append(it) }
+        }
+        is MessagePart.HostedExecution.Result -> buildString {
+            append("type: HostedExecution.Result, lifecycle: result, status: completed")
+            exitCode?.let { append(", exitCode: ").append(it) }
+            append(", generatedFileCount: ").append(generatedFiles.size)
+        }
+        is MessagePart.HostedExecution.Error ->
+            "type: HostedExecution.Error, lifecycle: error, status: failed"
         is MessagePart.Tool.Call -> "type: ${this::class.simpleName}, tool: $tool, args: $args"
         is MessagePart.Tool.Result -> "type: ${this::class.simpleName}, tool: $tool, output: $output"
     }
