@@ -28,6 +28,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -115,7 +116,7 @@ class OpenAIPrimaryConstructorTest {
         assertEquals(null, serialise(null)["tools"])
         assertEquals(
             Json.parseToJsonElement(
-                """[{"type":"code_interpreter","container":"auto"}]"""
+                """[{"type":"code_interpreter","container":{"type":"auto"}}]"""
             ),
             serialise(OpenAICodeInterpreterConfig())["tools"],
         )
@@ -136,7 +137,7 @@ class OpenAIPrimaryConstructorTest {
                 """
                 [
                   {"type":"function","name":"lookup","parameters":{"type":"object"}},
-                  {"type":"code_interpreter","container":"auto"}
+                  {"type":"code_interpreter","container":{"type":"auto"}}
                 ]
                 """.trimIndent()
             ),
@@ -182,16 +183,18 @@ class OpenAIPrimaryConstructorTest {
         )
         val savedParts = listOf(
             MessagePart.CodeExecution(
-                id = "ci_failed",
+                id = "execution:ci_failed",
                 code = "raise RuntimeError()",
                 containerId = "cntr_failed",
                 failure = MessagePart.CodeExecution.Failure.FAILED,
+                providerItemId = "ci_failed",
             ),
             MessagePart.CodeExecution(
-                id = "ci_incomplete",
+                id = "execution:ci_incomplete",
                 code = "while True: pass",
                 containerId = "cntr_incomplete",
                 failure = MessagePart.CodeExecution.Failure.INCOMPLETE,
+                providerItemId = "ci_incomplete",
             ),
         )
 
@@ -214,18 +217,23 @@ class OpenAIPrimaryConstructorTest {
             listOf("failed", "incomplete"),
             input.map { it.jsonObject.getValue("status").toString().trim('"') },
         )
+        assertEquals(
+            listOf("ci_failed", "ci_incomplete"),
+            input.map { it.jsonObject.getValue("id").jsonPrimitive.content },
+        )
     }
 
     @Test
     fun testResponsesCodeInterpreterSavedReplayAndResponseConversion() = runTest {
         val savedPart = MessagePart.CodeExecution(
-            id = "ci_saved",
+            id = "execution:ci_saved",
             code = "print('saved')",
             containerId = "cntr_saved",
             outputs = listOf(
                 MessagePart.CodeExecution.Output.Logs("saved output"),
                 MessagePart.CodeExecution.Output.Image("https://example.test/saved.png"),
             ),
+            providerItemId = "ci_saved",
         )
         val returnedPart = MessagePart.CodeExecution(
             id = "ci_returned",

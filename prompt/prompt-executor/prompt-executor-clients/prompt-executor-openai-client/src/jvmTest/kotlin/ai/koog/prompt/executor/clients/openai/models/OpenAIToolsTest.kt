@@ -220,7 +220,7 @@ class OpenAIToolsTest {
         runWithBothJsonConfigurations("CodeInterpreter automatic container serialization") { json ->
             listOf(
                 OpenAIResponsesTool.CodeInterpreter(OpenAICodeInterpreterContainer.Auto) to
-                    """{"container":"auto"}""",
+                    """{"container":{"type":"auto"}}""",
                 OpenAIResponsesTool.CodeInterpreter(
                     OpenAICodeInterpreterContainer.AutoWithFiles(fileIds = listOf("file_123", "file_456"))
                 ) to

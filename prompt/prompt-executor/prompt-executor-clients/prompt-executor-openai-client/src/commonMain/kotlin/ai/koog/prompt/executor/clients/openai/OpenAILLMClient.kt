@@ -85,8 +85,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmOverloads
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 import ai.koog.prompt.executor.clients.openai.base.models.Content as OpenAIContent
 
 /** Wire dialect used by the Responses client. Compatible endpoints must declare Responses support explicitly. */
@@ -1050,7 +1048,6 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
     }
 
-    @OptIn(ExperimentalUuidApi::class)
     private fun convertPromptToResponsesMessages(prompt: Prompt, model: LLModel): List<Item> {
         return buildList {
             prompt.messages.forEach { message ->
@@ -1129,7 +1126,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
                                 add(
                                     Item.FunctionToolCallOutput(
-                                        callId = part.id ?: Uuid.random().toString(),
+                                        callId = requireNotNull(part.id) {
+                                            "OpenAI function-result replay requires a call ID"
+                                        },
                                         output = output,
                                         id = part.providerItemId,
                                     )
@@ -1185,7 +1184,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     if (model.supports(LLMCapability.Tools)) {
                                         add(
                                             Item.FunctionToolCall(
-                                                callId = part.id ?: Uuid.random().toString(),
+                                                callId = requireNotNull(part.id) {
+                                                    "OpenAI function-call replay requires a call ID"
+                                                },
                                                 name = part.tool,
                                                 // `args` already holds the JSON-encoded arguments; re-encoding here would
                                                 // double-encode it into a quoted string that strict backends (e.g. DashScope) reject.
@@ -1210,7 +1211,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     if (model.supports(LLMCapability.Thinking)) {
                                         add(
                                             Item.Reasoning(
-                                                id = part.providerItemId ?: part.id ?: Uuid.random().toString(),
+                                                id = requireNotNull(part.providerItemId) {
+                                                    "OpenAI reasoning replay requires a provider item ID"
+                                                },
                                                 content = part.content.map { Item.Reasoning.Content(text = it) }
                                                     .ifEmpty { null },
                                                 encryptedContent = part.encrypted,
@@ -1228,9 +1231,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
 
                                 is MessagePart.HostedExecution -> {
-                                    val replayId = part.openAIReplayId()
-                                    if (emittedCodeInterpreterIds.add(replayId)) {
-                                        addAll(codeInterpreterReplay.getValue(replayId))
+                                    if (part !is MessagePart.HostedExecution.Progress || part.providerItemId != null) {
+                                        val replayId = part.openAIReplayId()
+                                        if (emittedCodeInterpreterIds.add(replayId)) {
+                                            addAll(codeInterpreterReplay.getValue(replayId))
+                                        }
                                     }
                                 }
                             }
@@ -1396,7 +1401,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             containerId = requireNotNull(containerId) {
                 "OpenAI code execution replay requires a provider container ID"
             },
-            id = providerItemId ?: id,
+            id = requireNotNull(providerItemId) {
+                "OpenAI code execution replay requires a provider item ID"
+            },
             outputs =
             outputs.map { output ->
                 when (output) {
@@ -1470,13 +1477,19 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return listOf(request, terminal)
     }
 
-    private fun MessagePart.CodeExecution.openAIReplayId(): String = providerItemId ?: id
+    private fun MessagePart.CodeExecution.openAIReplayId(): String = requireNotNull(providerItemId) {
+        "OpenAI code execution replay requires a provider item ID"
+    }
 
-    private fun MessagePart.HostedExecution.openAIReplayId(): String = providerItemId ?: executionId
-        ?: throw IllegalArgumentException("OpenAI hosted execution replay requires a provider item ID")
+    private fun MessagePart.HostedExecution.openAIReplayId(): String = requireNotNull(providerItemId) {
+        "OpenAI hosted execution replay requires a provider item ID"
+    }
 
     private fun List<MessagePart.ResponsePart>.canonicalOpenAICodeInterpreterReplay(): Map<String, List<Item>> =
         filter { it is MessagePart.CodeExecution || it is MessagePart.HostedExecution }
+            .filterNot {
+                it is MessagePart.HostedExecution.Progress && it.providerItemId == null
+            }
             .groupBy { part ->
                 when (part) {
                     is MessagePart.CodeExecution -> part.openAIReplayId()

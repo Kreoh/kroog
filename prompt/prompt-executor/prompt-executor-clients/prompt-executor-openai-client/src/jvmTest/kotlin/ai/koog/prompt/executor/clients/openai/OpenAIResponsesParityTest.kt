@@ -523,10 +523,11 @@ class OpenAIResponsesParityTest {
             OpenAIModels.Chat.GPT4o,
         )
 
+        assertLocalRecoveryProgressAvailable(recovered)
         client.execute(replayPrompt(recovered), OpenAIModels.Chat.GPT4o)
 
         assertEquals(3, transport.requests.size)
-        assertRecoveredProgressReplayed(transport.requests.last())
+        assertLocalRecoveryProgressOmittedFromReplay(transport.requests.last())
     }
 
     @Test
@@ -562,10 +563,11 @@ class OpenAIResponsesParityTest {
             OpenAIModels.Chat.GPT4o,
         ).toList().toMessageResponse()
 
+        assertLocalRecoveryProgressAvailable(recovered)
         client.execute(replayPrompt(recovered), OpenAIModels.Chat.GPT4o)
 
         assertEquals(3, transport.requests.size)
-        assertRecoveredProgressReplayed(transport.requests.last())
+        assertLocalRecoveryProgressOmittedFromReplay(transport.requests.last())
     }
 
     private fun prompt(params: OpenAIResponsesParams = OpenAIResponsesParams(store = false, stateless = true)): Prompt =
@@ -581,14 +583,28 @@ class OpenAIResponsesParityTest {
         params = OpenAIResponsesParams(store = false, stateless = true),
     )
 
-    private fun assertRecoveredProgressReplayed(requestBody: String) {
-        val recoveredItems = Json.parseToJsonElement(requestBody).jsonObject
+    private fun assertLocalRecoveryProgressAvailable(response: Message.Assistant) {
+        val progress = assertIs<MessagePart.HostedExecution.Progress>(response.parts.first())
+        assertEquals("stale_container_recovered", progress.message)
+        assertEquals("stale-container-recovery:stale_container", progress.executionId)
+        assertEquals(null, progress.providerItemId)
+    }
+
+    private fun assertLocalRecoveryProgressOmittedFromReplay(requestBody: String) {
+        val replayItems = Json.parseToJsonElement(requestBody).jsonObject
             .getValue("input").jsonArray.map { it.jsonObject }
-            .filter { item ->
-                item["type"]?.jsonPrimitive?.content == "code_interpreter_call" &&
-                    item["id"]?.jsonPrimitive?.content == "stale-container-recovery:stale_container"
+        assertEquals(
+            emptyList(),
+            replayItems.filter { item ->
+                item["id"]?.jsonPrimitive?.content == "stale-container-recovery:stale_container"
             }
-        assertEquals(1, recoveredItems.size)
+        )
+        assertEquals(
+            1,
+            replayItems.count { item ->
+                item["id"]?.jsonPrimitive?.content == "message_provider"
+            },
+        )
     }
 
     private fun staleContainerError(): String =

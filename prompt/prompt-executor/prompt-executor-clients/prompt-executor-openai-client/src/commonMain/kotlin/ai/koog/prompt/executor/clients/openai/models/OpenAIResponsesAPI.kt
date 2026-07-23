@@ -23,6 +23,7 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonContentPolymorphicSerializer
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
@@ -2343,7 +2344,13 @@ internal object OpenAICodeInterpreterContainerSerializer : KSerializer<OpenAICod
 
     override fun serialize(encoder: Encoder, value: OpenAICodeInterpreterContainer) {
         when (value) {
-            OpenAICodeInterpreterContainer.Auto -> encoder.encodeString("auto")
+            OpenAICodeInterpreterContainer.Auto -> {
+                val jsonEncoder = encoder as? JsonEncoder
+                    ?: throw SerializationException("OpenAICodeInterpreterContainer can only be serialized to JSON")
+                jsonEncoder.encodeJsonElement(
+                    JsonObject(mapOf("type" to JsonPrimitive("auto")))
+                )
+            }
             is OpenAICodeInterpreterContainer.AutoWithFiles ->
                 encoder.encodeSerializableValue(OpenAICodeInterpreterContainer.AutoWithFiles.serializer(), value)
             is OpenAICodeInterpreterContainer.Reused -> encoder.encodeString(value.id)
@@ -2361,11 +2368,18 @@ internal object OpenAICodeInterpreterContainerSerializer : KSerializer<OpenAICod
                 } else {
                     OpenAICodeInterpreterContainer.Reused(element.content)
                 }
-            is JsonObject ->
-                jsonDecoder.json.decodeFromJsonElement(
-                    OpenAICodeInterpreterContainer.AutoWithFiles.serializer(),
-                    element,
-                )
+            is JsonObject -> {
+                if ("file_ids" in element) {
+                    jsonDecoder.json.decodeFromJsonElement(
+                        OpenAICodeInterpreterContainer.AutoWithFiles.serializer(),
+                        element,
+                    )
+                } else if (element["type"]?.jsonPrimitive?.content == "auto") {
+                    OpenAICodeInterpreterContainer.Auto
+                } else {
+                    throw SerializationException("Code Interpreter automatic container must have type 'auto'")
+                }
+            }
             else -> throw SerializationException("Code Interpreter container must be a string or object")
         }
     }
