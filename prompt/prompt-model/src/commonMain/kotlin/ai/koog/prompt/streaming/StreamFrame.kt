@@ -231,6 +231,48 @@ public sealed interface StreamFrame {
         override val index: Int? = null,
     ) : CompleteFrame
 
+    /**
+     * One binary chunk of a provider-generated file.
+     *
+     * [fileId] is a framework-local streaming identity. [executionId] scopes provider file identities across
+     * executions. A provider file identity is optional.
+     */
+    @Serializable
+    public data class GeneratedFileBytes @JvmOverloads constructor(
+        public val fileId: String,
+        public val bytes: ByteArray,
+        public val offset: Long,
+        public val providerFileId: String? = null,
+        override val index: Int? = null,
+        public val executionId: String? = null,
+    ) : DeltaFrame {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is GeneratedFileBytes) return false
+
+            return fileId == other.fileId &&
+                bytes.contentEquals(other.bytes) &&
+                offset == other.offset &&
+                providerFileId == other.providerFileId &&
+                index == other.index &&
+                executionId == other.executionId
+        }
+
+        override fun hashCode(): Int {
+            var result = fileId.hashCode()
+            result = 31 * result + bytes.contentHashCode()
+            result = 31 * result + offset.hashCode()
+            result = 31 * result + (providerFileId?.hashCode() ?: 0)
+            result = 31 * result + (index ?: 0)
+            result = 31 * result + (executionId?.hashCode() ?: 0)
+            return result
+        }
+
+        override fun toString(): String =
+            "GeneratedFileBytes(fileId=$fileId, offset=$offset, providerFileId=$providerFileId, " +
+                "index=$index, executionId=$executionId, byteCount=${bytes.size})"
+    }
+
     /** A complete provider-generated file update. */
     @Serializable
     public data class GeneratedFileComplete(

@@ -2185,6 +2185,47 @@ public final class ai/koog/prompt/streaming/StreamFrame$End$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class ai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes : ai/koog/prompt/streaming/StreamFrame$DeltaFrame {
+	public static final field Companion Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes$Companion;
+	public fun <init> (Ljava/lang/String;[BJ)V
+	public fun <init> (Ljava/lang/String;[BJLjava/lang/String;)V
+	public fun <init> (Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;)V
+	public fun <init> (Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()[B
+	public final fun component3 ()J
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/Integer;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;)Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes;
+	public static synthetic fun copy$default (Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes;Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBytes ()[B
+	public final fun getExecutionId ()Ljava/lang/String;
+	public final fun getFileId ()Ljava/lang/String;
+	public fun getIndex ()Ljava/lang/Integer;
+	public final fun getOffset ()J
+	public final fun getProviderFileId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/streaming/StreamFrame$GeneratedFileBytes$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class ai/koog/prompt/streaming/StreamFrame$ReasoningComplete : ai/koog/prompt/streaming/StreamFrame, ai/koog/prompt/streaming/StreamFrame$CompleteFrame {
 	public static final field Companion Lai/koog/prompt/streaming/StreamFrame$ReasoningComplete$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/lang/Integer;)V
@@ -2387,6 +2428,7 @@ public final class ai/koog/prompt/streaming/StreamFrame$ToolCallDelta$Companion 
 }
 
 public final class ai/koog/prompt/streaming/StreamFrameExt {
+	public static final fun mergeIdentity (Lai/koog/prompt/streaming/StreamFrame;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity;
 	public static final fun toMessageResponse (Ljava/lang/Iterable;)Lai/koog/prompt/message/Message$Assistant;
 	public static final fun toStreamFrames (Lai/koog/prompt/message/Message$Assistant;)Ljava/util/List;
 }
@@ -2397,6 +2439,8 @@ public final class ai/koog/prompt/streaming/StreamFrameFlowBuilder {
 	public static synthetic fun attachReasoningEncrypted$default (Lai/koog/prompt/streaming/StreamFrameFlowBuilder;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun emitEnd (Ljava/lang/String;Lai/koog/prompt/message/ResponseMetaInfo;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun emitEnd$default (Lai/koog/prompt/streaming/StreamFrameFlowBuilder;Ljava/lang/String;Lai/koog/prompt/message/ResponseMetaInfo;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun emitGeneratedFileBytes (Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun emitGeneratedFileBytes$default (Lai/koog/prompt/streaming/StreamFrameFlowBuilder;Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun emitReasoningDelta (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun emitReasoningDelta$default (Lai/koog/prompt/streaming/StreamFrameFlowBuilder;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun emitTextDelta (Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -2424,6 +2468,11 @@ public final class ai/koog/prompt/streaming/StreamFrameFlowBuilderKt {
 	public static final fun buildStreamFrameFlow (Lkotlin/jvm/functions/Function2;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun emitEnd (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;Lai/koog/prompt/message/ResponseMetaInfo;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun emitEnd$default (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;Lai/koog/prompt/message/ResponseMetaInfo;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static final fun emitGeneratedFileBytes (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun emitGeneratedFileBytes (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun emitGeneratedFileBytes (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;[BJLjava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun emitGeneratedFileBytes (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;[BJLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun emitGeneratedFileBytes$default (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;[BJLjava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public static final fun emitReasoningComplete (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun emitReasoningComplete (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun emitReasoningComplete$default (Lkotlinx/coroutines/flow/FlowCollector;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
@@ -2446,6 +2495,48 @@ public final class ai/koog/prompt/streaming/StreamFrameFlowExtKt {
 	public static final fun collectText (Lkotlinx/coroutines/flow/Flow;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static final fun filterTextOnly (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
 	public static final fun requireEndFrame (Lkotlinx/coroutines/flow/Flow;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public abstract interface class ai/koog/prompt/streaming/StreamFrameMergeIdentity {
+	public abstract fun getValue ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/streaming/StreamFrameMergeIdentity$GeneratedFile : ai/koog/prompt/streaming/StreamFrameMergeIdentity {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$GeneratedFile;
+	public static synthetic fun copy$default (Lai/koog/prompt/streaming/StreamFrameMergeIdentity$GeneratedFile;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$GeneratedFile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExecutionScope ()Ljava/lang/String;
+	public final fun getFileId ()Ljava/lang/String;
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/streaming/StreamFrameMergeIdentity$Internal : ai/koog/prompt/streaming/StreamFrameMergeIdentity {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$Internal;
+	public static synthetic fun copy$default (Lai/koog/prompt/streaming/StreamFrameMergeIdentity$Internal;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$Internal;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKind ()Ljava/lang/String;
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/streaming/StreamFrameMergeIdentity$ProviderItem : ai/koog/prompt/streaming/StreamFrameMergeIdentity {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$ProviderItem;
+	public static synthetic fun copy$default (Lai/koog/prompt/streaming/StreamFrameMergeIdentity$ProviderItem;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/streaming/StreamFrameMergeIdentity$ProviderItem;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract class ai/koog/prompt/text/BuilderBase {

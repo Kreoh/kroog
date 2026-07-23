@@ -72,14 +72,15 @@ class ProviderCapabilityMatrixTest {
         listOf(vertex, bedrockMessages, bedrockConverse).forEach { configuration ->
             assertNull(configuration.providerTool)
             assertFalse(configuration.callerAddressableContainer)
-            assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, configuration.files)
-            assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, configuration.streaming)
+            assertEquals(HostedExecutionFeatureSupport.SUPPORTED, configuration.files)
             assertEquals(HostedExecutionFeatureSupport.SUPPORTED, configuration.replay)
             assertEquals(
                 ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
                 configuration.clientIntegration,
             )
         }
+        assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, vertex.streaming)
+        assertEquals(HostedExecutionFeatureSupport.SUPPORTED, bedrockMessages.streaming)
     }
 
     @Test

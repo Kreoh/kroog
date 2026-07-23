@@ -137,6 +137,19 @@ public suspend fun FlowCollector<StreamFrame>.emitToolCallComplete(
     emit(StreamFrame.ToolCallComplete(id, name, content, index, providerItemId))
 
 /**
+ * Emits one binary generated-file chunk without buffering the complete file.
+ */
+@JvmOverloads
+public suspend fun FlowCollector<StreamFrame>.emitGeneratedFileBytes(
+    fileId: String,
+    bytes: ByteArray,
+    offset: Long,
+    providerFileId: String? = null,
+    index: Int? = null,
+    executionId: String? = null,
+): Unit = emit(StreamFrame.GeneratedFileBytes(fileId, bytes, offset, providerFileId, index, executionId))
+
+/**
  * Builds a [Flow] of [StreamFrame] objects.
  * Should be used only in case model does not produce completion events.
  */
@@ -358,6 +371,23 @@ public class StreamFrameFlowBuilder(
         }
     }
 
+    /** Emits one generated-file byte chunk after flushing pending text, reasoning, and tool-call deltas. */
+    public suspend fun emitGeneratedFileBytes(
+        fileId: String,
+        bytes: ByteArray,
+        offset: Long,
+        providerFileId: String? = null,
+        index: Int? = null,
+        executionId: String? = null,
+    ) {
+        withStateLock {
+            tryEmitPendingToolCallsLocked()
+            tryEmitPendingTextLocked()
+            tryEmitPendingReasoningLocked()
+            flowCollector.emitGeneratedFileBytes(fileId, bytes, offset, providerFileId, index, executionId)
+        }
+    }
+
     /**
      * Emits a [pendingTextRef] if it exists and then clears it.
      */
@@ -433,10 +463,13 @@ public class StreamFrameFlowBuilder(
         val indexPosition = index?.let { value -> pendingToolCalls.indexOfFirst { it.index == value }.takeIf { it >= 0 } }
         val idPosition = id?.let { value ->
             val matchingPositions = pendingToolCalls.indices.filter { pendingToolCalls[it].id == value }
-            val eligiblePositions =
-                if (providerItemId == null) matchingPositions else matchingPositions.filter {
+            val eligiblePositions = if (providerItemId == null) {
+                matchingPositions
+            } else {
+                matchingPositions.filter {
                     pendingToolCalls[it].providerItemId == null
                 }
+            }
             eligiblePositions.singleOrNull()
         }
         if (providerPosition != null && indexPosition != null && providerPosition != indexPosition) {

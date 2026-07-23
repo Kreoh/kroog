@@ -24,6 +24,15 @@ public sealed interface StreamFrameMergeIdentity {
     /** A stable identity supplied by the provider. */
     public data class ProviderItem(override val value: String) : StreamFrameMergeIdentity
 
+    /** A generated file identity scoped to one provider execution or one framework-local stream file. */
+    public data class GeneratedFile(
+        public val executionScope: String,
+        public val fileId: String,
+    ) : StreamFrameMergeIdentity {
+        override val value: String
+            get() = "$executionScope\u0000$fileId"
+    }
+
     /** A framework-local fallback identity. */
     public data class Internal(
         public val kind: String,
@@ -35,6 +44,19 @@ public sealed interface StreamFrameMergeIdentity {
  * Returns this frame's merge identity, preferring a non-blank provider item ID over an internal frame key.
  */
 public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
+    if (this is StreamFrame.GeneratedFileBytes) {
+        val localFileId = fileId.takeIf(String::isNotBlank) ?: return null
+        val fileIdentity = providerFileId?.takeIf(String::isNotBlank) ?: localFileId
+        val executionScope = executionId?.takeIf(String::isNotBlank) ?: "stream-file:$localFileId"
+        return StreamFrameMergeIdentity.GeneratedFile(executionScope, fileIdentity)
+    }
+    if (this is StreamFrame.GeneratedFileComplete) {
+        val executionScope = file.producingExecutionId?.takeIf(String::isNotBlank)
+        val fileIdentity = file.providerFileId.takeIf(String::isNotBlank)
+        if (executionScope != null && fileIdentity != null) {
+            return StreamFrameMergeIdentity.GeneratedFile(executionScope, fileIdentity)
+        }
+    }
     val providerItemId = when (this) {
         is StreamFrame.TextDelta -> providerItemId
         is StreamFrame.TextComplete -> providerItemId
@@ -48,6 +70,7 @@ public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
         is StreamFrame.CodeExecutionFailure -> providerItemId
         is StreamFrame.CodeExecutionComplete -> providerItemId
         is StreamFrame.HostedExecutionUpdate -> update.providerItemId
+        is StreamFrame.GeneratedFileBytes -> null
         is StreamFrame.GeneratedFileComplete -> file.providerItemId
         is StreamFrame.End -> null
     }
@@ -69,7 +92,8 @@ public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
         is StreamFrame.CodeExecutionComplete -> index?.let { "code-index" to it.toString() } ?: ("code-id" to id)
         is StreamFrame.HostedExecutionUpdate ->
             update.executionId?.let { "execution-id" to it } ?: index?.let { "execution-index" to it.toString() }
-        is StreamFrame.GeneratedFileComplete -> "provider-file-id" to file.providerFileId
+        is StreamFrame.GeneratedFileBytes -> null
+        is StreamFrame.GeneratedFileComplete -> null
         is StreamFrame.End -> null
     }
     return internal?.let { (kind, value) -> StreamFrameMergeIdentity.Internal(kind, value) }
@@ -233,6 +257,8 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
             is StreamFrame.HostedExecutionUpdate -> frame.update
 
             is StreamFrame.GeneratedFileComplete -> frame.file
+
+            is StreamFrame.GeneratedFileBytes -> null
 
             is StreamFrame.End -> {
                 end = frame

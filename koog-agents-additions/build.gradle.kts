@@ -87,6 +87,7 @@ val stableModules = setOf(
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-ollama-client",
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client",
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client-base",
+    ":prompt:prompt-executor:prompt-executor-managed-execution",
     ":prompt:prompt-executor:prompt-executor-model",
     ":prompt:prompt-llm",
     ":prompt:prompt-markdown",

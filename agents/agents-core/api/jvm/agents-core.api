@@ -13,6 +13,22 @@ public abstract class ai/koog/agents/core/agent/AIAgent : ai/koog/utils/io/Close
 	public static synthetic fun run$default (Lai/koog/agents/core/agent/AIAgent;Ljava/lang/Object;Ljava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
+public abstract class ai/koog/agents/core/agent/tools/ManagedExecutionTool : ai/koog/agents/core/tools/ToolBase {
+	public fun <init> (Lai/koog/serialization/TypeToken;Lai/koog/serialization/TypeToken;Lai/koog/agents/core/tools/ToolDescriptor;Ljava/util/Map;)V
+	public synthetic fun <init> (Lai/koog/serialization/TypeToken;Lai/koog/serialization/TypeToken;Lai/koog/agents/core/tools/ToolDescriptor;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lai/koog/serialization/TypeToken;Lai/koog/serialization/TypeToken;Ljava/lang/String;Ljava/lang/String;Lkotlinx/schema/generator/json/JsonSchemaConfig;)V
+	public synthetic fun <init> (Lai/koog/serialization/TypeToken;Lai/koog/serialization/TypeToken;Ljava/lang/String;Ljava/lang/String;Lkotlinx/schema/generator/json/JsonSchemaConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public abstract fun decodeResult (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;)Ljava/lang/Object;
+	public final fun execute (Ljava/lang/Object;Lai/koog/agents/core/tools/ToolCallMetadata;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun executeStreaming (Ljava/lang/Object;Lai/koog/agents/core/tools/ToolCallMetadata;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public abstract interface class ai/koog/agents/core/environment/ManagedExecutionEventObserver {
+	public static final field Companion Lai/koog/agents/core/environment/ManagedExecutionEventObserver$Companion;
+	public static final field MetadataKey Ljava/lang/String;
+	public abstract fun onEvent (Lai/koog/agents/core/environment/ManagedExecutionObservation;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
 public final class ai/koog/agents/core/agent/AIAgent$Companion {
 	public final fun builder ()Lai/koog/agents/core/agent/AIAgentBuilder;
 }
@@ -240,6 +256,41 @@ public final class ai/koog/agents/core/agent/AIAgentTool$AgentToolInput {
 	public static synthetic fun copy$default (Lai/koog/agents/core/agent/AIAgentTool$AgentToolInput;Ljava/lang/Object;ILjava/lang/Object;)Lai/koog/agents/core/agent/AIAgentTool$AgentToolInput;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getInput ()Ljava/lang/Object;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionFailedException : java/lang/RuntimeException {
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;)V
+	public final fun getError ()Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionProtocolException : java/lang/IllegalStateException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class ai/koog/agents/core/environment/ManagedExecutionEventObserver$Companion {
+	public static final field MetadataKey Ljava/lang/String;
+}
+
+public final class ai/koog/agents/core/environment/ManagedExecutionEventObserverKt {
+	public static final fun getManagedExecutionEventObserver (Lai/koog/agents/core/tools/ToolCallMetadata;)Lai/koog/agents/core/environment/ManagedExecutionEventObserver;
+	public static final fun withManagedExecutionEventObserver (Lai/koog/agents/core/tools/ToolCallMetadata;Lai/koog/agents/core/environment/ManagedExecutionEventObserver;)Lai/koog/agents/core/tools/ToolCallMetadata;
+}
+
+public final class ai/koog/agents/core/environment/ManagedExecutionObservation {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLai/koog/prompt/executor/managed/ManagedExecutionEvent;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()J
+	public final fun component4 ()Lai/koog/prompt/executor/managed/ManagedExecutionEvent;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;JLai/koog/prompt/executor/managed/ManagedExecutionEvent;)Lai/koog/agents/core/environment/ManagedExecutionObservation;
+	public static synthetic fun copy$default (Lai/koog/agents/core/environment/ManagedExecutionObservation;Ljava/lang/String;Ljava/lang/String;JLai/koog/prompt/executor/managed/ManagedExecutionEvent;ILjava/lang/Object;)Lai/koog/agents/core/environment/ManagedExecutionObservation;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEvent ()Lai/koog/prompt/executor/managed/ManagedExecutionEvent;
+	public final fun getEventIndex ()J
+	public final fun getToolCallId ()Ljava/lang/String;
+	public final fun getToolName ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -5168,4 +5219,3 @@ public final class ai/koog/agents/ext/llm/choice/PromptExecutorWithChoiceSelecti
 	public fun models (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
-

@@ -111,12 +111,16 @@ public object ProviderCapabilityMatrix {
         )
 
         ProviderApi.VERTEX_ANTHROPIC_MESSAGES -> managedClaudeExecution(
-            service = "Vertex Agent Engine Code Execution"
+            service = "Vertex Agent Engine Code Execution",
+            providerStreaming = HostedExecutionFeatureSupport.UNSUPPORTED,
         )
 
         ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
         ProviderApi.BEDROCK_CONVERSE,
-        -> managedClaudeExecution(service = "Bedrock AgentCore Code Interpreter")
+        -> managedClaudeExecution(
+            service = "Bedrock AgentCore Code Interpreter",
+            providerStreaming = HostedExecutionFeatureSupport.SUPPORTED,
+        )
 
         ProviderApi.OPENAI_COMPATIBLE_RESPONSES -> HostedExecutionCapability.Unsupported(
             HostedExecutionUnsupportedReason.CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION
@@ -153,14 +157,17 @@ public object ProviderCapabilityMatrix {
             )
         )
 
-    private fun managedClaudeExecution(service: String): HostedExecutionCapability.Supported =
+    private fun managedClaudeExecution(
+        service: String,
+        providerStreaming: HostedExecutionFeatureSupport,
+    ): HostedExecutionCapability.Supported =
         HostedExecutionCapability.Supported(
             HostedExecutionConfiguration(
                 mode = HostedExecutionMode.PROVIDER_MANAGED_SANDBOX,
                 managedService = service,
-                files = HostedExecutionFeatureSupport.UNSUPPORTED,
+                files = HostedExecutionFeatureSupport.SUPPORTED,
                 callerAddressableContainer = false,
-                streaming = HostedExecutionFeatureSupport.UNSUPPORTED,
+                streaming = providerStreaming,
                 replay = HostedExecutionFeatureSupport.SUPPORTED,
                 combinesWithCustomTools = HostedExecutionFeatureSupport.SUPPORTED,
                 clientIntegration = ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,

@@ -1,5 +1,7 @@
 package ai.koog.agents.core.environment
 
+import ai.koog.agents.core.agent.tools.ManagedExecutionProtocolException
+import ai.koog.agents.core.agent.tools.ManagedExecutionTool
 import ai.koog.agents.core.tools.ToolBase
 import ai.koog.agents.core.tools.ToolCallMetadata
 import ai.koog.agents.core.tools.ToolException
@@ -22,6 +24,10 @@ public class GenericAgentEnvironment(
     private val serializer: JSONSerializer,
 ) : AIAgentEnvironment {
 
+    private companion object {
+        private const val MANAGED_EXECUTION_DATA_REDACTED = "<managed-execution-data-redacted>"
+    }
+
     override suspend fun executeTool(toolCall: MessagePart.Tool.Call): ReceivedToolResult =
         executeTool(toolCall, ToolCallMetadata.EMPTY)
 
@@ -29,14 +35,36 @@ public class GenericAgentEnvironment(
         toolCall: MessagePart.Tool.Call,
         metadata: ToolCallMetadata,
     ): ReceivedToolResult {
-        logger.info {
-            formatLog("Executing tool (name: ${toolCall.tool}, args: ${toolCall.args}")
+        val isManagedExecution = toolRegistry.getToolOrNull(toolCall.tool) is ManagedExecutionTool<*, *>
+        if (isManagedExecution) {
+            logger.info {
+                formatLog(
+                    "Executing managed tool (name: ${toolCall.tool}, call id: ${toolCall.id}, " +
+                        "data: $MANAGED_EXECUTION_DATA_REDACTED)"
+                )
+            }
+        } else {
+            logger.info {
+                formatLog("Executing tool (name: ${toolCall.tool}, args: ${toolCall.args}")
+            }
         }
 
         val environmentToolResult = processToolCall(toolCall, metadata)
 
-        logger.debug {
-            formatLog("Received tool result (\ntool: ${toolCall.tool},\nresult: ${environmentToolResult.result},\ncontent: ${environmentToolResult.output}\n)")
+        if (isManagedExecution) {
+            logger.debug {
+                formatLog(
+                    "Received managed tool result (tool: ${toolCall.tool}, call id: ${toolCall.id}, " +
+                        "data: $MANAGED_EXECUTION_DATA_REDACTED)"
+                )
+            }
+        } else {
+            logger.debug {
+                formatLog(
+                    "Received tool result (\ntool: ${toolCall.tool},\n" +
+                        "result: ${environmentToolResult.result},\ncontent: ${environmentToolResult.output}\n)"
+                )
+            }
         }
 
         return environmentToolResult
@@ -99,7 +127,16 @@ public class GenericAgentEnvironment(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.error(e) { formatLog("Tool with name '$toolName' failed to parse arguments: $toolArgsJson") }
+            if (tool is ManagedExecutionTool<*, *>) {
+                logger.error {
+                    formatLog(
+                        "Managed tool with name '$toolName' and call id '$id' failed to parse arguments " +
+                            "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
+                    )
+                }
+            } else {
+                logger.error(e) { formatLog("Tool with name '$toolName' failed to parse arguments: $toolArgsJson") }
+            }
             return ReceivedToolResult(
                 id = id,
                 tool = toolName,
@@ -114,7 +151,20 @@ public class GenericAgentEnvironment(
 
         val toolResult = try {
             @Suppress("UNCHECKED_CAST")
-            (tool as ToolBase<Any?, Any?>).execute(toolArgs, metadata)
+            if (tool is ManagedExecutionTool<*, *>) {
+                (tool as ManagedExecutionTool<Any?, Any?>).collectExecution(toolArgs, metadata) { eventIndex, event ->
+                    metadata.managedExecutionEventObserver?.onEvent(
+                        ManagedExecutionObservation(
+                            toolCallId = id,
+                            toolName = toolName,
+                            eventIndex = eventIndex,
+                            event = event,
+                        )
+                    )
+                }
+            } else {
+                (tool as ToolBase<Any?, Any?>).execute(toolArgs, metadata)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ToolException) {
@@ -128,8 +178,30 @@ public class GenericAgentEnvironment(
                 result = null,
                 resultObject = null
             )
+        } catch (e: ManagedExecutionProtocolException) {
+            logger.error {
+                "Managed tool with name '$toolName' and call id '$id' received an invalid event stream " +
+                    "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
+            }
+            return ReceivedToolResult(
+                id = id,
+                tool = toolName,
+                toolArgs = toolArgsJson,
+                toolDescription = toolDescription,
+                output = "Tool with name '$toolName' failed to execute due to the error: ${e.message}!",
+                resultKind = ToolResultKind.Failure(e),
+                result = null,
+                resultObject = null
+            )
         } catch (e: Exception) {
-            logger.error(e) { "Tool with name '$toolName' failed to execute with arguments: $toolArgs" }
+            if (tool is ManagedExecutionTool<*, *>) {
+                logger.error {
+                    "Managed tool with name '$toolName' and call id '$id' failed to execute " +
+                        "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
+                }
+            } else {
+                logger.error(e) { "Tool with name '$toolName' failed to execute with arguments: $toolArgs" }
+            }
 
             return ReceivedToolResult(
                 id = id,
@@ -143,7 +215,14 @@ public class GenericAgentEnvironment(
             )
         }
 
-        logger.trace { "Completed execution of the tool '$toolName' with result: $toolResult" }
+        if (tool is ManagedExecutionTool<*, *>) {
+            logger.trace {
+                "Completed execution of managed tool '$toolName' with call id '$id' " +
+                    "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
+            }
+        } else {
+            logger.trace { "Completed execution of the tool '$toolName' with result: $toolResult" }
+        }
 
         val (content, result, parts) = try {
             val content = tool.encodeResultToStringUnsafe(toolResult, serializer)
@@ -153,7 +232,14 @@ public class GenericAgentEnvironment(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.error(e) { "Tool with name '$toolName' failed to encode result: $toolResult" }
+            if (tool is ManagedExecutionTool<*, *>) {
+                logger.error {
+                    "Managed tool with name '$toolName' and call id '$id' failed to encode its result " +
+                        "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
+                }
+            } else {
+                logger.error(e) { "Tool with name '$toolName' failed to encode result: $toolResult" }
+            }
             return ReceivedToolResult(
                 id = id,
                 tool = toolName,

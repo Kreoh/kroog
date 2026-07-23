@@ -1,0 +1,585 @@
+public final class ai/koog/prompt/executor/managed/ManagedExecutionErrorKind : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind$Companion;
+	public static final field EXECUTION_FAILED Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static final field INVALID_REQUEST Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static final field PROTOCOL_FAILURE Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static final field PROVIDER_FAILURE Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static final field SESSION_EXPIRED Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public static fun values ()[Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionErrorKind$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Companion;
+	public abstract fun getExecutionId ()Ljava/lang/String;
+	public abstract fun getSequence ()J
+	public abstract fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getOutput ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$CumulativeOutput$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Error : ai/koog/prompt/executor/managed/ManagedExecutionEvent, ai/koog/prompt/executor/managed/ManagedExecutionEvent$Terminal {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getKind ()Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public final fun getMessage ()Ljava/lang/String;
+	public final fun getProviderCode ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Error$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Error;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Error$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;J[B)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;
+	public final fun component6 ()J
+	public final fun component7 ()[B
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;J[B)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;J[BILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBytes ()[B
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getFileId ()Ljava/lang/String;
+	public final fun getOffset ()J
+	public final fun getReference ()Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileChunk$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getFile ()Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$GeneratedFileComplete$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Request : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Ljava/lang/String;
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Request$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Request;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Request$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Result : ai/koog/prompt/executor/managed/ManagedExecutionEvent, ai/koog/prompt/executor/managed/ManagedExecutionEvent$Terminal {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;)V
+	public synthetic fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/Integer;
+	public final fun component6 ()Ljava/util/List;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getExitCode ()Ljava/lang/Integer;
+	public final fun getGeneratedFiles ()Ljava/util/List;
+	public final fun getOutput ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Result$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Result$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun getText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stderr$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout$Companion;
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getExecutionId ()Ljava/lang/String;
+	public fun getSequence ()J
+	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun getText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Stdout$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Terminal : ai/koog/prompt/executor/managed/ManagedExecutionEvent {
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/ManagedExecutionFileReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$Companion;
+	public abstract fun getProviderFileId ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore : ai/koog/prompt/executor/managed/ManagedExecutionFileReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Ljava/lang/String;
+	public fun getProviderFileId ()Ljava/lang/String;
+	public final fun getSessionId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine : ai/koog/prompt/executor/managed/ManagedExecutionFileReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Ljava/lang/String;
+	public fun getProviderFileId ()Ljava/lang/String;
+	public final fun getSandboxResourceName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference$VertexAgentEngine$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile$Companion;
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)V
+	public synthetic fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/Long;
+	public final fun copy (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFileId ()Ljava/lang/String;
+	public final fun getFilename ()Ljava/lang/String;
+	public final fun getMediaType ()Ljava/lang/String;
+	public final fun getReference ()Lai/koog/prompt/executor/managed/ManagedExecutionFileReference;
+	public final fun getSizeBytes ()Ljava/lang/Long;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionRequest {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionRequest$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Ljava/lang/String;
+	public final fun getExecutionId ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionRequest$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionRequest$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionRequest$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/ManagedExecutionService {
+	public abstract fun acquireSession (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun acquireSession$default (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public abstract fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
+	public abstract fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionService$DefaultImpls {
+	public static synthetic fun acquireSession$default (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSession {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSession$Companion;
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;)V
+	public final fun component1 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component2 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+	public final fun copy (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;)Lai/koog/prompt/executor/managed/ManagedExecutionSession;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionSession;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOwnership ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+	public final fun getReference ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionSession$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionSession$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionSession;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionSession;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSession$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership : java/lang/Enum {
+	public static final field BORROWED Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership$Companion;
+	public static final field OWNED Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+	public static fun values ()[Lai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionOwnership$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$Companion;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore : ai/koog/prompt/executor/managed/ManagedExecutionSessionReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JI)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()J
+	public final fun component5 ()I
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JI)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JIILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCodeInterpreterIdentifier ()Ljava/lang/String;
+	public final fun getCreatedAtEpochMilliseconds ()J
+	public final fun getRegion ()Ljava/lang/String;
+	public final fun getSessionId ()Ljava/lang/String;
+	public final fun getTimeoutSeconds ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$BedrockAgentCore$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine : ai/koog/prompt/executor/managed/ManagedExecutionSessionReference {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/Long;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExpiresAtEpochMilliseconds ()Ljava/lang/Long;
+	public final fun getLocation ()Ljava/lang/String;
+	public final fun getProject ()Ljava/lang/String;
+	public final fun getReasoningEngineResource ()Ljava/lang/String;
+	public final fun getSandboxResourceName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
