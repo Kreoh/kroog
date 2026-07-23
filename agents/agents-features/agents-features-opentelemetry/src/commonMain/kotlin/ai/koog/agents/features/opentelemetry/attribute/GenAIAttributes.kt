@@ -664,6 +664,59 @@ private fun JsonArrayBuilder.addMessagePart(part: MessagePart) {
             }
         }
 
+        is MessagePart.GeneratedFile -> {
+            addJsonObject {
+                put("type", JsonPrimitive("generated_file"))
+                put("status", JsonPrimitive("available"))
+                part.mediaType?.let { mediaType -> put("media_type", JsonPrimitive(mediaType)) }
+                part.sizeBytes?.let { sizeBytes -> put("size_bytes", JsonPrimitive(sizeBytes)) }
+            }
+        }
+
+        is MessagePart.HostedExecution.Request -> {
+            addJsonObject {
+                put("type", JsonPrimitive("hosted_execution_request"))
+                put("status", JsonPrimitive("requested"))
+                put("language", JsonPrimitive(part.language))
+            }
+        }
+
+        is MessagePart.HostedExecution.Progress -> {
+            addJsonObject {
+                put("type", JsonPrimitive("hosted_execution_progress"))
+                put("status", JsonPrimitive("in_progress"))
+                part.sequence?.let { sequence -> put("sequence", JsonPrimitive(sequence)) }
+            }
+        }
+
+        is MessagePart.HostedExecution.CumulativeOutput -> {
+            addJsonObject {
+                put("type", JsonPrimitive("hosted_execution_output"))
+                put("status", JsonPrimitive("in_progress"))
+                part.sequence?.let { sequence -> put("sequence", JsonPrimitive(sequence)) }
+                put("output_character_count", JsonPrimitive(part.output.length))
+            }
+        }
+
+        is MessagePart.HostedExecution.Result -> {
+            addJsonObject {
+                put("type", JsonPrimitive("hosted_execution_result"))
+                put("status", JsonPrimitive("completed"))
+                part.exitCode?.let { exitCode -> put("exit_code", JsonPrimitive(exitCode)) }
+                part.output?.let { output ->
+                    put("output_character_count", JsonPrimitive(output.length))
+                }
+                put("generated_file_count", JsonPrimitive(part.generatedFiles.size))
+            }
+        }
+
+        is MessagePart.HostedExecution.Error -> {
+            addJsonObject {
+                put("type", JsonPrimitive("hosted_execution_error"))
+                put("status", JsonPrimitive("failed"))
+            }
+        }
+
         is MessagePart.Attachment -> {
             when (val source = part.source) {
                 is AttachmentSource.Image -> {

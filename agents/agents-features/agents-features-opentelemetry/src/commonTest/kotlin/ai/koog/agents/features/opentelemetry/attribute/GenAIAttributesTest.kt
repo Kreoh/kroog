@@ -1,5 +1,6 @@
 package ai.koog.agents.features.opentelemetry.attribute
 
+import ai.koog.agents.features.opentelemetry.mock.MockAttributesMutator
 import ai.koog.agents.features.opentelemetry.mock.MockLLMProvider
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
@@ -14,8 +15,150 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class GenAIAttributesTest {
+
+    @Test
+    fun testHostedExecutionAndGeneratedFileMetadataRetainsVariantOrderWithoutSensitiveContent() {
+        val generatedFile = MessagePart.GeneratedFile(
+            providerFileId = "provider-file-secret",
+            containerId = "container-secret",
+            filename = "/private/report.csv",
+            mediaType = "text/csv",
+            sizeBytes = 42,
+            producingExecutionId = "execution-secret",
+            providerItemId = "provider-item-secret",
+        )
+        val message = Message.Assistant(
+            parts = listOf(
+                generatedFile,
+                MessagePart.HostedExecution.Request(
+                    code = "print('code-secret')",
+                    language = "python",
+                    executionId = "request-execution-secret",
+                    containerId = "request-container-secret",
+                    providerItemId = "request-provider-item-secret",
+                ),
+                MessagePart.HostedExecution.Progress(
+                    message = "progress-secret",
+                    sequence = 1,
+                    executionId = "progress-execution-secret",
+                    containerId = "progress-container-secret",
+                    providerItemId = "progress-provider-item-secret",
+                ),
+                MessagePart.HostedExecution.CumulativeOutput(
+                    output = "output-secret",
+                    sequence = 2,
+                    executionId = "output-execution-secret",
+                    containerId = "output-container-secret",
+                    providerItemId = "output-provider-item-secret",
+                ),
+                MessagePart.HostedExecution.Result(
+                    output = "result-secret",
+                    exitCode = 0,
+                    generatedFiles = listOf(generatedFile),
+                    executionId = "result-execution-secret",
+                    containerId = "result-container-secret",
+                    providerItemId = "result-provider-item-secret",
+                ),
+                MessagePart.HostedExecution.Error(
+                    message = "error-secret",
+                    code = "credential-secret",
+                    executionId = "error-execution-secret",
+                    containerId = "error-container-secret",
+                    providerItemId = "error-provider-item-secret",
+                ),
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+
+        val encoded = GenAIAttributes.Output.Messages(listOf(message)).value.value
+        val parts = Json.parseToJsonElement(encoded).jsonArray
+            .single().jsonObject.getValue("parts").jsonArray
+
+        assertEquals(
+            listOf(
+                """{"type":"generated_file","status":"available","media_type":"text/csv","size_bytes":42}""",
+                """{"type":"hosted_execution_request","status":"requested","language":"python"}""",
+                """{"type":"hosted_execution_progress","status":"in_progress","sequence":1}""",
+                """{"type":"hosted_execution_output","status":"in_progress","sequence":2,"output_character_count":13}""",
+                """{"type":"hosted_execution_result","status":"completed","exit_code":0,"output_character_count":13,"generated_file_count":1}""",
+                """{"type":"hosted_execution_error","status":"failed"}""",
+            ),
+            parts.map { it.toString() },
+        )
+        listOf(
+            "provider-file-secret",
+            "container-secret",
+            "/private/report.csv",
+            "execution-secret",
+            "provider-item-secret",
+            "code-secret",
+            "progress-secret",
+            "output-secret",
+            "result-secret",
+            "error-secret",
+            "credential-secret",
+        ).forEach { sensitiveValue ->
+            assertFalse(encoded.contains(sensitiveValue), "Encoded telemetry contained '$sensitiveValue'")
+        }
+    }
+
+    @Test
+    fun testHostedExecutionAndGeneratedFileMetadataOmitsEmptyOptionals() {
+        val message = Message.Assistant(
+            parts = listOf(
+                MessagePart.GeneratedFile(providerFileId = "file-secret"),
+                MessagePart.HostedExecution.Progress(),
+                MessagePart.HostedExecution.CumulativeOutput(output = ""),
+                MessagePart.HostedExecution.Result(),
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+
+        val encoded = GenAIAttributes.Output.Messages(listOf(message)).value.value
+        val parts = Json.parseToJsonElement(encoded).jsonArray
+            .single().jsonObject.getValue("parts").jsonArray
+
+        assertEquals(
+            listOf(
+                """{"type":"generated_file","status":"available"}""",
+                """{"type":"hosted_execution_progress","status":"in_progress"}""",
+                """{"type":"hosted_execution_output","status":"in_progress","output_character_count":0}""",
+                """{"type":"hosted_execution_result","status":"completed","generated_file_count":0}""",
+            ),
+            parts.map { it.toString() },
+        )
+    }
+
+    @Test
+    fun testHostedExecutionMetadataPreservesHiddenStringOptInBoundary() {
+        val attribute = GenAIAttributes.Output.Messages(
+            listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.HostedExecution.Request(code = "code-secret"),
+                        MessagePart.HostedExecution.Error(message = "error-secret"),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            )
+        )
+        val defaultAttributes = mutableMapOf<String, Any>()
+        MockAttributesMutator(defaultAttributes).applyAttributes(listOf(attribute), verbose = false)
+        val verboseAttributes = mutableMapOf<String, Any>()
+        MockAttributesMutator(verboseAttributes).applyAttributes(listOf(attribute), verbose = true)
+        val verboseValue = verboseAttributes.getValue(attribute.key) as String
+
+        assertEquals("HIDDEN:non-empty", defaultAttributes[attribute.key])
+        assertEquals(
+            """[{"role":"Assistant","parts":[{"type":"hosted_execution_request","status":"requested","language":"python"},{"type":"hosted_execution_error","status":"failed"}]}]""",
+            verboseValue,
+        )
+        assertFalse(verboseValue.contains("code-secret"))
+        assertFalse(verboseValue.contains("error-secret"))
+    }
 
     @Test
     fun testCodeExecutionOutputMessagesRetainCodeOrderedOutputsAndFailure() {
