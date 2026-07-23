@@ -133,6 +133,20 @@ private fun Message.getTextContent(): String =
             }
             is MessagePart.Tool.Call -> part.args
             is MessagePart.Tool.Result -> part.output
+            is MessagePart.GeneratedFile -> part.tokenisableText()
+            is MessagePart.HostedExecution.Request -> tokenisableText(part.code, part.language)
+            is MessagePart.HostedExecution.Progress -> tokenisableText(part.message)
+            is MessagePart.HostedExecution.CumulativeOutput -> tokenisableText(part.output)
+            is MessagePart.HostedExecution.Result -> tokenisableText(
+                part.output,
+                *part.generatedFiles.mapNotNull(MessagePart.GeneratedFile::tokenisableText).toTypedArray(),
+            )
+            is MessagePart.HostedExecution.Error -> tokenisableText(part.message, part.code)
             is MessagePart.Attachment -> null
         }
     }.joinToString("\n")
+
+private fun MessagePart.GeneratedFile.tokenisableText(): String? = tokenisableText(filename, mediaType)
+
+private fun tokenisableText(vararg values: String?): String? =
+    values.filterNotNull().filter(String::isNotEmpty).joinToString("\n").ifEmpty { null }
