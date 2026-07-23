@@ -13,6 +13,7 @@ kotlin {
                 api(project(":prompt:prompt-model"))
                 api(libs.kotlinx.coroutines.core)
                 api(libs.kotlinx.serialization.json)
+                api(project(":http-client:http-client-core"))
             }
         }
 

@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -44,6 +45,90 @@ class ManagedExecutionTest {
             val encoded = json.encodeToString<ManagedExecutionSessionReference>(reference)
             assertEquals(reference, json.decodeFromString<ManagedExecutionSessionReference>(encoded))
         }
+    }
+
+    @Test
+    fun testVertexSessionLanguageRoundTripsAndLegacyOmissionDecodesSafely() {
+        val sandboxResource =
+            "projects/project-1/locations/us-central1/reasoningEngines/engine-1/sandboxEnvironments/box-1"
+        val reference = ManagedExecutionSessionReference.VertexAgentEngine(
+            project = "project-1",
+            location = "us-central1",
+            reasoningEngineResource = "projects/project-1/locations/us-central1/reasoningEngines/engine-1",
+            sandboxResourceName = sandboxResource,
+            codeLanguage = VertexAgentEngineCodeLanguage.JAVASCRIPT,
+        )
+
+        val encoded = json.encodeToString<ManagedExecutionSessionReference>(reference)
+        val decoded = json.decodeFromString<ManagedExecutionSessionReference>(encoded)
+
+        assertTrue(encoded.contains(""""codeLanguage":"JAVASCRIPT""""))
+        assertEquals(reference, decoded)
+
+        val legacy = """
+            {
+              "provider":"vertex_agent_engine",
+              "project":"project-1",
+              "location":"us-central1",
+              "reasoningEngineResource":"projects/project-1/locations/us-central1/reasoningEngines/engine-1",
+              "sandboxResourceName":"projects/project-1/locations/us-central1/reasoningEngines/engine-1/sandboxEnvironments/box-1"
+            }
+        """.trimIndent()
+        val legacyDecoded = json.decodeFromString<ManagedExecutionSessionReference>(legacy)
+        assertNull(assertIs<ManagedExecutionSessionReference.VertexAgentEngine>(legacyDecoded).codeLanguage)
+    }
+
+    @Test
+    fun testManagedExecutionRequestDefaultFilesSerialiseAndDecodeAsEmpty() {
+        val request = ManagedExecutionRequest(
+            executionId = "execution-default-files",
+            code = "print('hello')",
+        )
+
+        val encoded = json.encodeToString(request)
+        val decoded = json.decodeFromString<ManagedExecutionRequest>(encoded)
+
+        assertFalse(encoded.contains(""""files""""))
+        assertEquals(emptyList(), decoded.files)
+        assertEquals(request, decoded)
+    }
+
+    @Test
+    fun testInputFileUsesContentValueSemanticsRedactedRenderingAndRoundTrip() {
+        val payloadSentinel = "managed-input-payload-sentinel"
+        val first = ManagedExecutionInputFile(
+            filename = "input.txt",
+            mediaType = "text/plain",
+            bytes = payloadSentinel.encodeToByteArray(),
+        )
+        val equal = ManagedExecutionInputFile(
+            filename = "input.txt",
+            mediaType = "text/plain",
+            bytes = payloadSentinel.encodeToByteArray(),
+        )
+        val unequal = ManagedExecutionInputFile(
+            filename = "input.txt",
+            mediaType = "text/plain",
+            bytes = "different".encodeToByteArray(),
+        )
+
+        assertEquals(first, equal)
+        assertEquals(first.hashCode(), equal.hashCode())
+        assertNotEquals(first, unequal)
+
+        val rendered = first.toString()
+        assertEquals(
+            "ManagedExecutionInputFile(filename=input.txt, mediaType=text/plain, byteCount=30)",
+            rendered,
+        )
+        assertFalse(rendered.contains(payloadSentinel))
+        assertFalse(rendered.contains("bytes="))
+        assertFalse(rendered.contains("[B@"))
+
+        val encoded = json.encodeToString(first)
+        val decoded = json.decodeFromString<ManagedExecutionInputFile>(encoded)
+        assertEquals(first, decoded)
+        assertEquals(first.hashCode(), decoded.hashCode())
     }
 
     @Test

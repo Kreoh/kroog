@@ -61,7 +61,7 @@ class ProviderCapabilityMatrixTest {
     }
 
     @Test
-    fun testManagedClaudeExecutionDoesNotClaimCurrentClientSupport() {
+    fun testManagedClaudeExecutionReportsExactClientIntegration() {
         val vertex = supported(ProviderApi.VERTEX_ANTHROPIC_MESSAGES)
         val bedrockMessages = supported(ProviderApi.BEDROCK_ANTHROPIC_MESSAGES)
         val bedrockConverse = supported(ProviderApi.BEDROCK_CONVERSE)
@@ -74,11 +74,16 @@ class ProviderCapabilityMatrixTest {
             assertFalse(configuration.callerAddressableContainer)
             assertEquals(HostedExecutionFeatureSupport.SUPPORTED, configuration.files)
             assertEquals(HostedExecutionFeatureSupport.SUPPORTED, configuration.replay)
-            assertEquals(
-                ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
-                configuration.clientIntegration,
-            )
         }
+        assertEquals(ProviderClientIntegration.IMPLEMENTED, vertex.clientIntegration)
+        assertEquals(
+            ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
+            bedrockMessages.clientIntegration,
+        )
+        assertEquals(
+            ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
+            bedrockConverse.clientIntegration,
+        )
         assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, vertex.streaming)
         assertEquals(HostedExecutionFeatureSupport.SUPPORTED, bedrockMessages.streaming)
     }

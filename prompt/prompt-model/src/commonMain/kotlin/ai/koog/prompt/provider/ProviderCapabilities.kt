@@ -113,6 +113,7 @@ public object ProviderCapabilityMatrix {
         ProviderApi.VERTEX_ANTHROPIC_MESSAGES -> managedClaudeExecution(
             service = "Vertex Agent Engine Code Execution",
             providerStreaming = HostedExecutionFeatureSupport.UNSUPPORTED,
+            clientIntegration = ProviderClientIntegration.IMPLEMENTED,
         )
 
         ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
@@ -160,6 +161,7 @@ public object ProviderCapabilityMatrix {
     private fun managedClaudeExecution(
         service: String,
         providerStreaming: HostedExecutionFeatureSupport,
+        clientIntegration: ProviderClientIntegration = ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
     ): HostedExecutionCapability.Supported =
         HostedExecutionCapability.Supported(
             HostedExecutionConfiguration(
@@ -170,7 +172,7 @@ public object ProviderCapabilityMatrix {
                 streaming = providerStreaming,
                 replay = HostedExecutionFeatureSupport.SUPPORTED,
                 combinesWithCustomTools = HostedExecutionFeatureSupport.SUPPORTED,
-                clientIntegration = ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
+                clientIntegration = clientIntegration,
             )
         )
 }

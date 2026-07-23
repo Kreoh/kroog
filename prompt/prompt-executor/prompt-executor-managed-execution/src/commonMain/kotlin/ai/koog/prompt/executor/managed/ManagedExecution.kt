@@ -22,6 +22,7 @@ public sealed interface ManagedExecutionSessionReference {
         val reasoningEngineResource: String,
         val sandboxResourceName: String,
         val expiresAtEpochMilliseconds: Long? = null,
+        val codeLanguage: VertexAgentEngineCodeLanguage? = null,
     ) : ManagedExecutionSessionReference
 
     /** Bedrock AgentCore Code Interpreter session identity. */
@@ -56,7 +57,35 @@ public data class ManagedExecutionRequest(
     val executionId: String,
     val code: String,
     val language: String = "python",
+    val files: List<ManagedExecutionInputFile> = emptyList(),
 )
+
+/** One binary input file submitted with managed code. */
+@Serializable
+public data class ManagedExecutionInputFile(
+    val filename: String,
+    val mediaType: String,
+    val bytes: ByteArray,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ManagedExecutionInputFile) return false
+
+        return filename == other.filename &&
+            mediaType == other.mediaType &&
+            bytes.contentEquals(other.bytes)
+    }
+
+    override fun hashCode(): Int {
+        var result = filename.hashCode()
+        result = 31 * result + mediaType.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        return result
+    }
+
+    override fun toString(): String =
+        "ManagedExecutionInputFile(filename=$filename, mediaType=$mediaType, byteCount=${bytes.size})"
+}
 
 /**
  * Provider-specific handle for a generated file.

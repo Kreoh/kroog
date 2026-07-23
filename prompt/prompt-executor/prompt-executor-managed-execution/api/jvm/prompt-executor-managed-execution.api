@@ -420,18 +420,51 @@ public final class ai/koog/prompt/executor/managed/ManagedExecutionGeneratedFile
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class ai/koog/prompt/executor/managed/ManagedExecutionInputFile {
+	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionInputFile$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;[B)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()[B
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;[B)Lai/koog/prompt/executor/managed/ManagedExecutionInputFile;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionInputFile;Ljava/lang/String;Ljava/lang/String;[BILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionInputFile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBytes ()[B
+	public final fun getFilename ()Ljava/lang/String;
+	public final fun getMediaType ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionInputFile$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/managed/ManagedExecutionInputFile$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/managed/ManagedExecutionInputFile;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/managed/ManagedExecutionInputFile;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionInputFile$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class ai/koog/prompt/executor/managed/ManagedExecutionRequest {
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionRequest$Companion;
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
-	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+	public final fun component4 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCode ()Ljava/lang/String;
 	public final fun getExecutionId ()Ljava/lang/String;
+	public final fun getFiles ()Ljava/util/List;
 	public final fun getLanguage ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -550,16 +583,18 @@ public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionRefere
 
 public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine : ai/koog/prompt/executor/managed/ManagedExecutionSessionReference {
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$Companion;
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Ljava/lang/String;
 	public final fun component5 ()Ljava/lang/Long;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
-	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
+	public final fun component6 ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCodeLanguage ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
 	public final fun getExpiresAtEpochMilliseconds ()Ljava/lang/Long;
 	public final fun getLocation ()Ljava/lang/String;
 	public final fun getProject ()Ljava/lang/String;
@@ -582,4 +617,107 @@ public final synthetic class ai/koog/prompt/executor/managed/ManagedExecutionSes
 
 public final class ai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/managed/VertexAccessTokenProvider {
+	public abstract fun getAccessToken (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage : java/lang/Enum {
+	public static final field JAVASCRIPT Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public static final field PYTHON Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public static fun values ()[Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineConfiguration {
+	public static final field Companion Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration$Companion;
+	public static final field DEFAULT_OPERATION_DEADLINE_MILLIS J
+	public static final field DEFAULT_OPERATION_POLL_INTERVAL_MILLIS J
+	public static final field DEFAULT_SANDBOX_TTL_SECONDS J
+	public static final field MAX_EXECUTION_SECONDS I
+	public static final field MAX_REQUEST_OR_RESPONSE_BYTES J
+	public static final field MAX_SANDBOX_TTL_SECONDS J
+	public static final field SUPPORTED_LOCATION Ljava/lang/String;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;JJJ)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public final fun component7 ()J
+	public final fun component8 ()J
+	public final fun component9 ()J
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;JJJ)Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;JJJILjava/lang/Object;)Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBaseUrl ()Ljava/lang/String;
+	public final fun getCodeLanguage ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public final fun getDisplayName ()Ljava/lang/String;
+	public final fun getLocation ()Ljava/lang/String;
+	public final fun getOperationDeadlineMillis ()J
+	public final fun getOperationPollIntervalMillis ()J
+	public final fun getProject ()Ljava/lang/String;
+	public final fun getReasoningEngineResource ()Ljava/lang/String;
+	public final fun getSandboxTtlSeconds ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineConfiguration$Companion {
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineLifecycleException : java/lang/Exception {
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getKind ()Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public final fun getProviderCode ()Ljava/lang/String;
+	public final fun getStatusCode ()Ljava/lang/Integer;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineManagedExecutionService : ai/koog/prompt/executor/managed/ManagedExecutionService {
+	public fun <init> (Lai/koog/http/client/KoogHttpClient;Lai/koog/prompt/executor/managed/VertexAccessTokenProvider;Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;)V
+	public fun acquireSession (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
+	public final fun getConfiguration ()Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;
+	public final fun getSandbox (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun listSandboxes (ILjava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun listSandboxes$default (Lai/koog/prompt/executor/managed/VertexAgentEngineManagedExecutionService;ILjava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineSandbox {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/Long;
+	public final fun component5 ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;)Lai/koog/prompt/executor/managed/VertexAgentEngineSandbox;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/VertexAgentEngineSandbox;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/VertexAgentEngineSandbox;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCodeLanguage ()Lai/koog/prompt/executor/managed/VertexAgentEngineCodeLanguage;
+	public final fun getDisplayName ()Ljava/lang/String;
+	public final fun getExpiresAtEpochMilliseconds ()Ljava/lang/Long;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getState ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/VertexAgentEngineSandboxPage {
+	public fun <init> (Ljava/util/List;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/util/List;Ljava/lang/String;)Lai/koog/prompt/executor/managed/VertexAgentEngineSandboxPage;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/VertexAgentEngineSandboxPage;Ljava/util/List;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/VertexAgentEngineSandboxPage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getNextPageToken ()Ljava/lang/String;
+	public final fun getSandboxes ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
