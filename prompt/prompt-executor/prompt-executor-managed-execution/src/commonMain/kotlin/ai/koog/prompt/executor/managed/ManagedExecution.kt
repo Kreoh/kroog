@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.managed
 
+import ai.koog.prompt.provider.ManagedExecutionServiceKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -346,6 +347,9 @@ public sealed interface ManagedExecutionEvent {
  * session using the provider's supported stop or delete operation and leaves borrowed sessions untouched.
  */
 public interface ManagedExecutionService {
+    /** Stable adapter identity used to reject incompatible provider acceptance before acquisition. */
+    public val serviceKind: ManagedExecutionServiceKind
+
     public suspend fun acquireSession(
         existing: ManagedExecutionSessionReference? = null,
     ): ManagedExecutionSession

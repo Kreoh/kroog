@@ -68,6 +68,8 @@ class ProviderCapabilityMatrixTest {
 
         assertEquals("Vertex Agent Engine Code Execution", vertex.managedService)
         assertEquals("Bedrock AgentCore Code Interpreter", bedrockMessages.managedService)
+        assertEquals(ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE, vertex.managedServiceKind)
+        assertEquals(ManagedExecutionServiceKind.BEDROCK_AGENT_CORE, bedrockMessages.managedServiceKind)
         assertEquals(bedrockMessages, bedrockConverse)
         listOf(vertex, bedrockMessages, bedrockConverse).forEach { configuration ->
             assertNull(configuration.providerTool)
@@ -86,6 +88,66 @@ class ProviderCapabilityMatrixTest {
         )
         assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, vertex.streaming)
         assertEquals(HostedExecutionFeatureSupport.SUPPORTED, bedrockMessages.streaming)
+    }
+
+    @Test
+    fun testProviderAndModelAcceptanceIsClosedAndValidatesCompatibilityFirst() {
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(ProviderApi.OPENAI_RESPONSES, "gpt-4.1"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(ProviderApi.AZURE_RESPONSES, "gpt-4.1"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_execution"),
+            ProviderCapabilityMatrix.acceptHostedExecution(
+                ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT,
+                "gemini-2.5-pro",
+            ),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.ClientManaged(ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE),
+            ProviderCapabilityMatrix.acceptHostedExecution(
+                ProviderApi.VERTEX_ANTHROPIC_MESSAGES,
+                "claude-4.6-sonnet",
+            ),
+        )
+        listOf(ProviderApi.BEDROCK_ANTHROPIC_MESSAGES, ProviderApi.BEDROCK_CONVERSE).forEach { api ->
+            assertEquals(
+                HostedExecutionAcceptance.ClientManaged(ManagedExecutionServiceKind.BEDROCK_AGENT_CORE),
+                ProviderCapabilityMatrix.acceptHostedExecution(api, "claude-4.6-sonnet"),
+            )
+        }
+
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
+            ),
+            ProviderCapabilityMatrix.acceptHostedExecution(
+                ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
+                "claude-4.6-sonnet",
+            ),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
+            ),
+            ProviderCapabilityMatrix.acceptHostedExecution(
+                ProviderApi.BEDROCK_CONVERSE,
+                "deepseek-3.2",
+            ),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.UNKNOWN_MODEL
+            ),
+            ProviderCapabilityMatrix.acceptHostedExecution(
+                ProviderApi.OPENAI_RESPONSES,
+                "unknown-model",
+            ),
+        )
     }
 
     @Test
@@ -122,6 +184,23 @@ class ProviderCapabilityMatrixTest {
                 clientIntegration = ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
             )
         }
+    }
+
+    @Test
+    fun testLegacyManagedServiceCopyAlwaysRecomputesTypedKind() {
+        val vertex = supported(ProviderApi.VERTEX_ANTHROPIC_MESSAGES)
+        val bedrockName = ManagedExecutionServiceKind.BEDROCK_AGENT_CORE.legacyName
+
+        assertEquals(ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE, vertex.managedServiceKind)
+        assertEquals(
+            ManagedExecutionServiceKind.BEDROCK_AGENT_CORE,
+            vertex.copy(managedService = bedrockName).managedServiceKind,
+        )
+        assertNull(vertex.copy(managedService = "Unknown managed service").managedServiceKind)
+
+        val inline = supported(ProviderApi.OPENAI_RESPONSES)
+        assertNull(inline.managedService)
+        assertNull(inline.managedServiceKind)
     }
 
     private fun supported(api: ProviderApi): HostedExecutionConfiguration =

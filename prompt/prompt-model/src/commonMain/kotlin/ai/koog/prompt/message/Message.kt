@@ -11,6 +11,65 @@ import kotlin.time.Instant
 /** A list of [Message.Assistant] responses representing multiple completion choices from the LLM. */
 public typealias LLMChoice = List<Message.Assistant>
 
+/** Identifies whether execution happened inside a provider response or through a client-managed service. */
+@Serializable
+public enum class ExecutionOrigin {
+    NATIVE_PROVIDER_HOSTED,
+    CLIENT_MANAGED,
+}
+
+/** Text channel represented by a client-managed progress update. */
+@Serializable
+public enum class ManagedExecutionOutputStream {
+    STDOUT,
+    STDERR,
+}
+
+/** Lossless provider resource identity retained with a client-managed presentation transcript. */
+@Serializable
+public sealed interface ManagedExecutionSessionReference {
+    @Serializable
+    public data class VertexAgentEngine(
+        val project: String,
+        val location: String,
+        val reasoningEngineResource: String,
+        val sandboxResourceName: String,
+        val expiresAtEpochMilliseconds: Long? = null,
+        val codeLanguage: String? = null,
+    ) : ManagedExecutionSessionReference
+
+    @Serializable
+    public data class BedrockAgentCore(
+        val region: String,
+        val codeInterpreterIdentifier: String,
+        val sessionId: String,
+        val createdAtEpochMilliseconds: Long,
+        val timeoutSeconds: Int,
+    ) : ManagedExecutionSessionReference
+}
+
+/** Lossless provider file identity retained with client-managed file events. */
+@Serializable
+public sealed interface ManagedExecutionFileReference {
+    public val providerFileId: String?
+
+    @Serializable
+    public data class VertexAgentEngine(
+        val sandboxResourceName: String,
+        val path: String,
+        override val providerFileId: String? = null,
+    ) : ManagedExecutionFileReference
+
+    @Serializable
+    public data class BedrockAgentCore(
+        val sessionId: String,
+        val path: String,
+        override val providerFileId: String? = null,
+        val region: String = "",
+        val codeInterpreterIdentifier: String = "aws.codeinterpreter.v1",
+    ) : ManagedExecutionFileReference
+}
+
 /**
  * Represents a message exchanged in a chat with LLM. Messages can be categorized
  * by their type and role, denoting the purpose and source of the message.
@@ -390,7 +449,41 @@ public sealed interface MessagePart {
         public val producingExecutionId: String? = null,
         public val providerItemId: String? = null,
         override val cacheControl: CacheControl? = null,
-    ) : ResponsePart
+        public val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+        public val fileId: String? = null,
+        public val managedReference: ManagedExecutionFileReference? = null,
+        public val managedSession: ManagedExecutionSessionReference? = null,
+        public val toolCallId: String? = null,
+        public val managedSequence: Long? = null,
+    ) : ResponsePart {
+        /** Preserves the original JVM copy descriptor. */
+        @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+        public fun copy(
+            providerFileId: String,
+            containerId: String?,
+            filename: String?,
+            mediaType: String?,
+            sizeBytes: Long?,
+            producingExecutionId: String?,
+            providerItemId: String?,
+            cacheControl: CacheControl?,
+        ): GeneratedFile = GeneratedFile(
+            providerFileId,
+            containerId,
+            filename,
+            mediaType,
+            sizeBytes,
+            producingExecutionId,
+            providerItemId,
+            cacheControl,
+            origin,
+            fileId,
+            managedReference,
+            managedSession,
+            toolCallId,
+            managedSequence,
+        )
+    }
 
     /**
      * Provider-neutral hosted execution lifecycle content.
@@ -403,6 +496,9 @@ public sealed interface MessagePart {
         public val executionId: String?
         public val containerId: String?
         public val providerItemId: String?
+        public val origin: ExecutionOrigin
+        public val managedSession: ManagedExecutionSessionReference?
+        public val toolCallId: String?
 
         /** A request to execute [code] in provider-managed infrastructure. */
         @Serializable
@@ -413,7 +509,25 @@ public sealed interface MessagePart {
             override val containerId: String? = null,
             override val providerItemId: String? = null,
             override val cacheControl: CacheControl? = null,
-        ) : HostedExecution
+            override val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+            override val managedSession: ManagedExecutionSessionReference? = null,
+            override val toolCallId: String? = null,
+            public val managedSequence: Long? = null,
+        ) : HostedExecution {
+            /** Preserves the original JVM copy descriptor. */
+            @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+            public fun copy(
+                code: String,
+                language: String,
+                executionId: String?,
+                containerId: String?,
+                providerItemId: String?,
+                cacheControl: CacheControl?,
+            ): Request = Request(
+                code, language, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence,
+            )
+        }
 
         /** A provider progress update. */
         @Serializable
@@ -424,7 +538,26 @@ public sealed interface MessagePart {
             override val containerId: String? = null,
             override val providerItemId: String? = null,
             override val cacheControl: CacheControl? = null,
-        ) : HostedExecution
+            override val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+            override val managedSession: ManagedExecutionSessionReference? = null,
+            override val toolCallId: String? = null,
+            public val managedSequence: Long? = null,
+            public val outputStream: ManagedExecutionOutputStream? = null,
+        ) : HostedExecution {
+            /** Preserves the original JVM copy descriptor. */
+            @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+            public fun copy(
+                message: String?,
+                sequence: Int?,
+                executionId: String?,
+                containerId: String?,
+                providerItemId: String?,
+                cacheControl: CacheControl?,
+            ): Progress = Progress(
+                message, sequence, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, outputStream,
+            )
+        }
 
         /**
          * The complete output observed for an execution at [sequence].
@@ -439,7 +572,25 @@ public sealed interface MessagePart {
             override val containerId: String? = null,
             override val providerItemId: String? = null,
             override val cacheControl: CacheControl? = null,
-        ) : HostedExecution
+            override val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+            override val managedSession: ManagedExecutionSessionReference? = null,
+            override val toolCallId: String? = null,
+            public val managedSequence: Long? = null,
+        ) : HostedExecution {
+            /** Preserves the original JVM copy descriptor. */
+            @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+            public fun copy(
+                output: String,
+                sequence: Int?,
+                executionId: String?,
+                containerId: String?,
+                providerItemId: String?,
+                cacheControl: CacheControl?,
+            ): CumulativeOutput = CumulativeOutput(
+                output, sequence, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence,
+            )
+        }
 
         /** A successful terminal execution result. */
         @Serializable
@@ -451,7 +602,29 @@ public sealed interface MessagePart {
             override val containerId: String? = null,
             override val providerItemId: String? = null,
             override val cacheControl: CacheControl? = null,
-        ) : HostedExecution
+            override val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+            override val managedSession: ManagedExecutionSessionReference? = null,
+            override val toolCallId: String? = null,
+            public val managedSequence: Long? = null,
+            public val executionTimeSeconds: Double? = null,
+            public val taskId: String? = null,
+            public val taskStatus: String? = null,
+        ) : HostedExecution {
+            /** Preserves the original JVM copy descriptor. */
+            @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+            public fun copy(
+                output: String?,
+                exitCode: Int?,
+                generatedFiles: List<GeneratedFile>,
+                executionId: String?,
+                containerId: String?,
+                providerItemId: String?,
+                cacheControl: CacheControl?,
+            ): Result = Result(
+                output, exitCode, generatedFiles, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, executionTimeSeconds, taskId, taskStatus,
+            )
+        }
 
         /** A terminal hosted execution error. */
         @Serializable
@@ -462,7 +635,26 @@ public sealed interface MessagePart {
             override val containerId: String? = null,
             override val providerItemId: String? = null,
             override val cacheControl: CacheControl? = null,
-        ) : HostedExecution
+            override val origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+            override val managedSession: ManagedExecutionSessionReference? = null,
+            override val toolCallId: String? = null,
+            public val managedSequence: Long? = null,
+            public val managedErrorKind: String? = null,
+        ) : HostedExecution {
+            /** Preserves the original JVM copy descriptor. */
+            @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+            public fun copy(
+                message: String,
+                code: String?,
+                executionId: String?,
+                containerId: String?,
+                providerItemId: String?,
+                cacheControl: CacheControl?,
+            ): Error = Error(
+                message, code, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, managedErrorKind,
+            )
+        }
     }
 
     /**

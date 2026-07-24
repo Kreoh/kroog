@@ -44,7 +44,19 @@ public sealed interface StreamFrameMergeIdentity {
  * Returns this frame's merge identity, preferring a non-blank provider item ID over an internal frame key.
  */
 public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
-    if (this is StreamFrame.GeneratedFileBytes) {
+    if (this is StreamFrame.GeneratedFileBytes || this is StreamFrame.ManagedGeneratedFileBytes) {
+        val fileId = when (this) {
+            is StreamFrame.GeneratedFileBytes -> fileId
+            is StreamFrame.ManagedGeneratedFileBytes -> fileId
+        }
+        val providerFileId = when (this) {
+            is StreamFrame.GeneratedFileBytes -> providerFileId
+            is StreamFrame.ManagedGeneratedFileBytes -> providerFileId
+        }
+        val executionId = when (this) {
+            is StreamFrame.GeneratedFileBytes -> executionId
+            is StreamFrame.ManagedGeneratedFileBytes -> executionId
+        }
         val localFileId = fileId.takeIf(String::isNotBlank) ?: return null
         val fileIdentity = providerFileId?.takeIf(String::isNotBlank) ?: localFileId
         val executionScope = executionId?.takeIf(String::isNotBlank) ?: "stream-file:$localFileId"
@@ -71,6 +83,7 @@ public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
         is StreamFrame.CodeExecutionComplete -> providerItemId
         is StreamFrame.HostedExecutionUpdate -> update.providerItemId
         is StreamFrame.GeneratedFileBytes -> null
+        is StreamFrame.ManagedGeneratedFileBytes -> null
         is StreamFrame.GeneratedFileComplete -> file.providerItemId
         is StreamFrame.End -> null
     }
@@ -93,6 +106,7 @@ public fun StreamFrame.mergeIdentity(): StreamFrameMergeIdentity? {
         is StreamFrame.HostedExecutionUpdate ->
             update.executionId?.let { "execution-id" to it } ?: index?.let { "execution-index" to it.toString() }
         is StreamFrame.GeneratedFileBytes -> null
+        is StreamFrame.ManagedGeneratedFileBytes -> null
         is StreamFrame.GeneratedFileComplete -> null
         is StreamFrame.End -> null
     }
@@ -259,6 +273,8 @@ public fun Iterable<StreamFrame>.toMessageResponse(): Message.Assistant {
             is StreamFrame.GeneratedFileComplete -> frame.file
 
             is StreamFrame.GeneratedFileBytes -> null
+
+            is StreamFrame.ManagedGeneratedFileBytes -> null
 
             is StreamFrame.End -> {
                 end = frame

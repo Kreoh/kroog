@@ -1,5 +1,9 @@
 package ai.koog.prompt.provider
 
+import ai.koog.prompt.models.ModelCatalogue
+import ai.koog.prompt.models.ModelProviderApiCompatibility
+import kotlinx.serialization.Serializable
+
 /**
  * Closed set of provider wire APIs understood by the Kroog model catalogue.
  *
@@ -25,6 +29,13 @@ public enum class ProviderApi {
 public enum class HostedExecutionMode {
     INLINE_PROVIDER_TOOL,
     PROVIDER_MANAGED_SANDBOX,
+}
+
+/** Provider service used when hosted execution is presented by the client as an ordinary custom tool. */
+@Serializable
+public enum class ManagedExecutionServiceKind {
+    VERTEX_AGENT_ENGINE,
+    BEDROCK_AGENT_CORE,
 }
 
 /** Why a provider API cannot execute hosted code through this contract. */
@@ -64,6 +75,10 @@ public data class HostedExecutionConfiguration(
     val combinesWithCustomTools: HostedExecutionFeatureSupport,
     val clientIntegration: ProviderClientIntegration,
 ) {
+    /** Typed managed-service identity derived from the legacy serialised service name. */
+    public val managedServiceKind: ManagedExecutionServiceKind?
+        get() = managedExecutionServiceKind(managedService)
+
     init {
         require((mode == HostedExecutionMode.INLINE_PROVIDER_TOOL) == (providerTool != null)) {
             "Inline provider execution must name exactly one provider tool"
@@ -72,6 +87,19 @@ public data class HostedExecutionConfiguration(
             "Managed provider execution must name exactly one managed service"
         }
     }
+}
+
+/** Stable legacy display used by the original string-based capability API. */
+public val ManagedExecutionServiceKind.legacyName: String
+    get() = when (this) {
+        ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE -> "Vertex Agent Engine Code Execution"
+        ManagedExecutionServiceKind.BEDROCK_AGENT_CORE -> "Bedrock AgentCore Code Interpreter"
+    }
+
+private fun managedExecutionServiceKind(legacyName: String?): ManagedExecutionServiceKind? = when (legacyName) {
+    ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE.legacyName -> ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE
+    ManagedExecutionServiceKind.BEDROCK_AGENT_CORE.legacyName -> ManagedExecutionServiceKind.BEDROCK_AGENT_CORE
+    else -> null
 }
 
 /** Exhaustive hosted-execution outcome for a [ProviderApi]. */
@@ -85,6 +113,40 @@ public sealed interface HostedExecutionCapability {
     ) : HostedExecutionCapability
 }
 
+/** Why a provider-and-model request was rejected before provider work began. */
+@Serializable
+public enum class HostedExecutionAcceptanceUnsupportedReason {
+    UNKNOWN_MODEL,
+    MODEL_PROVIDER_MISMATCH,
+    MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION,
+    PROVIDER_API_UNSUPPORTED,
+}
+
+/**
+ * Closed execution selection for one exact provider API and semantic model.
+ *
+ * Native execution is replayed on the provider wire. Client-managed execution remains an ordinary custom-tool
+ * transcript and uses [serviceKind] only to select an injected service implementation.
+ */
+@Serializable
+public sealed interface HostedExecutionAcceptance {
+    @Serializable
+    public data class NativeInline(
+        val providerTool: String,
+    ) : HostedExecutionAcceptance
+
+    @Serializable
+    public data class ClientManaged(
+        val serviceKind: ManagedExecutionServiceKind,
+    ) : HostedExecutionAcceptance
+
+    @Serializable
+    public data class Unsupported(
+        val reason: HostedExecutionAcceptanceUnsupportedReason,
+        val capabilityReason: HostedExecutionUnsupportedReason? = null,
+    ) : HostedExecutionAcceptance
+}
+
 /**
  * Authoritative execution capability matrix.
  *
@@ -92,6 +154,48 @@ public sealed interface HostedExecutionCapability {
  * Metadata marked [ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION] declares provider semantics only.
  */
 public object ProviderCapabilityMatrix {
+    /**
+     * Select execution only after validating that [modelId] belongs on [api].
+     *
+     * This method is side-effect free and is intended to run before clients create requests or perform network work.
+     */
+    public fun acceptHostedExecution(
+        api: ProviderApi,
+        modelId: String,
+    ): HostedExecutionAcceptance {
+        val model = ModelCatalogue.find(modelId)
+            ?: return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.UNKNOWN_MODEL
+            )
+        if (model.compatibility(api) !is ModelProviderApiCompatibility.Supported) {
+            return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
+            )
+        }
+        if (!model.hostedExecution) {
+            return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
+            )
+        }
+
+        return when (val capability = hostedExecution(api)) {
+            is HostedExecutionCapability.Unsupported -> HostedExecutionAcceptance.Unsupported(
+                reason = HostedExecutionAcceptanceUnsupportedReason.PROVIDER_API_UNSUPPORTED,
+                capabilityReason = capability.reason,
+            )
+
+            is HostedExecutionCapability.Supported -> when (capability.configuration.mode) {
+                HostedExecutionMode.INLINE_PROVIDER_TOOL -> HostedExecutionAcceptance.NativeInline(
+                    providerTool = requireNotNull(capability.configuration.providerTool)
+                )
+
+                HostedExecutionMode.PROVIDER_MANAGED_SANDBOX -> HostedExecutionAcceptance.ClientManaged(
+                    serviceKind = requireNotNull(capability.configuration.managedServiceKind)
+                )
+            }
+        }
+    }
+
     public fun hostedExecution(api: ProviderApi): HostedExecutionCapability = when (api) {
         ProviderApi.OPENAI_RESPONSES -> inlineCodeInterpreter()
 
@@ -111,7 +215,7 @@ public object ProviderCapabilityMatrix {
         )
 
         ProviderApi.VERTEX_ANTHROPIC_MESSAGES -> managedClaudeExecution(
-            service = "Vertex Agent Engine Code Execution",
+            serviceKind = ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE,
             providerStreaming = HostedExecutionFeatureSupport.UNSUPPORTED,
             clientIntegration = ProviderClientIntegration.IMPLEMENTED,
         )
@@ -119,7 +223,7 @@ public object ProviderCapabilityMatrix {
         ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
         ProviderApi.BEDROCK_CONVERSE,
         -> managedClaudeExecution(
-            service = "Bedrock AgentCore Code Interpreter",
+            serviceKind = ManagedExecutionServiceKind.BEDROCK_AGENT_CORE,
             providerStreaming = HostedExecutionFeatureSupport.SUPPORTED,
             clientIntegration = ProviderClientIntegration.IMPLEMENTED,
         )
@@ -160,14 +264,14 @@ public object ProviderCapabilityMatrix {
         )
 
     private fun managedClaudeExecution(
-        service: String,
+        serviceKind: ManagedExecutionServiceKind,
         providerStreaming: HostedExecutionFeatureSupport,
         clientIntegration: ProviderClientIntegration = ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
     ): HostedExecutionCapability.Supported =
         HostedExecutionCapability.Supported(
             HostedExecutionConfiguration(
                 mode = HostedExecutionMode.PROVIDER_MANAGED_SANDBOX,
-                managedService = service,
+                managedService = serviceKind.legacyName,
                 files = HostedExecutionFeatureSupport.SUPPORTED,
                 callerAddressableContainer = false,
                 streaming = providerStreaming,

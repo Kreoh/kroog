@@ -43,6 +43,8 @@ import ai.koog.prompt.message.LLMChoice
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.message.isClientManagedExecutionPresentation
+import ai.koog.prompt.message.validateClientManagedExecutionPresentation
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -493,6 +495,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
      * @return A formatted GoogleAI request
      */
     internal fun createGoogleRequest(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): GoogleRequest {
+        prompt.validateClientManagedExecutionPresentation()
         val systemMessageParts = mutableListOf<GooglePart.Text>()
         val contents = mutableListOf<GoogleContent>()
         val googleParams = prompt.params.toGoogleParams()
@@ -693,14 +696,18 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
 
                         is MessagePart.HostedExecution -> {
-                            add(part.toGooglePart(lastSignature))
-                            lastSignature = null
+                            if (!part.isClientManagedExecutionPresentation()) {
+                                add(part.toGooglePart(lastSignature))
+                                lastSignature = null
+                            }
                         }
 
                         is MessagePart.GeneratedFile -> {
-                            throw IllegalArgumentException(
-                                "Gemini hosted execution cannot replay generated-file metadata"
-                            )
+                            if (!part.isClientManagedExecutionPresentation()) {
+                                throw IllegalArgumentException(
+                                    "Gemini hosted execution cannot replay generated-file metadata"
+                                )
+                            }
                         }
 
                         is MessagePart.Tool.Call -> {

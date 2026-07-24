@@ -56,6 +56,8 @@ import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.message.isClientManagedExecutionPresentation
+import ai.koog.prompt.message.validateClientManagedExecutionPresentation
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -435,6 +437,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
+        prompt.validateClientManagedExecutionPresentation()
         return selectExecutionStrategy(prompt, model) { params ->
             when (params) {
                 is OpenAIResponsesParams -> {
@@ -455,10 +458,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): Flow<StreamFrame> = selectExecutionStrategy(prompt, model) { params ->
-        when (params) {
-            is OpenAIResponsesParams -> executeResponsesStreaming(prompt, model, tools, params)
-            is OpenAIChatParams -> super.executeStreaming(prompt, model, tools)
+    ): Flow<StreamFrame> {
+        prompt.validateClientManagedExecutionPresentation()
+        return selectExecutionStrategy(prompt, model) { params ->
+            when (params) {
+                is OpenAIResponsesParams -> executeResponsesStreaming(prompt, model, tools, params)
+                is OpenAIChatParams -> super.executeStreaming(prompt, model, tools)
+            }
         }
     }
 
@@ -1049,6 +1055,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     private fun convertPromptToResponsesMessages(prompt: Prompt, model: LLModel): List<Item> {
+        prompt.validateClientManagedExecutionPresentation()
         return buildList {
             prompt.messages.forEach { message ->
                 when (message) {
@@ -1227,11 +1234,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
 
                                 is MessagePart.GeneratedFile -> {
-                                    add(part.toOpenAIItem())
+                                    if (!part.isClientManagedExecutionPresentation()) {
+                                        add(part.toOpenAIItem())
+                                    }
                                 }
 
                                 is MessagePart.HostedExecution -> {
-                                    if (part !is MessagePart.HostedExecution.Progress || part.providerItemId != null) {
+                                    if (
+                                        !part.isClientManagedExecutionPresentation() &&
+                                        (part !is MessagePart.HostedExecution.Progress || part.providerItemId != null)
+                                    ) {
                                         val replayId = part.openAIReplayId()
                                         if (emittedCodeInterpreterIds.add(replayId)) {
                                             addAll(codeInterpreterReplay.getValue(replayId))
@@ -1486,7 +1498,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     private fun List<MessagePart.ResponsePart>.canonicalOpenAICodeInterpreterReplay(): Map<String, List<Item>> =
-        filter { it is MessagePart.CodeExecution || it is MessagePart.HostedExecution }
+        filter {
+            it is MessagePart.CodeExecution ||
+                (it is MessagePart.HostedExecution && !it.isClientManagedExecutionPresentation())
+        }
             .filterNot {
                 it is MessagePart.HostedExecution.Progress && it.providerItemId == null
             }

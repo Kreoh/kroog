@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.managed
 
+import ai.koog.prompt.provider.ManagedExecutionServiceKind
 import aws.sdk.kotlin.services.bedrockagentcore.BedrockAgentCoreClient
 import aws.sdk.kotlin.services.bedrockagentcore.model.AccessDeniedException
 import aws.sdk.kotlin.services.bedrockagentcore.model.CodeInterpreterResult
@@ -43,6 +44,8 @@ public class BedrockAgentCoreManagedExecutionService internal constructor(
     private val transport: BedrockAgentCoreTransport,
     public val configuration: BedrockAgentCoreConfiguration,
 ) : ManagedExecutionService {
+    override val serviceKind: ManagedExecutionServiceKind = ManagedExecutionServiceKind.BEDROCK_AGENT_CORE
+
     private val releaseMutex = Mutex()
     private val releasedOwnedSessions = mutableSetOf<SessionKey>()
 

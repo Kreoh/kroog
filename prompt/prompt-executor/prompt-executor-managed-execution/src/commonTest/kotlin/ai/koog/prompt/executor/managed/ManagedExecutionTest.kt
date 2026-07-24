@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.managed
 
+import ai.koog.prompt.provider.ManagedExecutionServiceKind
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -288,6 +289,9 @@ class ManagedExecutionTest {
         )
 
     private inner class FakeService : ManagedExecutionService {
+        override val serviceKind: ManagedExecutionServiceKind =
+            ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE
+
         var collectionCount: Int = 0
         val emittedSequences: MutableList<Long> = mutableListOf()
 

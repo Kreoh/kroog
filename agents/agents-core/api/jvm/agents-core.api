@@ -23,6 +23,57 @@ public abstract class ai/koog/agents/core/agent/tools/ManagedExecutionTool : ai/
 	public abstract fun executeStreaming (Ljava/lang/Object;Lai/koog/agents/core/tools/ToolCallMetadata;)Lkotlinx/coroutines/flow/Flow;
 }
 
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionToolResult {
+	public static final field Companion Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult$Companion;
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/Integer;
+	public final fun copy (Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;)Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;
+	public static synthetic fun copy$default (Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;Ljava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;ILjava/lang/Object;)Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExecutionId ()Ljava/lang/String;
+	public final fun getExitCode ()Ljava/lang/Integer;
+	public final fun getOutput ()Ljava/lang/String;
+	public final fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/agents/core/agent/tools/ManagedExecutionToolResult$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionToolResult$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/agents/core/agent/tools/ServiceBackedManagedExecutionTool : ai/koog/agents/core/agent/tools/ManagedExecutionTool {
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;Ljava/lang/String;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun decodeResult (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;)Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;
+	public synthetic fun decodeResult (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;)Ljava/lang/Object;
+	public fun encodeResultToString (Lai/koog/agents/core/agent/tools/ManagedExecutionToolResult;Lai/koog/serialization/JSONSerializer;)Ljava/lang/String;
+	public synthetic fun encodeResultToString (Ljava/lang/Object;Lai/koog/serialization/JSONSerializer;)Ljava/lang/String;
+	public fun executeStreaming (Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Lai/koog/agents/core/tools/ToolCallMetadata;)Lkotlinx/coroutines/flow/Flow;
+	public synthetic fun executeStreaming (Ljava/lang/Object;Lai/koog/agents/core/tools/ToolCallMetadata;)Lkotlinx/coroutines/flow/Flow;
+	public final fun getAcquiredSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSession;
+}
+
+public final class ai/koog/agents/core/agent/tools/ServiceBackedManagedExecutionToolKt {
+	public static final fun createManagedExecutionServiceBinding (Lai/koog/prompt/provider/HostedExecutionAcceptance;Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;)Lai/koog/agents/core/agent/tools/ManagedExecutionServiceBinding;
+	public static synthetic fun createManagedExecutionServiceBinding$default (Lai/koog/prompt/provider/HostedExecutionAcceptance;Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;ILjava/lang/Object;)Lai/koog/agents/core/agent/tools/ManagedExecutionServiceBinding;
+}
+
 public abstract interface class ai/koog/agents/core/environment/ManagedExecutionEventObserver {
 	public static final field Companion Lai/koog/agents/core/environment/ManagedExecutionEventObserver$Companion;
 	public static final field MetadataKey Ljava/lang/String;
@@ -269,6 +320,30 @@ public final class ai/koog/agents/core/agent/tools/ManagedExecutionProtocolExcep
 	public fun <init> (Ljava/lang/String;)V
 }
 
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy : java/lang/Enum {
+	public static final field Companion Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy$Companion;
+	public static final field RELEASE_OWNED_AFTER_EXECUTION Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;
+	public static final field RETAIN_OWNED Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;
+	public static fun values ()[Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionServiceBinding {
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun events ()Lkotlinx/coroutines/flow/Flow;
+	public final fun getAcquiredSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSession;
+	public final fun getOwnsSession ()Z
+	public final fun getPersistedSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun getReleasePolicy ()Lai/koog/agents/core/agent/tools/ManagedExecutionReleasePolicy;
+	public final fun getRequest ()Lai/koog/prompt/executor/managed/ManagedExecutionRequest;
+}
+
 public final class ai/koog/agents/core/environment/ManagedExecutionEventObserver$Companion {
 	public static final field MetadataKey Ljava/lang/String;
 }
@@ -289,6 +364,7 @@ public final class ai/koog/agents/core/environment/ManagedExecutionObservation {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getEvent ()Lai/koog/prompt/executor/managed/ManagedExecutionEvent;
 	public final fun getEventIndex ()J
+	public final fun getPresentationFrame ()Lai/koog/prompt/streaming/StreamFrame;
 	public final fun getToolCallId ()Ljava/lang/String;
 	public final fun getToolName ()Ljava/lang/String;
 	public fun hashCode ()I
@@ -1687,6 +1763,21 @@ public final class ai/koog/agents/core/agent/tools/AgentContextAwareTool$Compani
 
 public final class ai/koog/agents/core/agent/tools/AgentContextAwareToolKt {
 	public static final fun getAgentContext (Lai/koog/agents/core/tools/ToolCallMetadata;)Lai/koog/agents/core/agent/context/AIAgentContext;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionBindingException : java/lang/IllegalStateException {
+	public fun <init> (Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;)V
+	public final fun getReason ()Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+}
+
+public final class ai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure : java/lang/Enum {
+	public static final field ACCEPTANCE_NOT_CLIENT_MANAGED Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+	public static final field ALREADY_COLLECTED Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+	public static final field SERVICE_KIND_MISMATCH Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+	public static final field SESSION_KIND_MISMATCH Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
+	public static fun values ()[Lai/koog/agents/core/agent/tools/ManagedExecutionBindingFailure;
 }
 
 public abstract interface annotation class ai/koog/agents/core/annotation/ExperimentalAgentsApi : java/lang/annotation/Annotation {

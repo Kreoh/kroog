@@ -17,6 +17,7 @@ import ai.koog.prompt.executor.managed.ManagedExecutionEvent
 import ai.koog.prompt.executor.managed.ManagedExecutionFileReference
 import ai.koog.prompt.executor.managed.ManagedExecutionSessionReference
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.serialization.typeToken
@@ -82,6 +83,31 @@ class ManagedExecutionToolTest : AgentTestBase() {
         assertEquals("managed_execution", finalPart.tool)
         assertEquals(1, finalPart.parts.size)
         assertEquals("done", assertIs<MessagePart.Text>(finalPart.parts.single()).text)
+    }
+
+    @Test
+    fun testObservationPresentationRetainsLongEventIndexOnManagedFileChunk() {
+        val observation = ManagedExecutionObservation(
+            toolCallId = "call-1",
+            toolName = "managed_execution",
+            eventIndex = Long.MAX_VALUE,
+            event = ManagedExecutionEvent.GeneratedFileChunk(
+                sequence = Long.MAX_VALUE - 1,
+                executionId = "execution-1",
+                session = session(),
+                fileId = "file-1",
+                reference = ManagedExecutionFileReference.VertexAgentEngine(
+                    sandboxResourceName = "sandbox-1",
+                    path = "/tmp/result.bin",
+                ),
+                offset = 0,
+                bytes = byteArrayOf(1, 2, 3),
+            ),
+        )
+
+        val frame = assertIs<StreamFrame.ManagedGeneratedFileBytes>(observation.presentationFrame)
+        assertEquals(Long.MAX_VALUE, frame.observerEventIndex)
+        assertEquals(Long.MAX_VALUE - 1, frame.managedSequence)
     }
 
     @Test

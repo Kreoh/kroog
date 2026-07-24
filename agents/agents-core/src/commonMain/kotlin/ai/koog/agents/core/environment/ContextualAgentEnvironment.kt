@@ -427,6 +427,8 @@ private fun MessagePart.ResponsePart.detachedManagedCallbackPart(
         containerId = containerId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
     )
 
     is MessagePart.HostedExecution.Progress -> MessagePart.HostedExecution.Progress(
@@ -436,6 +438,9 @@ private fun MessagePart.ResponsePart.detachedManagedCallbackPart(
         containerId = containerId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
+        outputStream = outputStream,
     )
 
     is MessagePart.HostedExecution.CumulativeOutput -> MessagePart.HostedExecution.CumulativeOutput(
@@ -445,6 +450,8 @@ private fun MessagePart.ResponsePart.detachedManagedCallbackPart(
         containerId = containerId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
     )
 
     is MessagePart.HostedExecution.Result -> MessagePart.HostedExecution.Result(
@@ -455,6 +462,9 @@ private fun MessagePart.ResponsePart.detachedManagedCallbackPart(
         containerId = containerId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
+        taskStatus = taskStatus?.let { MANAGED_CALLBACK_REDACTION },
     )
 
     is MessagePart.HostedExecution.Error -> MessagePart.HostedExecution.Error(
@@ -464,6 +474,9 @@ private fun MessagePart.ResponsePart.detachedManagedCallbackPart(
         containerId = containerId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
+        managedErrorKind = managedErrorKind,
     )
 
     is MessagePart.CodeExecution -> MessagePart.CodeExecution(
@@ -537,6 +550,9 @@ private fun MessagePart.GeneratedFile.detachedGeneratedFile(): MessagePart.Gener
         producingExecutionId = producingExecutionId?.let { MANAGED_CALLBACK_REDACTION },
         providerItemId = providerItemId?.let { MANAGED_CALLBACK_REDACTION },
         cacheControl = null,
+        origin = origin,
+        fileId = fileId?.let { MANAGED_CALLBACK_REDACTION },
+        toolCallId = toolCallId?.let { MANAGED_CALLBACK_REDACTION },
     )
 
 private fun detachedRequestMetaInfo(): RequestMetaInfo =

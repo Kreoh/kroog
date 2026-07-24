@@ -11,6 +11,9 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIStreamEvent
 import ai.koog.prompt.executor.clients.openai.models.OpenAITextConfig
 import ai.koog.prompt.executor.clients.openai.models.OutputContent
 import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.message.ClientManagedPresentationReplayException
+import ai.koog.prompt.message.ExecutionOrigin
+import ai.koog.prompt.message.ManagedExecutionSessionReference
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
@@ -83,6 +86,50 @@ class OpenAIPrimaryConstructorTest {
         assertEquals(1, responses.parts.size)
         val textPart = assertIs<MessagePart.Text>(responses.parts.single())
         assertEquals("Hello from KoogHttpClient", textPart.text)
+    }
+
+    @Test
+    fun testMalformedManagedTranscriptFailsBeforeOpenAITransport() = runTest {
+        val transport = CapturingKoogHttpClient(clientName = "UnusedOpenAIClient") {
+            error("Transport must not be invoked")
+        }
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = transport,
+        )
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.Tool.Call("call-1", "wrong_tool", "{}"),
+                        MessagePart.HostedExecution.Result(
+                            output = "done",
+                            executionId = "execution-1",
+                            origin = ExecutionOrigin.CLIENT_MANAGED,
+                            managedSession = ManagedExecutionSessionReference.VertexAgentEngine(
+                                "project-1",
+                                "us-central1",
+                                "reasoningEngines/engine-1",
+                                "sandbox-1",
+                            ),
+                            toolCallId = "call-1",
+                        ),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                ),
+                Message.User(
+                    MessagePart.Tool.Result("call-1", "wrong_tool", "done"),
+                    RequestMetaInfo.Empty,
+                ),
+            ),
+            id = "malformed-managed-replay",
+        )
+
+        assertFailsWith<ClientManagedPresentationReplayException> {
+            client.execute(prompt, OpenAIModels.Chat.GPT4o)
+        }
+        assertEquals(null, transport.lastPath)
+        assertEquals(null, transport.lastRequest)
     }
 
     @Test

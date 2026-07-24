@@ -24,6 +24,7 @@ import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.validateClientManagedExecutionPresentation
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.io.SuitableForIO
 import ai.koog.utils.time.KoogClock
@@ -590,6 +591,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
     }
 
     private fun createRequestBody(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): String {
+        prompt.validateClientManagedExecutionPresentation()
         model.requireCapability(
             LLMCapability.Completion,
             "This function must only be used with completion-capable models."

@@ -2,6 +2,9 @@ package ai.koog.agents.core.environment
 
 import ai.koog.agents.core.tools.ToolCallMetadata
 import ai.koog.prompt.executor.managed.ManagedExecutionEvent
+import ai.koog.prompt.executor.managed.ManagedExecutionPresentationContext
+import ai.koog.prompt.executor.managed.toStreamFrame
+import ai.koog.prompt.streaming.StreamFrame
 
 /**
  * Request-scoped observation of one managed-execution event.
@@ -14,7 +17,18 @@ public data class ManagedExecutionObservation(
     val toolName: String,
     val eventIndex: Long,
     val event: ManagedExecutionEvent,
-)
+) {
+    /** Serialisable presentation frame for this observation, when the tool call has a stable identity. */
+    public val presentationFrame: StreamFrame?
+        get() = toolCallId?.let { id ->
+            event.toStreamFrame(
+                ManagedExecutionPresentationContext(
+                    toolCallId = id,
+                    observerEventIndex = eventIndex,
+                )
+            )
+        }
+}
 
 /** Suspended sink used to preserve event ordering and downstream backpressure. */
 public fun interface ManagedExecutionEventObserver {

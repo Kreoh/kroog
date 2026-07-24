@@ -12,9 +12,13 @@ import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.ClientManagedPresentationReplayException
+import ai.koog.prompt.message.ExecutionOrigin
+import ai.koog.prompt.message.ManagedExecutionSessionReference
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
+import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import aws.sdk.kotlin.services.bedrockruntime.model.ContentBlock
@@ -42,11 +46,45 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 
 class BedrockAnthropicReplayTest {
+    @Test
+    fun testClientManagedPresentationUsesOnlyCustomToolTranscriptForInvokeModelAndConverse() {
+        val prompt = managedPrompt()
+
+        val invokeRequest = BedrockAnthropicClaudeSerialization.createAnthropicRequest(prompt, emptyList())
+        val invokeJson = bedrockJson.encodeToJsonElement(invokeRequest).toString()
+        assertTrue(invokeJson.contains("managed_execution"))
+        assertFalse(invokeJson.contains("presentation-only-output"))
+        assertFalse(invokeJson.contains("sandbox-secret"))
+
+        val converseRequest = BedrockConverseConverters.createConverseRequest(
+            prompt,
+            bedrockModel,
+            emptyList(),
+        )
+        val rendered = converseRequest.toString()
+        assertTrue(rendered.contains("managed_execution"))
+        assertFalse(rendered.contains("presentation-only-output"))
+        assertFalse(rendered.contains("sandbox-secret"))
+    }
+
+    @Test
+    fun testMalformedManagedTranscriptFailsBeforeInvokeModelAndConverseMapping() {
+        val prompt = managedPrompt(resultTool = "wrong_tool")
+
+        assertFailsWith<ClientManagedPresentationReplayException> {
+            BedrockAnthropicClaudeSerialization.createAnthropicRequest(prompt, emptyList())
+        }
+        assertFailsWith<ClientManagedPresentationReplayException> {
+            BedrockConverseConverters.createConverseRequest(prompt, bedrockModel, emptyList())
+        }
+    }
+
     @Test
     fun testBedrockInvokeModelOutputReplaysThroughVertexAnthropic() = runTest {
         val bedrockOutput = BedrockAnthropicClaudeSerialization.parseAnthropicResponse(mixedResponse())
@@ -187,6 +225,42 @@ class BedrockAnthropicReplayTest {
         assertTrue(missingSignatureFailure.message.orEmpty().contains("signature is missing"))
     }
 }
+
+private fun managedPrompt(resultTool: String = "managed_execution"): Prompt = Prompt(
+    messages = listOf(
+        Message.Assistant(
+            parts = listOf(
+                MessagePart.Tool.Call(
+                    id = "call-managed",
+                    tool = resultTool,
+                    args = """{"executionId":"execution-1","code":"print(1)"}""",
+                ),
+                MessagePart.HostedExecution.Result(
+                    output = "presentation-only-output",
+                    executionId = "execution-1",
+                    origin = ExecutionOrigin.CLIENT_MANAGED,
+                    managedSession = ManagedExecutionSessionReference.VertexAgentEngine(
+                        project = "project-1",
+                        location = "us-central1",
+                        reasoningEngineResource = "reasoningEngines/engine-1",
+                        sandboxResourceName = "sandbox-secret",
+                    ),
+                    toolCallId = "call-managed",
+                ),
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+        ),
+        Message.User(
+            part = MessagePart.Tool.Result(
+                id = "call-managed",
+                tool = resultTool,
+                output = "ordinary-result",
+            ),
+            metaInfo = RequestMetaInfo.Empty,
+        ),
+    ),
+    id = "managed-replay",
+)
 
 private fun assertWireOrder(request: kotlinx.serialization.json.JsonObject) {
     val content = request.getValue("messages").jsonArray.single().jsonObject.getValue("content").jsonArray

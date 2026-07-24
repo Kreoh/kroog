@@ -19,6 +19,8 @@ import ai.koog.prompt.message.MessagePart.ContentPart
 import ai.koog.prompt.message.PromptCacheControl
 import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.message.isClientManagedExecutionPresentation
+import ai.koog.prompt.message.validateClientManagedExecutionPresentation
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.buildStreamFrameFlow
 import ai.koog.utils.time.KoogClock
@@ -149,6 +151,7 @@ internal object BedrockConverseConverters {
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
     ): ConverseRequestParams {
+        prompt.validateClientManagedExecutionPresentation()
         val params = prompt.params.toBedrockConverseParams()
         val toolBreakpoints = tools.mapNotNull { tool ->
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
@@ -303,10 +306,20 @@ internal object BedrockConverseConverters {
                             addAll(part.toBedrockReasoningContentBlocks())
                         }
 
-                        is MessagePart.HostedExecution, is MessagePart.GeneratedFile -> {
-                            throw IllegalArgumentException(
-                                "Bedrock Converse cannot replay provider-hosted execution items"
-                            )
+                        is MessagePart.HostedExecution -> {
+                            if (!part.isClientManagedExecutionPresentation()) {
+                                throw IllegalArgumentException(
+                                    "Bedrock Converse cannot replay provider-hosted execution items"
+                                )
+                            }
+                        }
+
+                        is MessagePart.GeneratedFile -> {
+                            if (!part.isClientManagedExecutionPresentation()) {
+                                throw IllegalArgumentException(
+                                    "Bedrock Converse cannot replay provider-hosted execution items"
+                                )
+                            }
                         }
 
                         is MessagePart.CodeExecution -> {

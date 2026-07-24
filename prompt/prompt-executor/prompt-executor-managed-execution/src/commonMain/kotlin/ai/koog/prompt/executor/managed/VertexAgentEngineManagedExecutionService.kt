@@ -4,6 +4,7 @@ package ai.koog.prompt.executor.managed
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
+import ai.koog.prompt.provider.ManagedExecutionServiceKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -46,6 +47,8 @@ public class VertexAgentEngineManagedExecutionService internal constructor(
     private val nowEpochMilliseconds: () -> Long,
     private val maxPayloadBytes: Long,
 ) : ManagedExecutionService {
+    override val serviceKind: ManagedExecutionServiceKind = ManagedExecutionServiceKind.VERTEX_AGENT_ENGINE
+
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false

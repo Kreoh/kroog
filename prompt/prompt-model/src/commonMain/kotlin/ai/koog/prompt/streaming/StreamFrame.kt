@@ -1,5 +1,8 @@
 package ai.koog.prompt.streaming
 
+import ai.koog.prompt.message.ExecutionOrigin
+import ai.koog.prompt.message.ManagedExecutionFileReference
+import ai.koog.prompt.message.ManagedExecutionSessionReference
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import kotlinx.serialization.Serializable
@@ -271,6 +274,64 @@ public sealed interface StreamFrame {
         override fun toString(): String =
             "GeneratedFileBytes(fileId=$fileId, offset=$offset, providerFileId=$providerFileId, " +
                 "index=$index, executionId=$executionId, byteCount=${bytes.size})"
+    }
+
+    /** One provisional binary chunk emitted by a client-managed execution service. */
+    @Serializable
+    public data class ManagedGeneratedFileBytes(
+        public val origin: ExecutionOrigin,
+        public val managedSession: ManagedExecutionSessionReference,
+        public val managedReference: ManagedExecutionFileReference,
+        public val managedSequence: Long,
+        public val observerEventIndex: Long,
+        public val toolCallId: String,
+        public val fileId: String,
+        public val providerFileId: String?,
+        public val executionId: String,
+        public val offset: Long,
+        public val bytes: ByteArray,
+        override val index: Int? = null,
+    ) : DeltaFrame {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is ManagedGeneratedFileBytes) return false
+
+            return origin == other.origin &&
+                managedSession == other.managedSession &&
+                managedReference == other.managedReference &&
+                managedSequence == other.managedSequence &&
+                observerEventIndex == other.observerEventIndex &&
+                toolCallId == other.toolCallId &&
+                fileId == other.fileId &&
+                providerFileId == other.providerFileId &&
+                executionId == other.executionId &&
+                offset == other.offset &&
+                bytes.contentEquals(other.bytes) &&
+                index == other.index
+        }
+
+        override fun hashCode(): Int {
+            var result = origin.hashCode()
+            result = 31 * result + managedSession.hashCode()
+            result = 31 * result + managedReference.hashCode()
+            result = 31 * result + managedSequence.hashCode()
+            result = 31 * result + observerEventIndex.hashCode()
+            result = 31 * result + toolCallId.hashCode()
+            result = 31 * result + fileId.hashCode()
+            result = 31 * result + (providerFileId?.hashCode() ?: 0)
+            result = 31 * result + executionId.hashCode()
+            result = 31 * result + offset.hashCode()
+            result = 31 * result + bytes.contentHashCode()
+            result = 31 * result + (index ?: 0)
+            return result
+        }
+
+        override fun toString(): String =
+            "ManagedGeneratedFileBytes(origin=$origin, managedSession=$managedSession, " +
+                "managedReference=$managedReference, managedSequence=$managedSequence, " +
+                "observerEventIndex=$observerEventIndex, toolCallId=$toolCallId, fileId=$fileId, " +
+                "providerFileId=$providerFileId, executionId=$executionId, offset=$offset, byteCount=${bytes.size}, " +
+                "index=$index)"
     }
 
     /** A complete provider-generated file update. */

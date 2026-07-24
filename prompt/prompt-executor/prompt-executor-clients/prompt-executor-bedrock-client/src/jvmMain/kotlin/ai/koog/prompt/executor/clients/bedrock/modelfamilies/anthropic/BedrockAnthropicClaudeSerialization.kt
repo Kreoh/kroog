@@ -18,6 +18,8 @@ import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerializ
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.message.isClientManagedExecutionPresentation
+import ai.koog.prompt.message.validateClientManagedExecutionPresentation
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -90,10 +92,23 @@ internal object BedrockAnthropicClaudeSerialization {
                             "Bedrock Anthropic cannot replay provider-hosted code execution items"
                         )
 
-                    is MessagePart.HostedExecution, is MessagePart.GeneratedFile ->
-                        throw IllegalArgumentException(
-                            "Bedrock Anthropic cannot replay provider-hosted execution items"
-                        )
+                    is MessagePart.HostedExecution ->
+                        if (part.isClientManagedExecutionPresentation()) {
+                            emptyList()
+                        } else {
+                            throw IllegalArgumentException(
+                                "Bedrock Anthropic cannot replay provider-hosted execution items"
+                            )
+                        }
+
+                    is MessagePart.GeneratedFile ->
+                        if (part.isClientManagedExecutionPresentation()) {
+                            emptyList()
+                        } else {
+                            throw IllegalArgumentException(
+                                "Bedrock Anthropic cannot replay provider-hosted execution items"
+                            )
+                        }
 
                     is MessagePart.Attachment -> throw IllegalArgumentException("No attachments are supported in assistant messages")
                 }
@@ -134,6 +149,7 @@ internal object BedrockAnthropicClaudeSerialization {
         prompt: Prompt,
         tools: List<ToolDescriptor>
     ): BedrockAnthropicInvokeModel {
+        prompt.validateClientManagedExecutionPresentation()
         val systemMessages = mutableListOf<Message.System>()
         val messages = buildList {
             prompt.messages.forEach { message ->

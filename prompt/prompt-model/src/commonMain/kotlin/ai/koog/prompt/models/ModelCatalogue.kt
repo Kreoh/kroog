@@ -559,7 +559,11 @@ private val openAiAzure: Set<ProviderApi> =
     setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES)
 private val openAiAzureCodex: Set<ProviderApi> = openAiAzure + ProviderApi.CODEX_RESPONSES
 private val claudeApis: Set<ProviderApi> =
-    setOf(ProviderApi.VERTEX_ANTHROPIC_MESSAGES, ProviderApi.BEDROCK_ANTHROPIC_MESSAGES)
+    setOf(
+        ProviderApi.VERTEX_ANTHROPIC_MESSAGES,
+        ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
+        ProviderApi.BEDROCK_CONVERSE,
+    )
 private val openAiVisualMimeTypes: Set<String> =
     setOf("text/plain", "image/jpeg", "image/png", "image/gif", "image/webp")
 private val multimodalMimeTypes: Set<String> = openAiVisualMimeTypes + "application/pdf"

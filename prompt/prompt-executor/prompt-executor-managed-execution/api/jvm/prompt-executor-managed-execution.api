@@ -49,6 +49,7 @@ public final class ai/koog/prompt/executor/managed/BedrockAgentCoreManagedExecut
 	public fun acquireSession (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
 	public final fun getConfiguration ()Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;
+	public fun getServiceKind ()Lai/koog/prompt/provider/ManagedExecutionServiceKind;
 	public fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
@@ -523,6 +524,30 @@ public final class ai/koog/prompt/executor/managed/ManagedExecutionInputFile$Com
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class ai/koog/prompt/executor/managed/ManagedExecutionPresentationContext {
+	public fun <init> (Ljava/lang/String;JLjava/lang/String;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Ljava/lang/String;JLjava/lang/String;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()J
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/Integer;
+	public final fun copy (Ljava/lang/String;JLjava/lang/String;Ljava/lang/Integer;)Lai/koog/prompt/executor/managed/ManagedExecutionPresentationContext;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionPresentationContext;Ljava/lang/String;JLjava/lang/String;Ljava/lang/Integer;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionPresentationContext;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getIndex ()Ljava/lang/Integer;
+	public final fun getObserverEventIndex ()J
+	public final fun getProviderItemId ()Ljava/lang/String;
+	public final fun getToolCallId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/ManagedExecutionPresentationKt {
+	public static final fun toManagedExecutionReference (Lai/koog/prompt/message/ManagedExecutionSessionReference;)Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public static final fun toPresentationReference (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;)Lai/koog/prompt/message/ManagedExecutionSessionReference;
+	public static final fun toStreamFrame (Lai/koog/prompt/executor/managed/ManagedExecutionEvent;Lai/koog/prompt/executor/managed/ManagedExecutionPresentationContext;)Lai/koog/prompt/streaming/StreamFrame;
+}
+
 public final class ai/koog/prompt/executor/managed/ManagedExecutionRequest {
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionRequest$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;)V
@@ -561,6 +586,7 @@ public abstract interface class ai/koog/prompt/executor/managed/ManagedExecution
 	public abstract fun acquireSession (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun acquireSession$default (Lai/koog/prompt/executor/managed/ManagedExecutionService;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public abstract fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
+	public abstract fun getServiceKind ()Lai/koog/prompt/provider/ManagedExecutionServiceKind;
 	public abstract fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
@@ -756,6 +782,7 @@ public final class ai/koog/prompt/executor/managed/VertexAgentEngineManagedExecu
 	public fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
 	public final fun getConfiguration ()Lai/koog/prompt/executor/managed/VertexAgentEngineConfiguration;
 	public final fun getSandbox (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference$VertexAgentEngine;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun getServiceKind ()Lai/koog/prompt/provider/ManagedExecutionServiceKind;
 	public final fun listSandboxes (ILjava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun listSandboxes$default (Lai/koog/prompt/executor/managed/VertexAgentEngineManagedExecutionService;ILjava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
