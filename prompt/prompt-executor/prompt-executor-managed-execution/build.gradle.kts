@@ -24,6 +24,12 @@ kotlin {
             }
         }
 
+        jvmMain {
+            dependencies {
+                api(libs.aws.sdk.kotlin.bedrockagentcore)
+            }
+        }
+
         jvmTest {
             dependencies {
                 implementation(kotlin("test-junit5"))

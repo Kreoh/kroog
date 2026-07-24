@@ -94,6 +94,20 @@ class ManagedExecutionTest {
     }
 
     @Test
+    fun testRequestEventToStringRedactsCode() {
+        val sentinel = "provider-code-sentinel"
+        val event = ManagedExecutionEvent.Request(
+            sequence = 0,
+            executionId = "execution-1",
+            session = bedrockSession(),
+            code = sentinel,
+        )
+
+        assertFalse(event.toString().contains(sentinel))
+        assertTrue(event.toString().contains("code=<redacted>"))
+    }
+
+    @Test
     fun testInputFileUsesContentValueSemanticsRedactedRenderingAndRoundTrip() {
         val payloadSentinel = "managed-input-payload-sentinel"
         val first = ManagedExecutionInputFile(
@@ -134,6 +148,8 @@ class ManagedExecutionTest {
     @Test
     fun testBinaryFileChunkRoundTripsWithOptionalProviderIdentity() {
         val reference = ManagedExecutionFileReference.BedrockAgentCore(
+            region = "eu-west-1",
+            codeInterpreterIdentifier = "aws.codeinterpreter.v1",
             sessionId = "session-1",
             path = "/tmp/result.bin",
         )
@@ -158,6 +174,47 @@ class ManagedExecutionTest {
     }
 
     @Test
+    fun testLegacyBedrockFileReferenceAndResultJsonDecodeWithSafeDefaults() {
+        val legacyFile = """
+            {
+              "provider":"bedrock_agent_core",
+              "sessionId":"session-1",
+              "path":"/tmp/result.bin"
+            }
+        """.trimIndent()
+        val decodedFile = assertIs<ManagedExecutionFileReference.BedrockAgentCore>(
+            json.decodeFromString<ManagedExecutionFileReference>(legacyFile)
+        )
+        assertEquals("", decodedFile.region)
+        assertEquals("aws.codeinterpreter.v1", decodedFile.codeInterpreterIdentifier)
+
+        val legacyResult = """
+            {
+              "provider":"result",
+              "sequence":1,
+              "executionId":"execution-1",
+              "session":{
+                "provider":"bedrock_agent_core",
+                "region":"eu-west-1",
+                "codeInterpreterIdentifier":"aws.codeinterpreter.v1",
+                "sessionId":"session-1",
+                "createdAtEpochMilliseconds":0,
+                "timeoutSeconds":900
+              },
+              "output":"ok",
+              "exitCode":0
+            }
+        """.trimIndent()
+        val decodedResult = assertIs<ManagedExecutionEvent.Result>(
+            json.decodeFromString<ManagedExecutionEvent>(legacyResult)
+        )
+        assertNull(decodedResult.executionTimeSeconds)
+        assertNull(decodedResult.taskId)
+        assertNull(decodedResult.taskStatus)
+        assertEquals(emptyList(), decodedResult.generatedFiles)
+    }
+
+    @Test
     fun testBinaryFileChunkUsesContentEqualityHashingAndRedactedToString() {
         val first = ManagedExecutionEvent.GeneratedFileChunk(
             sequence = 4,
@@ -165,6 +222,8 @@ class ManagedExecutionTest {
             session = bedrockSession(),
             fileId = "file-1",
             reference = ManagedExecutionFileReference.BedrockAgentCore(
+                region = "eu-west-1",
+                codeInterpreterIdentifier = "aws.codeinterpreter.v1",
                 sessionId = "session-1",
                 path = "/tmp/result.bin",
             ),

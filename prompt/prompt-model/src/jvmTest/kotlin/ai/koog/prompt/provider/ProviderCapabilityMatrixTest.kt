@@ -77,11 +77,11 @@ class ProviderCapabilityMatrixTest {
         }
         assertEquals(ProviderClientIntegration.IMPLEMENTED, vertex.clientIntegration)
         assertEquals(
-            ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
+            ProviderClientIntegration.IMPLEMENTED,
             bedrockMessages.clientIntegration,
         )
         assertEquals(
-            ProviderClientIntegration.REQUIRES_CLIENT_INTEGRATION,
+            ProviderClientIntegration.IMPLEMENTED,
             bedrockConverse.clientIntegration,
         )
         assertEquals(HostedExecutionFeatureSupport.UNSUPPORTED, vertex.streaming)

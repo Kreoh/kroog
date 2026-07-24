@@ -112,7 +112,33 @@ public sealed interface ManagedExecutionFileReference {
         val sessionId: String,
         val path: String,
         override val providerFileId: String? = null,
-    ) : ManagedExecutionFileReference
+        val region: String = "",
+        val codeInterpreterIdentifier: String = "aws.codeinterpreter.v1",
+    ) : ManagedExecutionFileReference {
+        /**
+         * Preserves the original JVM constructor descriptor for callers compiled before region identity was added.
+         */
+        @Deprecated("Binary compatibility constructor", level = DeprecationLevel.HIDDEN)
+        public constructor(
+            sessionId: String,
+            path: String,
+            providerFileId: String? = null,
+        ) : this(sessionId, path, providerFileId, "", "aws.codeinterpreter.v1")
+
+        /** Preserves the original JVM copy descriptor. */
+        @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+        public fun copy(
+            sessionId: String,
+            path: String,
+            providerFileId: String? = this.providerFileId,
+        ): BedrockAgentCore = BedrockAgentCore(
+            sessionId = sessionId,
+            path = path,
+            providerFileId = providerFileId,
+            region = region,
+            codeInterpreterIdentifier = codeInterpreterIdentifier,
+        )
+    }
 }
 
 /** Complete metadata for a generated file. File bytes are delivered separately as chunks. */
@@ -156,7 +182,11 @@ public sealed interface ManagedExecutionEvent {
         override val session: ManagedExecutionSessionReference,
         val code: String,
         val language: String = "python",
-    ) : ManagedExecutionEvent
+    ) : ManagedExecutionEvent {
+        override fun toString(): String =
+            "Request(sequence=$sequence, executionId=$executionId, session=$session, " +
+                "code=<redacted>, language=$language)"
+    }
 
     /** A stdout text delta. */
     @Serializable
@@ -192,6 +222,8 @@ public sealed interface ManagedExecutionEvent {
      * One binary chunk of a generated file.
      *
      * Collectors receive [bytes] before the next provider event is requested, preserving Flow backpressure.
+     * Chunks are provisional until the matching [GeneratedFileComplete] arrives. Collectors must discard chunks for
+     * files that do not complete, including when a later provider event or terminal validation is malformed.
      */
     @Serializable
     @SerialName("generated_file_chunk")
@@ -233,7 +265,7 @@ public sealed interface ManagedExecutionEvent {
                 "offset=$offset, byteCount=${bytes.size})"
     }
 
-    /** Completion metadata and provider handle for a generated file. */
+    /** Commits all preceding chunks for this file and supplies its complete metadata and provider handle. */
     @Serializable
     @SerialName("generated_file_complete")
     public data class GeneratedFileComplete(
@@ -253,7 +285,42 @@ public sealed interface ManagedExecutionEvent {
         val output: String? = null,
         val exitCode: Int? = null,
         val generatedFiles: List<ManagedExecutionGeneratedFile> = emptyList(),
-    ) : ManagedExecutionEvent, Terminal
+        val executionTimeSeconds: Double? = null,
+        val taskId: String? = null,
+        val taskStatus: String? = null,
+    ) : ManagedExecutionEvent, Terminal {
+        /** Preserves the original JVM constructor descriptor. */
+        @Deprecated("Binary compatibility constructor", level = DeprecationLevel.HIDDEN)
+        public constructor(
+            sequence: Long,
+            executionId: String,
+            session: ManagedExecutionSessionReference,
+            output: String?,
+            exitCode: Int?,
+            generatedFiles: List<ManagedExecutionGeneratedFile> = emptyList(),
+        ) : this(sequence, executionId, session, output, exitCode, generatedFiles, null, null, null)
+
+        /** Preserves the original JVM copy descriptor. */
+        @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
+        public fun copy(
+            sequence: Long,
+            executionId: String,
+            session: ManagedExecutionSessionReference,
+            output: String?,
+            exitCode: Int?,
+            generatedFiles: List<ManagedExecutionGeneratedFile> = this.generatedFiles,
+        ): Result = Result(
+            sequence = sequence,
+            executionId = executionId,
+            session = session,
+            output = output,
+            exitCode = exitCode,
+            generatedFiles = generatedFiles,
+            executionTimeSeconds = executionTimeSeconds,
+            taskId = taskId,
+            taskStatus = taskStatus,
+        )
+    }
 
     /** Typed terminal failure. */
     @Serializable

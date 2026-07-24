@@ -1,3 +1,57 @@
+public final class ai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration {
+	public static final field Companion Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration$Companion;
+	public static final field DEFAULT_CANCELLATION_CLEANUP_TIMEOUT_MILLIS J
+	public static final field DEFAULT_CODE_INTERPRETER_IDENTIFIER Ljava/lang/String;
+	public static final field DEFAULT_SESSION_NAME Ljava/lang/String;
+	public static final field DEFAULT_SESSION_TIMEOUT_SECONDS I
+	public static final field MAX_CLIENT_TOKEN_LENGTH I
+	public static final field MAX_SESSION_NAME_LENGTH I
+	public static final field MAX_SESSION_TIMEOUT_SECONDS I
+	public static final field MAX_TOOL_ARGUMENT_BYTES J
+	public static final field MIN_CLIENT_TOKEN_LENGTH I
+	public static final field MIN_SESSION_TIMEOUT_SECONDS I
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;JJJ)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()I
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()J
+	public final fun component7 ()J
+	public final fun component8 ()J
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;JJJ)Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;JJJILjava/lang/Object;)Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCancellationCleanupTimeoutMillis ()J
+	public final fun getClientToken ()Ljava/lang/String;
+	public final fun getCodeInterpreterIdentifier ()Ljava/lang/String;
+	public final fun getMaxInputBytes ()J
+	public final fun getMaxOutputBytes ()J
+	public final fun getRegion ()Ljava/lang/String;
+	public final fun getSessionName ()Ljava/lang/String;
+	public final fun getSessionTimeoutSeconds ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration$Companion {
+}
+
+public final class ai/koog/prompt/executor/managed/BedrockAgentCoreLifecycleException : java/lang/Exception {
+	public fun <init> (Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;Ljava/lang/String;Ljava/lang/String;)V
+	public final fun getKind ()Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
+	public final fun getProviderCode ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/managed/BedrockAgentCoreManagedExecutionService : ai/koog/prompt/executor/managed/ManagedExecutionService {
+	public fun <init> (Laws/sdk/kotlin/services/bedrockagentcore/BedrockAgentCoreClient;Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;)V
+	public fun acquireSession (Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun execute (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lai/koog/prompt/executor/managed/ManagedExecutionRequest;)Lkotlinx/coroutines/flow/Flow;
+	public final fun getConfiguration ()Lai/koog/prompt/executor/managed/BedrockAgentCoreConfiguration;
+	public fun releaseSession (Lai/koog/prompt/executor/managed/ManagedExecutionSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
 public final class ai/koog/prompt/executor/managed/ManagedExecutionErrorKind : java/lang/Enum {
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind$Companion;
 	public static final field EXECUTION_FAILED Lai/koog/prompt/executor/managed/ManagedExecutionErrorKind;
@@ -208,21 +262,31 @@ public final class ai/koog/prompt/executor/managed/ManagedExecutionEvent$Result 
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result$Companion;
 	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;)V
 	public synthetic fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;Ljava/lang/Double;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;Ljava/lang/Double;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()J
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
 	public final fun component4 ()Ljava/lang/String;
 	public final fun component5 ()Ljava/lang/Integer;
 	public final fun component6 ()Ljava/util/List;
+	public final fun component7 ()Ljava/lang/Double;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()Ljava/lang/String;
 	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
 	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
+	public final fun copy (JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;Ljava/lang/Double;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;JLjava/lang/String;Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;Ljava/lang/String;Ljava/lang/Integer;Ljava/util/List;Ljava/lang/Double;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionEvent$Result;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun getExecutionId ()Ljava/lang/String;
+	public final fun getExecutionTimeSeconds ()Ljava/lang/Double;
 	public final fun getExitCode ()Ljava/lang/Integer;
 	public final fun getGeneratedFiles ()Ljava/util/List;
 	public final fun getOutput ()Ljava/lang/String;
 	public fun getSequence ()J
 	public fun getSession ()Lai/koog/prompt/executor/managed/ManagedExecutionSessionReference;
+	public final fun getTaskId ()Ljava/lang/String;
+	public final fun getTaskStatus ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -320,14 +384,22 @@ public final class ai/koog/prompt/executor/managed/ManagedExecutionFileReference
 	public static final field Companion Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore$Companion;
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
 	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
 	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/managed/ManagedExecutionFileReference$BedrockAgentCore;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCodeInterpreterIdentifier ()Ljava/lang/String;
 	public final fun getPath ()Ljava/lang/String;
 	public fun getProviderFileId ()Ljava/lang/String;
+	public final fun getRegion ()Ljava/lang/String;
 	public final fun getSessionId ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

@@ -121,6 +121,7 @@ public object ProviderCapabilityMatrix {
         -> managedClaudeExecution(
             service = "Bedrock AgentCore Code Interpreter",
             providerStreaming = HostedExecutionFeatureSupport.SUPPORTED,
+            clientIntegration = ProviderClientIntegration.IMPLEMENTED,
         )
 
         ProviderApi.OPENAI_COMPATIBLE_RESPONSES -> HostedExecutionCapability.Unsupported(
