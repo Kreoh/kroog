@@ -17,12 +17,30 @@ public object PromptCachePolicy {
      * the latest eligible user or assistant part when capacity remains.
      *
      * [leadingBreakpoints] represents provider-emittable markers which precede messages on the wire, such as cached
-     * tool definitions. [metadata] lets a provider describe its legacy cache-control implementations while the default
-     * keeps existing implementations compatible by treating an unknown control as a five-minute marker.
+     * tool definitions. [trailingBreakpoints] represents request-level markers emitted after message content.
+     * [metadata] lets a provider describe its legacy cache-control implementations while the default keeps existing
+     * implementations compatible by treating an unknown control as a five-minute marker.
      */
     public fun requestView(
         prompt: Prompt,
         leadingBreakpoints: List<PromptCacheTtl> = emptyList(),
+        automaticBreakpoint: Boolean = true,
+        metadata: (CacheControl) -> PromptCacheControl? = ::defaultMetadata,
+    ): Prompt = requestView(
+        prompt = prompt,
+        leadingBreakpoints = leadingBreakpoints,
+        trailingBreakpoints = emptyList(),
+        automaticBreakpoint = automaticBreakpoint,
+        metadata = metadata,
+    )
+
+    /**
+     * Builds a request view which also accounts for provider markers emitted after message content.
+     */
+    public fun requestView(
+        prompt: Prompt,
+        leadingBreakpoints: List<PromptCacheTtl>,
+        trailingBreakpoints: List<PromptCacheTtl>,
         automaticBreakpoint: Boolean = true,
         metadata: (CacheControl) -> PromptCacheControl? = ::defaultMetadata,
     ): Prompt {
@@ -39,7 +57,7 @@ public object PromptCachePolicy {
                 }
             }
         }
-        val breakpoints = leadingBreakpoints + messageBreakpoints
+        val breakpoints = leadingBreakpoints + messageBreakpoints + trailingBreakpoints
         validate(breakpoints)
 
         if (!automaticBreakpoint || breakpoints.size >= MAX_BREAKPOINTS) return prompt
@@ -56,6 +74,9 @@ public object PromptCachePolicy {
         val target = prompt.messages[messageIndex].parts[partIndex]
         val existing = target.cacheControl?.let(metadata)
         if (existing?.cacheable == true) return prompt
+
+        if (PromptCacheTtl.OneHour in trailingBreakpoints) return prompt
+        validate(breakpoints.dropLast(trailingBreakpoints.size) + PromptCacheTtl.FiveMinutes + trailingBreakpoints)
 
         val messages = prompt.messages.toMutableList()
         messages[messageIndex] = messages[messageIndex].withPartCacheControl(

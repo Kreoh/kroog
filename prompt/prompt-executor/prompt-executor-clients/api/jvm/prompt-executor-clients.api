@@ -114,6 +114,31 @@ public abstract interface class ai/koog/prompt/executor/clients/retry/RetryAfter
 	public abstract fun extract-LV8wdWc (Ljava/lang/String;)Lkotlin/time/Duration;
 }
 
+public final class ai/koog/prompt/executor/clients/retry/RetryAttempt {
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/retry/RetryOperation;IIJLai/koog/prompt/executor/clients/retry/RetryFailureClassification;Lai/koog/prompt/executor/clients/retry/RetryFailureReason;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public final fun component2 ()I
+	public final fun component3 ()I
+	public final fun component4-UwyO8pc ()J
+	public final fun component5 ()Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public final fun component6 ()Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public final fun copy-gwCluXo (Lai/koog/prompt/executor/clients/retry/RetryOperation;IIJLai/koog/prompt/executor/clients/retry/RetryFailureClassification;Lai/koog/prompt/executor/clients/retry/RetryFailureReason;)Lai/koog/prompt/executor/clients/retry/RetryAttempt;
+	public static synthetic fun copy-gwCluXo$default (Lai/koog/prompt/executor/clients/retry/RetryAttempt;Lai/koog/prompt/executor/clients/retry/RetryOperation;IIJLai/koog/prompt/executor/clients/retry/RetryFailureClassification;Lai/koog/prompt/executor/clients/retry/RetryFailureReason;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/retry/RetryAttempt;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAttempt ()I
+	public final fun getClassification ()Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public final fun getDelay-UwyO8pc ()J
+	public final fun getMaxAttempts ()I
+	public final fun getOperation ()Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public final fun getReason ()Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/retry/RetryAttemptObserver {
+	public abstract fun onRetry (Lai/koog/prompt/executor/clients/retry/RetryAttempt;)V
+}
+
 public final class ai/koog/prompt/executor/clients/retry/RetryConfig {
 	public static final field AGGRESSIVE Lai/koog/prompt/executor/clients/retry/RetryConfig;
 	public static final field CONSERVATIVE Lai/koog/prompt/executor/clients/retry/RetryConfig;
@@ -164,6 +189,55 @@ public final class ai/koog/prompt/executor/clients/retry/RetryConfigBuilder {
 
 public final class ai/koog/prompt/executor/clients/retry/RetryConfigBuilderKt {
 	public static final fun builder (Lai/koog/prompt/executor/clients/retry/RetryConfig$Companion;)Lai/koog/prompt/executor/clients/retry/RetryConfigBuilder;
+}
+
+public final class ai/koog/prompt/executor/clients/retry/RetryFailureClassification : java/lang/Enum {
+	public static final field CONFIGURED_PATTERN Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public static final field HTTP_STATUS Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public static final field INCOMPLETE_STREAM Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public static final field TRANSIENT_TRANSPORT Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+	public static fun values ()[Lai/koog/prompt/executor/clients/retry/RetryFailureClassification;
+}
+
+public final class ai/koog/prompt/executor/clients/retry/RetryFailureReason : java/lang/Enum {
+	public static final field CONFIGURED_PATTERN Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field HTTP_408 Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field HTTP_409 Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field HTTP_429 Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field HTTP_5XX Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field INCOMPLETE_STREAM Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static final field TRANSIENT_CONNECTIVITY Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+	public static fun values ()[Lai/koog/prompt/executor/clients/retry/RetryFailureReason;
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/retry/RetryJitterSource {
+	public abstract fun nextDouble ()D
+}
+
+public final class ai/koog/prompt/executor/clients/retry/RetryOperation : java/lang/Enum {
+	public static final field EMBED Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field EMBED_BATCH Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field EXECUTE Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field EXECUTE_MULTIPLE_CHOICES Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field EXECUTE_STREAMING Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field MODELS Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static final field MODERATE Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/retry/RetryOperation;
+	public static fun values ()[Lai/koog/prompt/executor/clients/retry/RetryOperation;
+}
+
+public final class ai/koog/prompt/executor/clients/retry/RetryRuntime {
+	public fun <init> ()V
+	public fun <init> (Lai/koog/prompt/executor/clients/retry/RetryAttemptObserver;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/retry/RetryAttemptObserver;Lai/koog/prompt/executor/clients/retry/RetryJitterSource;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/retry/RetryAttemptObserver;Lai/koog/prompt/executor/clients/retry/RetryJitterSource;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getJitterSource ()Lai/koog/prompt/executor/clients/retry/RetryJitterSource;
+	public final fun getObserver ()Lai/koog/prompt/executor/clients/retry/RetryAttemptObserver;
 }
 
 public abstract class ai/koog/prompt/executor/clients/retry/RetryablePattern {
@@ -226,6 +300,8 @@ public final class ai/koog/prompt/executor/clients/retry/RetryingLLMClient : ai/
 	public fun llmProvider ()Lai/koog/prompt/llm/LLMProvider;
 	public fun models (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun withObserver (Lai/koog/prompt/executor/clients/retry/RetryAttemptObserver;)Lai/koog/prompt/executor/clients/retry/RetryingLLMClient;
+	public final fun withRuntime (Lai/koog/prompt/executor/clients/retry/RetryRuntime;)Lai/koog/prompt/executor/clients/retry/RetryingLLMClient;
 }
 
 public final class ai/koog/prompt/executor/clients/retry/RetryingLLMClientKt {
@@ -239,4 +315,3 @@ public abstract class ai/koog/prompt/executor/clients/serialization/AdditionalPr
 	protected fun transformDeserialize (Lkotlinx/serialization/json/JsonElement;)Lkotlinx/serialization/json/JsonElement;
 	protected fun transformSerialize (Lkotlinx/serialization/json/JsonElement;)Lkotlinx/serialization/json/JsonElement;
 }
-

@@ -479,9 +479,16 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         val toolBreakpoints = tools.mapNotNull { tool ->
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
         }
+        val rootBreakpoints = listOfNotNull(
+            prompt.params.toAnthropicParams().cacheControl
+                ?.toPromptCacheMetadata()
+                ?.takeIf(PromptCacheControl::cacheable)
+                ?.ttl
+        )
         val requestPrompt = PromptCachePolicy.requestView(
             prompt = prompt,
             leadingBreakpoints = toolBreakpoints,
+            trailingBreakpoints = rootBreakpoints,
             metadata = { it.toPromptCacheMetadata() },
         )
         val systemMessage = mutableListOf<SystemAnthropicMessage>()

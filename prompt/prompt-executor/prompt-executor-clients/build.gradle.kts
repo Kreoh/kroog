@@ -12,6 +12,8 @@ kotlin {
                 api(project(":agents:agents-tools"))
                 api(libs.kotlinx.coroutines.core)
                 api(project(":prompt:prompt-structure"))
+                implementation(project(":http-client:http-client-core"))
+                implementation(libs.ktor.client.core)
                 implementation(libs.oshai.kotlin.logging)
             }
         }

@@ -3,6 +3,7 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIResponse
@@ -36,7 +37,9 @@ import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class OpenAIPrimaryConstructorTest {
     private val responseJson = """
@@ -985,6 +988,302 @@ class OpenAIPrimaryConstructorTest {
             frames.dropLast(1)
         )
         assertIs<StreamFrame.End>(frames.last())
+    }
+
+    @Test
+    fun testResponsesStreamingBuffersToolDeltaUntilCanonicalIdentityArrives() = runTest {
+        val itemId = "provider_item"
+        val callId = "canonical_call"
+        val events = listOf(
+            OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                itemId = itemId,
+                outputIndex = 0,
+                delta = "{\"city\":",
+                sequenceNumber = 1
+            ),
+            OpenAIStreamEvent.ResponseOutputItemAdded(
+                item = Item.FunctionToolCall(
+                    arguments = "",
+                    callId = callId,
+                    name = "weather",
+                    id = itemId,
+                    status = OpenAIInputStatus.IN_PROGRESS
+                ),
+                outputIndex = 0,
+                sequenceNumber = 2
+            ),
+            OpenAIStreamEvent.ResponseOutputItemDone(
+                item = Item.FunctionToolCall(
+                    arguments = "{\"city\":\"Rome\"}",
+                    callId = callId,
+                    name = "weather",
+                    id = itemId,
+                    status = OpenAIInputStatus.COMPLETED
+                ),
+                outputIndex = 0,
+                sequenceNumber = 3
+            ),
+            completedResponseEvent(sequenceNumber = 4)
+        )
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(events)
+        )
+
+        val frames = client.executeStreaming(
+            prompt = Prompt(
+                messages = listOf(Message.User("Weather?", RequestMetaInfo.Empty)),
+                id = "test",
+                params = OpenAIResponsesParams()
+            ),
+            model = OpenAIModels.Chat.GPT4o
+        ).toList()
+
+        assertEquals(
+            listOf(
+                StreamFrame.ToolCallDelta(callId, "weather", "{\"city\":", 0, itemId),
+                StreamFrame.ToolCallComplete(callId, "weather", "{\"city\":\"Rome\"}", 0, itemId)
+            ),
+            frames.dropLast(1)
+        )
+        assertIs<StreamFrame.End>(frames.last())
+    }
+
+    @Test
+    fun testResponsesStreamingNeverConfusesProviderItemIdWithAnotherCanonicalCallId() = runTest {
+        val deceptiveIdentity = "shared_identity"
+        val events = listOf(
+            OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                itemId = deceptiveIdentity,
+                outputIndex = 0,
+                delta = "{\"first\":true}",
+                sequenceNumber = 1
+            ),
+            OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                itemId = "second_item",
+                outputIndex = 1,
+                delta = "{\"second\":true}",
+                sequenceNumber = 2
+            ),
+            OpenAIStreamEvent.ResponseOutputTextDelta(
+                itemId = "later_text",
+                outputIndex = 2,
+                contentIndex = 0,
+                delta = "later",
+                sequenceNumber = 3,
+            ),
+            OpenAIStreamEvent.ResponseReasoningTextDelta(
+                itemId = "later_reasoning",
+                outputIndex = 3,
+                contentIndex = 0,
+                delta = "reasoning",
+                sequenceNumber = 4,
+            ),
+            OpenAIStreamEvent.ResponseOutputItemAdded(
+                item = Item.FunctionToolCall(
+                    arguments = "",
+                    callId = deceptiveIdentity,
+                    name = "second",
+                    id = "second_item",
+                    status = OpenAIInputStatus.IN_PROGRESS
+                ),
+                outputIndex = 1,
+                sequenceNumber = 5
+            ),
+            OpenAIStreamEvent.ResponseOutputItemAdded(
+                item = Item.FunctionToolCall(
+                    arguments = "",
+                    callId = "first_call",
+                    name = "first",
+                    id = deceptiveIdentity,
+                    status = OpenAIInputStatus.IN_PROGRESS
+                ),
+                outputIndex = 0,
+                sequenceNumber = 6
+            ),
+            completedResponseEvent(sequenceNumber = 7)
+        )
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(events)
+        )
+
+        val frames = client.executeStreaming(
+            prompt = Prompt(
+                messages = listOf(Message.User("Run both", RequestMetaInfo.Empty)),
+                id = "test",
+                params = OpenAIResponsesParams()
+            ),
+            model = OpenAIModels.Chat.GPT4o
+        ).toList()
+
+        assertEquals(
+            listOf(
+                StreamFrame.ToolCallDelta("first_call", "first", "{\"first\":true}", 0, deceptiveIdentity),
+                StreamFrame.ToolCallDelta(deceptiveIdentity, "second", "{\"second\":true}", 1, "second_item"),
+                StreamFrame.TextDelta("later", 2, "later_text"),
+                StreamFrame.ReasoningDelta(text = "reasoning", index = 3, providerItemId = "later_reasoning"),
+            ),
+            frames.dropLast(1)
+        )
+    }
+
+    @Test
+    fun testResponsesStreamingFailsWhenCanonicalToolIdentityNeverArrives() = runTest {
+        val missingItemId = "provider_item_without_canonical_call"
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(
+                listOf(
+                    OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                        itemId = missingItemId,
+                        outputIndex = 0,
+                        delta = "{}",
+                        sequenceNumber = 1
+                    ),
+                    completedResponseEvent(sequenceNumber = 2)
+                )
+            )
+        )
+
+        val failure = assertFailsWith<LLMClientException> {
+            client.executeStreaming(
+                prompt = Prompt(
+                    messages = listOf(Message.User("Run it", RequestMetaInfo.Empty)),
+                    id = "test",
+                    params = OpenAIResponsesParams()
+                ),
+                model = OpenAIModels.Chat.GPT4o
+            ).toList()
+        }
+
+        assertEquals(
+            true,
+            failure.message?.contains("stream ended before canonical call identity arrived")
+        )
+        assertFalse(failure.message.orEmpty().contains(missingItemId))
+    }
+
+    @Test
+    fun testResponsesStreamingFailsOnNaturalEofWithUnresolvedIdentity() = runTest {
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(
+                listOf(
+                    OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                        itemId = "unresolved",
+                        outputIndex = 0,
+                        delta = "{}",
+                        sequenceNumber = 1,
+                    )
+                )
+            ),
+        )
+
+        val failure = assertFailsWith<LLMClientException> {
+            client.executeStreaming(
+                Prompt(
+                    listOf(Message.User("Run it", RequestMetaInfo.Empty)),
+                    "early-eof",
+                    OpenAIResponsesParams(),
+                ),
+                OpenAIModels.Chat.GPT4o,
+            ).toList()
+        }
+
+        assertTrue(failure.message.orEmpty().contains("canonical call identity"))
+    }
+
+    @Test
+    fun testResponsesStreamingAcceptsExactOrderedBufferCountLimitAndEmitsEachDeltaOnce() = runTest {
+        val itemId = "bounded-item"
+        val events = buildList {
+            repeat(256) { index ->
+                add(
+                    OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                        itemId = itemId,
+                        outputIndex = 0,
+                        delta = index.toString(),
+                        sequenceNumber = index,
+                    )
+                )
+            }
+            add(
+                OpenAIStreamEvent.ResponseOutputItemAdded(
+                    item = Item.FunctionToolCall(
+                        arguments = "",
+                        callId = "bounded-call",
+                        name = "bounded",
+                        id = itemId,
+                        status = OpenAIInputStatus.IN_PROGRESS,
+                    ),
+                    outputIndex = 0,
+                    sequenceNumber = 256,
+                )
+            )
+            add(completedResponseEvent(sequenceNumber = 257))
+        }
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = streamingTransport(events),
+        )
+
+        val frames = client.executeStreaming(
+            Prompt(
+                listOf(Message.User("Run it", RequestMetaInfo.Empty)),
+                "count-limit",
+                OpenAIResponsesParams(),
+            ),
+            OpenAIModels.Chat.GPT4o,
+        ).toList()
+        val deltas = frames.dropLast(1).map { assertIs<StreamFrame.ToolCallDelta>(it).content }
+
+        assertEquals((0 until 256).map(Int::toString), deltas)
+        assertIs<StreamFrame.End>(frames.last())
+    }
+
+    @Test
+    fun testResponsesStreamingRejectsOrderedBufferCountAndByteOverflowBeforeRetention() = runTest {
+        suspend fun failureFor(events: List<OpenAIStreamEvent>): LLMClientException {
+            val client = OpenAILLMClient(
+                settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+                httpClient = streamingTransport(events),
+            )
+            return assertFailsWith<LLMClientException> {
+                client.executeStreaming(
+                    Prompt(
+                        listOf(Message.User("Run it", RequestMetaInfo.Empty)),
+                        "limit-overflow",
+                        OpenAIResponsesParams(),
+                    ),
+                    OpenAIModels.Chat.GPT4o,
+                ).toList()
+            }
+        }
+
+        val countFailure = failureFor(
+            List(257) { index ->
+                OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                    itemId = "item-$index",
+                    outputIndex = index,
+                    delta = "",
+                    sequenceNumber = index,
+                )
+            }
+        )
+        val byteFailure = failureFor(
+            listOf(
+                OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta(
+                    itemId = "large",
+                    outputIndex = 0,
+                    delta = "x".repeat(1_048_577),
+                    sequenceNumber = 1,
+                )
+            )
+        )
+
+        assertTrue(countFailure.message.orEmpty().contains("buffer limit exceeded"))
+        assertTrue(byteFailure.message.orEmpty().contains("buffer limit exceeded"))
     }
 
     @Test

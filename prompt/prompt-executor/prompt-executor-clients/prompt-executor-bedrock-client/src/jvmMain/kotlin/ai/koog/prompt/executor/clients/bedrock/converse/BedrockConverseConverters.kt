@@ -152,6 +152,7 @@ internal object BedrockConverseConverters {
         guardrailSettings: BedrockGuardrailsSettings? = null,
     ): ConverseRequestParams {
         prompt.validateClientManagedExecutionPresentation()
+        validateUnsupportedCacheMarkers(prompt)
         val params = prompt.params.toBedrockConverseParams()
         val toolBreakpoints = tools.mapNotNull { tool ->
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
@@ -254,6 +255,30 @@ internal object BedrockConverseConverters {
             messages = messages,
             guardrailSettings = guardrailSettings,
         )
+    }
+
+    private fun validateUnsupportedCacheMarkers(prompt: Prompt) {
+        prompt.messages.forEach { message ->
+            message.parts.forEach { part ->
+                when (part) {
+                    is MessagePart.ContentPart,
+                    is MessagePart.Tool.Call -> Unit
+                    is MessagePart.Tool.Result -> if (part.parts.any { it.cacheControl != null }) {
+                        throw IllegalArgumentException(
+                            "Bedrock Converse cache control is unsupported inside tool-result content"
+                        )
+                    }
+                    is MessagePart.Reasoning,
+                    is MessagePart.CodeExecution,
+                    is MessagePart.HostedExecution,
+                    is MessagePart.GeneratedFile -> if (part.cacheControl != null) {
+                        throw IllegalArgumentException(
+                            "Bedrock Converse cache control is unsupported on this content type"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun Message.User.toBedrockMessage(model: LLModel): BedrockMessage {

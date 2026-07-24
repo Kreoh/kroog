@@ -420,4 +420,31 @@ class AnthropicCacheControlTest {
         assertNotNull(systemCacheControl)
         assertEquals("ephemeral", systemCacheControl["type"]?.jsonPrimitive?.content)
     }
+
+    @Test
+    fun testRootCacheMarkerParticipatesInFourBreakpointLimit() {
+        val params = AnthropicParams(cacheControl = AnthropicCacheControl.Default)
+        val prompt = Prompt.build("test", params = params) {
+            system("system", AnthropicCacheControl.OneHour)
+            user("first", AnthropicCacheControl.Default)
+            user("second", AnthropicCacheControl.Default)
+            user("third", AnthropicCacheControl.Default)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        }
+    }
+
+    @Test
+    fun testOneHourRootMarkerRejectsEarlierFiveMinuteBreakpoint() {
+        val params = AnthropicParams(cacheControl = AnthropicCacheControl.OneHour)
+        val prompt = Prompt.build("test", params = params) {
+            user("short", AnthropicCacheControl.Default)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        }
+    }
 }

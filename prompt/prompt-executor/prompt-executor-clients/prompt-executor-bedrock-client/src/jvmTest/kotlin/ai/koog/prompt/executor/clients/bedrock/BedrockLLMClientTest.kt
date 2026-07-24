@@ -10,7 +10,11 @@ import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.RequestMetaInfo
+import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.utils.time.KoogClock
 import aws.sdk.kotlin.runtime.auth.credentials.StaticCredentialsProvider
@@ -681,6 +685,79 @@ class BedrockLLMClientTest {
         assertEquals(1, closeCount, "Closing the owning LLM client must close the injected runtime")
     }
 
+    @Test
+    fun testInvokeModelProductionPathEmitsCacheControlInCapturedProviderBody() = runTest {
+        var capturedBody: String? = null
+        val runtime = createMockBedrockClient(
+            onInvokeModel = { request ->
+                capturedBody = requireNotNull(request.body).decodeToString()
+                InvokeModelResponse {
+                    contentType = "application/json"
+                    body = """
+                        {
+                          "id":"message-1",
+                          "type":"message",
+                          "role":"assistant",
+                          "content":[{"type":"text","text":"ok"}],
+                          "model":"claude",
+                          "stop_reason":"end_turn",
+                          "usage":{"input_tokens":1,"output_tokens":1}
+                        }
+                    """.trimIndent().encodeToByteArray()
+                }
+            },
+        )
+        val client = BedrockLLMClient(runtime)
+        val prompt = Prompt(
+            messages = listOf(
+                Message.System(
+                    "cached system",
+                    RequestMetaInfo.Empty,
+                    PromptCacheControl(cacheable = true),
+                ),
+                Message.User("question", RequestMetaInfo.Empty),
+            ),
+            id = "captured-cache-body",
+        )
+
+        client.execute(prompt, BedrockModels.AnthropicClaude4_5Haiku, emptyList())
+
+        assertTrue(
+            requireNotNull(capturedBody).contains(
+                "\"cache_control\":{\"type\":\"ephemeral\",\"ttl\":\"5m\"}",
+            ),
+        )
+    }
+
+    @Test
+    fun testUnsupportedInvokeModelCacheMarkerPerformsNoProviderTraffic() = runTest {
+        var providerCalls = 0
+        val runtime = createMockBedrockClient(
+            onInvokeModel = {
+                providerCalls++
+                error("provider must not be called")
+            },
+        )
+        val client = BedrockLLMClient(runtime)
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    part = MessagePart.Reasoning(
+                        content = "thought",
+                        cacheControl = PromptCacheControl(cacheable = true),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                ),
+            ),
+            id = "unsupported-cache",
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            client.execute(prompt, BedrockModels.AnthropicClaude4_5Haiku, emptyList())
+        }
+        assertEquals(0, providerCalls)
+    }
+
     // Helper function to create a counting mock client - delegates to unified mock
     private fun createCountingMockClient(onApplyGuardrail: () -> Unit): BedrockRuntimeClient =
         createMockBedrockClient(
@@ -696,6 +773,9 @@ class BedrockLLMClientTest {
         onConverseStream: (ConverseStreamRequest) -> ConverseStreamResponse = { defaultConverseStreamResponse() },
         onApplyGuardrail: (ApplyGuardrailRequest) -> ApplyGuardrailResponse = { defaultGuardrailResponse() },
         onClose: () -> Unit = {},
+        onInvokeModel: (InvokeModelRequest) -> InvokeModelResponse = {
+            throw UnsupportedOperationException("invokeModel not implemented in mock client")
+        },
     ): BedrockRuntimeClient = object : BedrockRuntimeClient {
         override suspend fun converse(input: ConverseRequest) = onConverse(input)
         override suspend fun <T> converseStream(input: ConverseStreamRequest, block: suspend (ConverseStreamResponse) -> T): T = block(onConverseStream(input))
@@ -703,7 +783,7 @@ class BedrockLLMClientTest {
         override val config: BedrockRuntimeClient.Config get() = throw UnsupportedOperationException()
         override suspend fun countTokens(input: CountTokensRequest) = throw UnsupportedOperationException()
         override suspend fun getAsyncInvoke(input: GetAsyncInvokeRequest) = throw UnsupportedOperationException()
-        override suspend fun invokeModel(input: InvokeModelRequest) = throw UnsupportedOperationException()
+        override suspend fun invokeModel(input: InvokeModelRequest) = onInvokeModel(input)
         override suspend fun <T> invokeModelWithBidirectionalStream(input: InvokeModelWithBidirectionalStreamRequest, block: suspend (InvokeModelWithBidirectionalStreamResponse) -> T): T = throw UnsupportedOperationException()
         override suspend fun <T> invokeModelWithResponseStream(input: InvokeModelWithResponseStreamRequest, block: suspend (InvokeModelWithResponseStreamResponse) -> T): T = throw UnsupportedOperationException()
         override suspend fun listAsyncInvokes(input: ListAsyncInvokesRequest) = throw UnsupportedOperationException()

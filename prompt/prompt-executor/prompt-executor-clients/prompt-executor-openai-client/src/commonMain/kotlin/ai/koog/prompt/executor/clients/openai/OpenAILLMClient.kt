@@ -27,6 +27,7 @@ import ai.koog.prompt.executor.clients.openai.base.models.OpenAIToolChoice
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.InputContent
 import ai.koog.prompt.executor.clients.openai.models.Item
+import ai.koog.prompt.executor.clients.openai.models.OpenAIAnnotations
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequestSerializer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionResponse
@@ -34,9 +35,8 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionStreamR
 import ai.koog.prompt.executor.clients.openai.models.OpenAICodeInterpreterContainer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
-import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
-import ai.koog.prompt.executor.clients.openai.models.OpenAIAnnotations
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
+import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIModelsResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIOutputFormat
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIRequest
@@ -73,6 +73,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
@@ -88,6 +89,108 @@ import kotlinx.serialization.json.put
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.jvm.JvmOverloads
 import ai.koog.prompt.executor.clients.openai.base.models.Content as OpenAIContent
+
+private class OpenAIFunctionCallOrderBuffer(
+    private val clientName: String,
+) {
+    private sealed interface Entry {
+        val retainedBytes: Int
+
+        data class Unresolved(
+            val event: OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta,
+            override val retainedBytes: Int,
+        ) : Entry
+
+        data class Ready(
+            val frame: StreamFrame,
+            override val retainedBytes: Int,
+        ) : Entry
+    }
+
+    private val entries = mutableListOf<Entry>()
+    private var retainedBytes: Int = 0
+
+    fun retain(event: OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta) {
+        val bytes = event.itemId.encodeToByteArray().size + event.delta.encodeToByteArray().size
+        append(Entry.Unresolved(event, bytes))
+    }
+
+    fun resolve(itemId: String, toolCall: Item.FunctionToolCall): List<StreamFrame> {
+        entries.indices.forEach { index ->
+            val entry = entries[index]
+            if (entry is Entry.Unresolved && entry.event.itemId == itemId) {
+                val frame = entry.event.toFrame(toolCall)
+                replace(index, Entry.Ready(frame, frame.retainedSize()))
+            }
+        }
+        return drainReadyPrefix()
+    }
+
+    fun emitOrRetain(frames: List<StreamFrame>): List<StreamFrame> {
+        if (entries.isEmpty()) return frames
+        frames.forEach { frame -> append(Entry.Ready(frame, frame.retainedSize())) }
+        return drainReadyPrefix()
+    }
+
+    fun requireResolved() {
+        if (entries.any { it is Entry.Unresolved }) {
+            throw protocolFailure("OpenAI function-call stream ended before canonical call identity arrived")
+        }
+    }
+
+    fun clear() {
+        entries.clear()
+        retainedBytes = 0
+    }
+
+    private fun append(entry: Entry) {
+        checkCapacity(entries.size + 1, retainedBytes.toLong() + entry.retainedBytes)
+        entries += entry
+        retainedBytes += entry.retainedBytes
+    }
+
+    private fun replace(index: Int, entry: Entry) {
+        val previous = entries[index]
+        val nextBytes = retainedBytes.toLong() - previous.retainedBytes + entry.retainedBytes
+        checkCapacity(entries.size, nextBytes)
+        entries[index] = entry
+        retainedBytes = nextBytes.toInt()
+    }
+
+    private fun checkCapacity(count: Int, bytes: Long) {
+        if (count > MAX_RETAINED_ENTRIES || bytes > MAX_RETAINED_BYTES) {
+            throw protocolFailure("OpenAI function-call identity buffer limit exceeded")
+        }
+    }
+
+    private fun drainReadyPrefix(): List<StreamFrame> = buildList {
+        while (entries.firstOrNull() is Entry.Ready) {
+            val entry = entries.removeAt(0) as Entry.Ready
+            retainedBytes -= entry.retainedBytes
+            add(entry.frame)
+        }
+    }
+
+    private fun OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta.toFrame(
+        toolCall: Item.FunctionToolCall,
+    ): StreamFrame.ToolCallDelta = StreamFrame.ToolCallDelta(
+        id = toolCall.callId,
+        name = toolCall.name,
+        content = delta,
+        index = outputIndex,
+        providerItemId = itemId,
+    )
+
+    private fun StreamFrame.retainedSize(): Int = toString().encodeToByteArray().size
+
+    private fun protocolFailure(message: String): LLMClientException =
+        LLMClientException(clientName, message)
+
+    private companion object {
+        const val MAX_RETAINED_ENTRIES: Int = 256
+        const val MAX_RETAINED_BYTES: Long = 1_048_576
+    }
+}
 
 /** Wire dialect used by the Responses client. Compatible endpoints must declare Responses support explicitly. */
 public enum class OpenAIResponsesDialect { OpenAI, Azure, Compatible }
@@ -250,7 +353,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             null
         }
         val reasoningEffort = chatParams.reasoningEffort?.let { effort ->
-            if (model.isGPT5_6() && effort == ReasoningEffort.MAX) ReasoningEffort.XHIGH else effort
+            if (model.isGpt56() && effort == ReasoningEffort.MAX) ReasoningEffort.XHIGH else effort
         }
 
         val request = OpenAIChatCompletionRequest(
@@ -266,7 +369,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             parallelToolCalls = chatParams.parallelToolCalls,
             prediction = chatParams.speculation?.let { OpenAIStaticContent(OpenAIContent.Text(it)) },
             presencePenalty = chatParams.presencePenalty,
-            promptCacheKey = chatParams.promptCacheKey,
+            promptCacheKey = chatParams.promptCacheKey?.let { legacyKey ->
+                OpenAIPromptCacheKey.deriveLegacy(
+                    dialect = settings.responsesDialect,
+                    model = settings.deployment ?: model.id,
+                    legacyKey = legacyKey,
+                )
+            },
             reasoningEffort = model.takeIf { it.supports(LLMCapability.Thinking) }
                 ?.let { reasoningEffort },
             responseFormat = responseFormat,
@@ -283,7 +392,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             topP = chatParams.topP,
             user = chatParams.user,
             webSearchOptions = chatParams.webSearchOptions,
-            additionalProperties = chatParams.additionalProperties,
+            additionalProperties = chatParams.additionalProperties
+                ?.minus(OPENAI_PROMPT_CACHE_KEY_PROPERTY),
         )
 
         return json.encodeToString(OpenAIChatCompletionRequestSerializer, request)
@@ -334,7 +444,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     model = settings.deployment ?: model.id,
                     identity = identity,
                 )
-            } ?: params.promptCacheKey,
+            } ?: params.promptCacheKey?.let { legacyKey ->
+                OpenAIPromptCacheKey.deriveLegacy(
+                    dialect = settings.responsesDialect,
+                    model = settings.deployment ?: model.id,
+                    legacyKey = legacyKey,
+                )
+            },
             reasoning = model.takeIf { it.supports(LLMCapability.Thinking) }
                 ?.let { params.reasoning },
             safetyIdentifier = params.safetyIdentifier,
@@ -348,7 +464,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             topLogprobs = params.topLogprobs,
             topP = params.topP,
             truncation = params.truncation,
-            additionalProperties = params.additionalProperties,
+            additionalProperties = params.additionalProperties.withoutReservedPromptCacheKey(),
         )
 
         return json.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
@@ -359,10 +475,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return (orEmpty() + OpenAIInclude.REASONING_ENCRYPTED_CONTENT).distinct()
     }
 
+    private fun Map<String, JsonElement>?.withoutReservedPromptCacheKey(): Map<String, JsonElement>? =
+        this?.minus(OPENAI_PROMPT_CACHE_KEY_PROPERTY)
+
     private fun LLModel.reasoningTemperature(
         temperature: Double?,
         effort: ReasoningEffort?,
-    ): Double? = temperature.takeUnless { isGPT5_6() && effort != null && effort != ReasoningEffort.NONE }
+    ): Double? = temperature.takeUnless { isGpt56() && effort != null && effort != ReasoningEffort.NONE }
 
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
         val validated = OpenAICodeInterpreterConfig(fileIds = fileIds.toList(), containerId = containerId)
@@ -374,7 +493,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return OpenAIResponsesTool.CodeInterpreter(container)
     }
 
-    private fun LLModel.isGPT5_6(): Boolean =
+    private fun LLModel.isGpt56(): Boolean =
         contextLength == 1_050_000L &&
             maxOutputTokens == 128_000L &&
             capabilities == OpenAIModels.Chat.GPT5_6Sol.capabilities
@@ -383,6 +502,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
     private companion object {
         private const val OPENAI_CLIENT_NAME = "OpenAILLMClient"
+        private const val OPENAI_PROMPT_CACHE_KEY_PROPERTY = "prompt_cache_key"
         private val staticLogger = KotlinLogging.logger { }
         private val defaultOpenAIJson = kotlinx.serialization.json.Json {
             ignoreUnknownKeys = true
@@ -497,227 +617,262 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             stream = true
         )
         val toolCallsByItemId = mutableMapOf<String, Item.FunctionToolCall>()
+        val orderedFrames = OpenAIFunctionCallOrderBuffer(clientName)
         val codeContainerByItemId = mutableMapOf<String, String>()
         val citationsByItemId = mutableMapOf<String, MutableList<MessagePart.GeneratedFileCitation>>()
         var providerEventSeen = false
 
         return httpClient.sse(
-                path = settings.responsesAPIPath,
-                requestBody = request,
-                requestBodyType = String::class,
-                decodeStreamingResponse = {
-                    json.decodeFromString<OpenAIStreamEvent>(it)
-                },
-                processStreamingChunk = { event ->
-                    providerEventSeen = true
-                    buildList {
-                        when (event) {
-                            is OpenAIStreamEvent.ResponseOutputItemAdded -> {
-                                when (val item = event.item) {
-                                    is Item.FunctionToolCall ->
-                                        item.id?.let { itemId -> toolCallsByItemId[itemId] = item }
-                                    is Item.CodeInterpreterToolCall -> {
-                                        codeContainerByItemId[item.id] = item.containerId
-                                        add(
-                                            StreamFrame.CodeExecutionStart(
-                                                id = "execution:${item.id}",
-                                                containerId = item.containerId,
-                                                index = event.outputIndex,
-                                                providerItemId = item.id,
-                                            )
-                                        )
+            path = settings.responsesAPIPath,
+            requestBody = request,
+            requestBodyType = String::class,
+            decodeStreamingResponse = {
+                json.decodeFromString<OpenAIStreamEvent>(it)
+            },
+            processStreamingChunk = { event ->
+                providerEventSeen = true
+                val drained = mutableListOf<StreamFrame>()
+                val currentFrames = buildList {
+                    when (event) {
+                        is OpenAIStreamEvent.ResponseOutputItemAdded -> {
+                            when (val item = event.item) {
+                                is Item.FunctionToolCall -> {
+                                    val itemId = requireNotNull(item.id) {
+                                        "OpenAI function-call output item omitted its provider item ID"
                                     }
-                                    else -> Unit
+                                    require(item.callId.isNotBlank()) {
+                                        "OpenAI function-call output item omitted its call ID"
+                                    }
+                                    toolCallsByItemId[itemId] = item
+                                    drained += orderedFrames.resolve(itemId, item)
                                 }
-                            }
-
-                            is OpenAIStreamEvent.ResponseOutputTextDelta -> {
-                                add(
-                                    StreamFrame.TextDelta(
-                                        text = event.delta,
-                                        index = event.outputIndex,
-                                        providerItemId = event.itemId,
+                                is Item.CodeInterpreterToolCall -> {
+                                    codeContainerByItemId[item.id] = item.containerId
+                                    add(
+                                        StreamFrame.CodeExecutionStart(
+                                            id = "execution:${item.id}",
+                                            containerId = item.containerId,
+                                            index = event.outputIndex,
+                                            providerItemId = item.id,
+                                        )
                                     )
-                                )
-                            }
-
-                            is OpenAIStreamEvent.ResponseOutputTextDone -> {
-                                add(
-                                    StreamFrame.TextComplete(
-                                        text = event.text,
-                                        index = event.outputIndex,
-                                        providerItemId = event.itemId,
-                                        generatedFileCitations = citationsByItemId.remove(event.itemId).orEmpty(),
-                                    )
-                                )
-                            }
-
-                            is OpenAIStreamEvent.ResponseOutputTextAnnotationAdded -> {
-                                event.annotation.toGeneratedFileCitation(event.itemId)?.let { citation ->
-                                    citationsByItemId.getOrPut(event.itemId, ::mutableListOf).add(citation)
                                 }
+                                else -> Unit
                             }
+                        }
 
-                            is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
-                                // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
-                                add(
-                                    StreamFrame.ReasoningDelta(
-                                        text = event.delta,
-                                        index = event.outputIndex,
-                                        providerItemId = event.itemId,
-                                    )
+                        is OpenAIStreamEvent.ResponseOutputTextDelta -> {
+                            add(
+                                StreamFrame.TextDelta(
+                                    text = event.delta,
+                                    index = event.outputIndex,
+                                    providerItemId = event.itemId,
                                 )
-                            }
+                            )
+                        }
 
-                            is OpenAIStreamEvent.ResponseReasoningSummaryTextDelta -> {
-                                // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
-                                add(
-                                    StreamFrame.ReasoningDelta(
-                                        summary = event.delta,
-                                        index = event.outputIndex,
-                                        providerItemId = event.itemId,
-                                    )
+                        is OpenAIStreamEvent.ResponseOutputTextDone -> {
+                            add(
+                                StreamFrame.TextComplete(
+                                    text = event.text,
+                                    index = event.outputIndex,
+                                    providerItemId = event.itemId,
+                                    generatedFileCitations = citationsByItemId.remove(event.itemId).orEmpty(),
                                 )
-                            }
+                            )
+                        }
 
-                            is OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta -> {
-                                val toolCall = toolCallsByItemId[event.itemId]
+                        is OpenAIStreamEvent.ResponseOutputTextAnnotationAdded -> {
+                            event.annotation.toGeneratedFileCitation(event.itemId)?.let { citation ->
+                                citationsByItemId.getOrPut(event.itemId, ::mutableListOf).add(citation)
+                            }
+                        }
+
+                        is OpenAIStreamEvent.ResponseReasoningTextDelta -> {
+                            // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
+                            add(
+                                StreamFrame.ReasoningDelta(
+                                    text = event.delta,
+                                    index = event.outputIndex,
+                                    providerItemId = event.itemId,
+                                )
+                            )
+                        }
+
+                        is OpenAIStreamEvent.ResponseReasoningSummaryTextDelta -> {
+                            // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.delta
+                            add(
+                                StreamFrame.ReasoningDelta(
+                                    summary = event.delta,
+                                    index = event.outputIndex,
+                                    providerItemId = event.itemId,
+                                )
+                            )
+                        }
+
+                        is OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta -> {
+                            val toolCall = toolCallsByItemId[event.itemId]
+                            if (toolCall == null) {
+                                orderedFrames.retain(event)
+                            } else {
                                 add(
                                     StreamFrame.ToolCallDelta(
-                                        id = toolCall?.callId ?: event.itemId,
-                                        name = toolCall?.name,
+                                        id = toolCall.callId,
+                                        name = toolCall.name,
                                         content = event.delta,
                                         index = event.outputIndex,
                                         providerItemId = event.itemId,
                                     )
                                 )
                             }
-
-                            is OpenAIStreamEvent.ResponseCodeInterpreterCallCodeDelta -> {
-                                val containerId = requireNotNull(codeContainerByItemId[event.itemId]) {
-                                    "Code Interpreter delta arrived before its output item was added"
-                                }
-                                add(
-                                    StreamFrame.CodeExecutionCodeDelta(
-                                        id = "execution:${event.itemId}",
-                                        containerId = containerId,
-                                        code = event.delta,
-                                        index = event.outputIndex,
-                                        providerItemId = event.itemId,
-                                    )
-                                )
-                            }
-
-                            is OpenAIStreamEvent.ResponseOutputItemDone -> {
-                                when (val item = event.item) {
-                                    is Item.Text -> {
-                                        add(StreamFrame.TextComplete(item.value, event.outputIndex))
-                                    }
-
-                                    is Item.Reasoning -> {
-                                        // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.done
-                                        if (
-                                            item.summary.isEmpty() &&
-                                            item.content.isNullOrEmpty() &&
-                                            item.encryptedContent == null
-                                        ) {
-                                            logger.debug { "Got and empty (hidden) reasoning from the model, ignoring it." }
-                                        } else {
-                                            add(
-                                                StreamFrame.ReasoningComplete(
-                                                    id = null,
-                                                    content = item.content?.map { content -> content.text } ?: emptyList(),
-                                                    summary = item.summary.map { content -> content.text },
-                                                    encrypted = item.encryptedContent,
-                                                    index = event.outputIndex,
-                                                    providerItemId = item.id,
-                                                )
-                                            )
-                                        }
-                                    }
-
-                                    is Item.FunctionToolCall -> {
-                                        item.id?.let { itemId -> toolCallsByItemId.remove(itemId) }
-                                        add(
-                                            StreamFrame.ToolCallComplete(
-                                                id = item.callId,
-                                                name = item.name,
-                                                content = item.arguments,
-                                                index = event.outputIndex,
-                                                providerItemId = item.id,
-                                            )
-                                        )
-                                    }
-
-                                    is Item.CodeInterpreterToolCall -> {
-                                        codeContainerByItemId.remove(item.id)
-                                        val part = item.toMessagePart()
-                                        part.outputs.forEach { output ->
-                                            add(
-                                                StreamFrame.CodeExecutionOutput(
-                                                    id = part.id,
-                                                    containerId = part.containerId,
-                                                    output = output,
-                                                    index = event.outputIndex,
-                                                    providerItemId = item.id,
-                                                )
-                                            )
-                                        }
-                                        part.failure?.let { failure ->
-                                            add(
-                                                StreamFrame.CodeExecutionFailure(
-                                                    id = part.id,
-                                                    containerId = part.containerId,
-                                                    failure = failure,
-                                                    index = event.outputIndex,
-                                                    providerItemId = item.id,
-                                                )
-                                            )
-                                        }
-                                        add(
-                                            StreamFrame.CodeExecutionComplete(
-                                                id = part.id,
-                                                code = part.code,
-                                                containerId = part.containerId,
-                                                outputs = part.outputs,
-                                                failure = part.failure,
-                                                index = event.outputIndex,
-                                                providerItemId = item.id,
-                                            )
-                                        )
-                                        item.toHostedExecutionParts().forEach { hostedPart ->
-                                            add(StreamFrame.HostedExecutionUpdate(hostedPart, event.outputIndex))
-                                        }
-                                    }
-
-                                    else -> Unit
-                                }
-                            }
-
-                            is OpenAIStreamEvent.ResponseCompleted -> {
-                                add(
-                                    StreamFrame.End(
-                                        finishReason = null,
-                                        metaInfo = event.response.usage.let { usage ->
-                                            ResponseMetaInfo.create(
-                                                clock = clock,
-                                                totalTokensCount = usage?.totalTokens,
-                                                inputTokensCount = usage?.inputTokens,
-                                                outputTokensCount = usage?.outputTokens,
-                                            )
-                                        },
-                                    )
-                                )
-                            }
-
-                            else -> Unit
                         }
+
+                        is OpenAIStreamEvent.ResponseCodeInterpreterCallCodeDelta -> {
+                            val containerId = requireNotNull(codeContainerByItemId[event.itemId]) {
+                                "Code Interpreter delta arrived before its output item was added"
+                            }
+                            add(
+                                StreamFrame.CodeExecutionCodeDelta(
+                                    id = "execution:${event.itemId}",
+                                    containerId = containerId,
+                                    code = event.delta,
+                                    index = event.outputIndex,
+                                    providerItemId = event.itemId,
+                                )
+                            )
+                        }
+
+                        is OpenAIStreamEvent.ResponseOutputItemDone -> {
+                            when (val item = event.item) {
+                                is Item.Text -> {
+                                    add(StreamFrame.TextComplete(item.value, event.outputIndex))
+                                }
+
+                                is Item.Reasoning -> {
+                                    // https://developers.openai.com/api/reference/resources/responses/streaming-events#response.reasoning_text.done
+                                    if (
+                                        item.summary.isEmpty() &&
+                                        item.content.isNullOrEmpty() &&
+                                        item.encryptedContent == null
+                                    ) {
+                                        logger.debug { "Got and empty (hidden) reasoning from the model, ignoring it." }
+                                    } else {
+                                        add(
+                                            StreamFrame.ReasoningComplete(
+                                                id = null,
+                                                content = item.content?.map { content -> content.text } ?: emptyList(),
+                                                summary = item.summary.map { content -> content.text },
+                                                encrypted = item.encryptedContent,
+                                                index = event.outputIndex,
+                                                providerItemId = item.id,
+                                            )
+                                        )
+                                    }
+                                }
+
+                                is Item.FunctionToolCall -> {
+                                    item.id?.let { itemId -> toolCallsByItemId.remove(itemId) }
+                                    val itemId = requireNotNull(item.id) {
+                                        "OpenAI completed function call omitted its provider item ID"
+                                    }
+                                    require(item.callId.isNotBlank()) {
+                                        "OpenAI completed function call omitted its call ID"
+                                    }
+                                    drained += orderedFrames.resolve(itemId, item)
+                                    add(
+                                        StreamFrame.ToolCallComplete(
+                                            id = item.callId,
+                                            name = item.name,
+                                            content = item.arguments,
+                                            index = event.outputIndex,
+                                            providerItemId = item.id,
+                                        )
+                                    )
+                                }
+
+                                is Item.CodeInterpreterToolCall -> {
+                                    codeContainerByItemId.remove(item.id)
+                                    val part = item.toMessagePart()
+                                    part.outputs.forEach { output ->
+                                        add(
+                                            StreamFrame.CodeExecutionOutput(
+                                                id = part.id,
+                                                containerId = part.containerId,
+                                                output = output,
+                                                index = event.outputIndex,
+                                                providerItemId = item.id,
+                                            )
+                                        )
+                                    }
+                                    part.failure?.let { failure ->
+                                        add(
+                                            StreamFrame.CodeExecutionFailure(
+                                                id = part.id,
+                                                containerId = part.containerId,
+                                                failure = failure,
+                                                index = event.outputIndex,
+                                                providerItemId = item.id,
+                                            )
+                                        )
+                                    }
+                                    add(
+                                        StreamFrame.CodeExecutionComplete(
+                                            id = part.id,
+                                            code = part.code,
+                                            containerId = part.containerId,
+                                            outputs = part.outputs,
+                                            failure = part.failure,
+                                            index = event.outputIndex,
+                                            providerItemId = item.id,
+                                        )
+                                    )
+                                    item.toHostedExecutionParts().forEach { hostedPart ->
+                                        add(StreamFrame.HostedExecutionUpdate(hostedPart, event.outputIndex))
+                                    }
+                                }
+
+                                else -> Unit
+                            }
+                        }
+
+                        is OpenAIStreamEvent.ResponseCompleted -> {
+                            orderedFrames.requireResolved()
+                            add(
+                                StreamFrame.End(
+                                    finishReason = null,
+                                    metaInfo = event.response.usage.let { usage ->
+                                        ResponseMetaInfo.create(
+                                            clock = clock,
+                                            totalTokensCount = usage?.totalTokens,
+                                            inputTokensCount = usage?.inputTokens,
+                                            outputTokensCount = usage?.outputTokens,
+                                        )
+                                    },
+                                )
+                            )
+                        }
+
+                        is OpenAIStreamEvent.ResponseFailed,
+                        is OpenAIStreamEvent.ResponseIncomplete -> orderedFrames.requireResolved()
+
+                        else -> Unit
                     }
                 }
-            ).transform { frames ->
+                drained + orderedFrames.emitOrRetain(currentFrames)
+            }
+        ).transform { frames ->
             frames.forEach { emit(it) }
+        }.onCompletion { failure ->
+            if (failure is CancellationException) {
+                orderedFrames.clear()
+            } else if (failure == null) {
+                orderedFrames.requireResolved()
+            }
         }.catch { failure ->
-            if (failure is CancellationException) throw failure
+            if (failure is CancellationException) {
+                orderedFrames.clear()
+                throw failure
+            }
             val recoveryParams = params.staleContainerRecoveryParams(failure, providerEventSeen)
             if (recoveryParams != null) {
                 val staleContainerId = requireNotNull(params.codeInterpreter?.containerId)
@@ -732,6 +887,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 )
                 emitAll(executeResponsesStreaming(prompt, model, tools, recoveryParams))
             } else {
+                if (failure is LLMClientException) throw failure
                 throw LLMClientException(clientName = clientName, message = failure.message, cause = failure)
             }
         }.requireEndFrame()

@@ -4,12 +4,17 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModel
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelContent
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelMessage
+import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelTool
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicToolChoice
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
+import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
@@ -17,9 +22,14 @@ import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -40,6 +50,46 @@ class BedrockAnthropicClaudeSerializationTest {
     private val toolName = "get_weather"
     private val toolDescription = "Get current weather for a city"
     private val toolId = "toolu_01234567"
+
+    @Test
+    fun testLegacyInvokeModelDataClassSourceShapesRemainAvailable() {
+        val requestConstructor:
+            (
+                String,
+                Int,
+                String,
+                Double?,
+                List<BedrockAnthropicInvokeModelMessage>,
+                List<BedrockAnthropicInvokeModelTool>?,
+                BedrockAnthropicToolChoice?,
+                JsonObject?,
+            ) -> BedrockAnthropicInvokeModel = ::BedrockAnthropicInvokeModel
+        val textConstructor: (String) -> BedrockAnthropicInvokeModelContent.Text =
+            BedrockAnthropicInvokeModelContent::Text
+        val callConstructor: (String, String, JsonElement) -> BedrockAnthropicInvokeModelContent.ToolCall =
+            BedrockAnthropicInvokeModelContent::ToolCall
+        val resultConstructor:
+            (String, List<BedrockAnthropicInvokeModelContent>, Boolean) ->
+            BedrockAnthropicInvokeModelContent.ToolResult =
+            BedrockAnthropicInvokeModelContent::ToolResult
+        val tool = BedrockAnthropicInvokeModelTool(name = "tool")
+        val request = requestConstructor(
+            "bedrock-2023-05-31",
+            10,
+            "system",
+            0.5,
+            emptyList(),
+            listOf(tool),
+            null,
+            null,
+        )
+
+        assertEquals("system", request.copy(maxTokens = 11).system)
+        assertEquals("text", textConstructor("text").text)
+        assertEquals("call", callConstructor("id", "call", JsonObject(emptyMap())).name)
+        assertEquals(false, resultConstructor("id", emptyList(), false).isError)
+        assertEquals("tool", tool.copy(description = "description").name)
+    }
 
     @Test
     fun `createAnthropicRequest with basic prompt`() {
@@ -552,5 +602,116 @@ class BedrockAnthropicClaudeSerializationTest {
         val props = schema["properties"] as JsonObject
         assertNotNull(props["city"])
         assertNotNull(props["units"])
+    }
+
+    @Test
+    fun testInvokeModelMapsCacheMarkersAcrossSupportedWireLocations() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.System(
+                    "system",
+                    RequestMetaInfo.Empty,
+                    PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+                ),
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.Tool.Call(
+                            id = "call-1",
+                            tool = "search",
+                            args = buildJsonObject { put("q", JsonPrimitive("koog")) },
+                            cacheControl = BedrockCacheControl.OneHour,
+                        )
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                ),
+                Message.User(
+                    parts = listOf(
+                        MessagePart.Tool.Result(
+                            id = "call-1",
+                            tool = "search",
+                            parts = listOf(
+                                MessagePart.Text("nested")
+                            ),
+                            cacheControl = BedrockCacheControl.FiveMinutes,
+                        )
+                    ),
+                    metaInfo = RequestMetaInfo.Empty,
+                ),
+            ),
+            id = "cache-locations",
+        )
+        val tool = ToolDescriptor(
+            name = "search",
+            description = "Search",
+            cacheControl = BedrockCacheControl.OneHour,
+        )
+
+        val productionJson = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            explicitNulls = false
+            encodeDefaults = true
+        }
+        val encoded = BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(
+            prompt,
+            listOf(tool),
+            productionJson,
+        )
+        val contentEncoded = BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(
+            Prompt.build("content-cache") {
+                user("content", PromptCacheControl(cacheable = true))
+            },
+            emptyList(),
+            productionJson,
+        )
+        val root = Json.parseToJsonElement(encoded).jsonObject
+        val system = root.getValue("system").jsonArray.single().jsonObject
+        val wireTool = root.getValue("tools").jsonArray.single().jsonObject
+        val call = root.getValue("messages").jsonArray[0].jsonObject
+            .getValue("content").jsonArray.single().jsonObject
+        val result = root.getValue("messages").jsonArray[1].jsonObject
+            .getValue("content").jsonArray.single().jsonObject
+        val nestedResultText = result.getValue("content").jsonArray.single().jsonObject
+        val content = Json.parseToJsonElement(contentEncoded).jsonObject
+            .getValue("messages").jsonArray.single().jsonObject
+            .getValue("content").jsonArray.single().jsonObject
+
+        assertEquals("1h", system.getValue("cache_control").jsonObject.getValue("ttl").jsonPrimitive.content)
+        assertEquals("1h", wireTool.getValue("cache_control").jsonObject.getValue("ttl").jsonPrimitive.content)
+        assertEquals("1h", call.getValue("cache_control").jsonObject.getValue("ttl").jsonPrimitive.content)
+        assertEquals("5m", result.getValue("cache_control").jsonObject.getValue("ttl").jsonPrimitive.content)
+        assertEquals("5m", content.getValue("cache_control").jsonObject.getValue("ttl").jsonPrimitive.content)
+        assertEquals(null, nestedResultText["cache_control"])
+        listOf(system, wireTool, call, result, content).forEach { placement ->
+            assertEquals(
+                "ephemeral",
+                placement.getValue("cache_control").jsonObject.getValue("type").jsonPrimitive.content,
+            )
+        }
+    }
+
+    @Test
+    fun testInvokeModelRejectsUnsupportedCacheMarkerBeforeWireConstruction() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    part = MessagePart.Reasoning(
+                        content = "thought",
+                        cacheControl = PromptCacheControl(cacheable = true),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+            id = "unsupported-cache-marker",
+        )
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            BedrockAnthropicClaudeSerialization.createAnthropicRequest(prompt, emptyList())
+        }
+
+        assertEquals(
+            "Bedrock InvokeModel cache control is unsupported on this content type",
+            failure.message,
+        )
     }
 }

@@ -205,6 +205,31 @@ class BedrockCacheControlTest {
         )
     }
 
+    @Test
+    fun testUnsupportedReasoningCacheMarkerFailsBeforeConverseRequest() {
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    part = MessagePart.Reasoning(
+                        content = "thought",
+                        cacheControl = PromptCacheControl(cacheable = true),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+            id = "unsupported-reasoning-cache",
+        )
+
+        val failure = assertFailsWith<IllegalArgumentException> {
+            converseRequest(prompt)
+        }
+
+        assertEquals(
+            "Bedrock Converse cache control is unsupported on this content type",
+            failure.message,
+        )
+    }
+
     private fun codeExecution(): MessagePart.CodeExecution =
         MessagePart.CodeExecution(
             id = "ci_failed",

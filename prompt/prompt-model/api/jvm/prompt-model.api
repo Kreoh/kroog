@@ -65,7 +65,9 @@ public final class ai/koog/prompt/Prompt$LLMParamsUpdateContext {
 public final class ai/koog/prompt/cache/PromptCachePolicy {
 	public static final field INSTANCE Lai/koog/prompt/cache/PromptCachePolicy;
 	public static final field MAX_BREAKPOINTS I
+	public final fun requestView (Lai/koog/prompt/Prompt;Ljava/util/List;Ljava/util/List;ZLkotlin/jvm/functions/Function1;)Lai/koog/prompt/Prompt;
 	public final fun requestView (Lai/koog/prompt/Prompt;Ljava/util/List;ZLkotlin/jvm/functions/Function1;)Lai/koog/prompt/Prompt;
+	public static synthetic fun requestView$default (Lai/koog/prompt/cache/PromptCachePolicy;Lai/koog/prompt/Prompt;Ljava/util/List;Ljava/util/List;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lai/koog/prompt/Prompt;
 	public static synthetic fun requestView$default (Lai/koog/prompt/cache/PromptCachePolicy;Lai/koog/prompt/Prompt;Ljava/util/List;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lai/koog/prompt/Prompt;
 	public final fun validate (Ljava/util/List;)V
 }

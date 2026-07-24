@@ -2,12 +2,14 @@ package ai.koog.prompt.executor.clients.bedrock.modelfamilies.anthropic
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamDeltaContentType
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamEventType
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamResponse
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicUsage
+import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModel
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelContent
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelMessage
@@ -15,8 +17,11 @@ import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInv
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicResponse
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicToolChoice
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
+import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
+import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.isClientManagedExecutionPresentation
 import ai.koog.prompt.message.validateClientManagedExecutionPresentation
@@ -26,8 +31,13 @@ import ai.koog.prompt.streaming.buildStreamFrameFlow
 import ai.koog.utils.time.KoogClock
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonClassDiscriminator
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -36,6 +46,83 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
+
+@Serializable
+internal data class BedrockAnthropicWireRequest(
+    @SerialName("anthropic_version") val anthropicVersion: String,
+    @SerialName("max_tokens") val maxTokens: Int,
+    val system: List<BedrockAnthropicWireContent.Text>,
+    val temperature: Double?,
+    val messages: List<BedrockAnthropicWireMessage>,
+    val tools: List<BedrockAnthropicWireTool>?,
+    @SerialName("tool_choice") val toolChoice: BedrockAnthropicToolChoice?,
+    @SerialName("output_config") val outputConfig: JsonObject?,
+)
+
+@Serializable
+internal data class BedrockAnthropicWireCacheControl(
+    val type: String = "ephemeral",
+    val ttl: String,
+)
+
+@Serializable
+internal data class BedrockAnthropicWireTool(
+    val type: String = "custom",
+    val name: String,
+    val description: String?,
+    @SerialName("input_schema") val inputSchema: JsonObject?,
+    @SerialName("cache_control") val cacheControl: BedrockAnthropicWireCacheControl?,
+)
+
+@Serializable
+@JsonClassDiscriminator("role")
+internal sealed interface BedrockAnthropicWireMessage {
+    val content: List<BedrockAnthropicWireContent>
+
+    @Serializable
+    @SerialName("user")
+    data class User(override val content: List<BedrockAnthropicWireContent>) : BedrockAnthropicWireMessage
+
+    @Serializable
+    @SerialName("assistant")
+    data class Assistant(override val content: List<BedrockAnthropicWireContent>) : BedrockAnthropicWireMessage
+}
+
+@Serializable
+internal sealed interface BedrockAnthropicWireContent {
+    @Serializable
+    @SerialName("text")
+    data class Text(
+        val text: String,
+        @SerialName("cache_control") val cacheControl: BedrockAnthropicWireCacheControl?,
+    ) : BedrockAnthropicWireContent
+
+    @Serializable
+    @SerialName("thinking")
+    data class Thinking(val signature: String, val thinking: String) : BedrockAnthropicWireContent
+
+    @Serializable
+    @SerialName("redacted_thinking")
+    data class RedactedThinking(val data: String) : BedrockAnthropicWireContent
+
+    @Serializable
+    @SerialName("tool_result")
+    data class ToolResult(
+        @SerialName("tool_use_id") val toolUseId: String,
+        val content: List<BedrockAnthropicWireContent>,
+        @SerialName("is_error") val isError: Boolean,
+        @SerialName("cache_control") val cacheControl: BedrockAnthropicWireCacheControl?,
+    ) : BedrockAnthropicWireContent
+
+    @Serializable
+    @SerialName("tool_use")
+    data class ToolCall(
+        val id: String,
+        val name: String,
+        val input: JsonElement,
+        @SerialName("cache_control") val cacheControl: BedrockAnthropicWireCacheControl?,
+    ) : BedrockAnthropicWireContent
+}
 
 internal object BedrockAnthropicClaudeSerialization {
 
@@ -48,42 +135,81 @@ internal object BedrockAnthropicClaudeSerialization {
         namingStrategy = JsonNamingStrategy.SnakeCase
     }
 
-    private fun Message.User.toAnthropicMessage(): BedrockAnthropicInvokeModelMessage.User {
-        return BedrockAnthropicInvokeModelMessage.User(
+    private fun CacheControl.toPromptCacheMetadata(): PromptCacheControl? = when (this) {
+        is PromptCacheControl -> this
+        BedrockCacheControl.Default,
+        BedrockCacheControl.FiveMinutes -> PromptCacheControl(cacheable = true)
+        BedrockCacheControl.OneHour -> PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour)
+        else -> null
+    }
+
+    private fun CacheControl.toInvokeModelCacheControl(): BedrockAnthropicWireCacheControl? = when (this) {
+        is PromptCacheControl -> when {
+            !cacheable -> null
+            ttl == PromptCacheTtl.FiveMinutes -> BedrockAnthropicWireCacheControl(ttl = "5m")
+            else -> BedrockAnthropicWireCacheControl(ttl = "1h")
+        }
+        BedrockCacheControl.Default,
+        BedrockCacheControl.FiveMinutes -> BedrockAnthropicWireCacheControl(ttl = "5m")
+        BedrockCacheControl.OneHour -> BedrockAnthropicWireCacheControl(ttl = "1h")
+        else -> throw IllegalArgumentException("Unsupported Bedrock InvokeModel cache control")
+    }
+
+    private fun Message.User.toAnthropicWireMessage(): BedrockAnthropicWireMessage.User {
+        return BedrockAnthropicWireMessage.User(
             content = parts.map { part ->
                 when (part) {
-                    is MessagePart.Text -> BedrockAnthropicInvokeModelContent.Text(text = part.text)
+                    is MessagePart.Text -> BedrockAnthropicWireContent.Text(
+                        text = part.text,
+                        cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                            ?.toInvokeModelCacheControl(),
+                    )
                     is MessagePart.Attachment -> throw IllegalArgumentException("No attachments are supported in user messages")
-                    is MessagePart.Tool.Result -> BedrockAnthropicInvokeModelContent.ToolResult(
-                        toolUseId = part.id!!,
+                    is MessagePart.Tool.Result -> BedrockAnthropicWireContent.ToolResult(
+                        toolUseId = requireNotNull(part.id) {
+                            "Bedrock InvokeModel tool-result replay requires a call ID"
+                        },
                         content = part.parts.map { p ->
                             require(p is MessagePart.Text) {
                                 "Bedrock InvokeModel (legacy) path only supports text content in tool results, got: ${p::class}"
                             }
-                            BedrockAnthropicInvokeModelContent.Text(p.text)
+                            BedrockAnthropicWireContent.Text(
+                                text = p.text,
+                                cacheControl = p.cacheControl.takeIf { p.text.isNotBlank() }
+                                    ?.toInvokeModelCacheControl(),
+                            )
                         },
-                        isError = part.isError
+                        isError = part.isError,
+                        cacheControl = part.cacheControl.takeIf { part.parts.any { it is MessagePart.Text && it.text.isNotBlank() } }
+                            ?.toInvokeModelCacheControl(),
                     )
                 }
             }
         )
     }
 
-    private fun Message.Assistant.toAnthropicMessage(): BedrockAnthropicInvokeModelMessage.Assistant {
-        return BedrockAnthropicInvokeModelMessage.Assistant(
+    private fun Message.Assistant.toAnthropicWireMessage(): BedrockAnthropicWireMessage.Assistant {
+        return BedrockAnthropicWireMessage.Assistant(
             content = parts.flatMap { part ->
                 when (part) {
                     is MessagePart.Text -> listOf(
-                        BedrockAnthropicInvokeModelContent.Text(text = part.text)
+                        BedrockAnthropicWireContent.Text(
+                            text = part.text,
+                            cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                                ?.toInvokeModelCacheControl(),
+                        )
                     )
 
                     is MessagePart.Reasoning -> part.toBedrockReasoningBlocks()
 
                     is MessagePart.Tool.Call -> listOf(
-                        BedrockAnthropicInvokeModelContent.ToolCall(
-                            part.id!!,
-                            part.tool,
-                            part.argsJson
+                        BedrockAnthropicWireContent.ToolCall(
+                            id = requireNotNull(part.id) {
+                                "Bedrock InvokeModel tool-call replay requires a call ID"
+                            },
+                            name = part.tool,
+                            input = part.argsJson,
+                            cacheControl = part.cacheControl?.toInvokeModelCacheControl(),
                         )
                     )
 
@@ -116,17 +242,17 @@ internal object BedrockAnthropicClaudeSerialization {
         )
     }
 
-    private fun MessagePart.Reasoning.toBedrockReasoningBlocks(): List<BedrockAnthropicInvokeModelContent> {
+    private fun MessagePart.Reasoning.toBedrockReasoningBlocks(): List<BedrockAnthropicWireContent> {
         if (replay.isNotEmpty()) {
             return replay.map { replayBlock ->
                 when (replayBlock) {
-                    is MessagePart.ReasoningReplay.Signed -> BedrockAnthropicInvokeModelContent.Thinking(
+                    is MessagePart.ReasoningReplay.Signed -> BedrockAnthropicWireContent.Thinking(
                         signature = replayBlock.signature,
                         thinking = replayBlock.text,
                     )
 
                     is MessagePart.ReasoningReplay.OpaqueRedacted ->
-                        BedrockAnthropicInvokeModelContent.RedactedThinking(replayBlock.data)
+                        BedrockAnthropicWireContent.RedactedThinking(replayBlock.data)
                 }
             }
         }
@@ -137,7 +263,7 @@ internal object BedrockAnthropicClaudeSerialization {
             else -> throw IllegalArgumentException("Reasoning content must have at most one part")
         }
         return listOf(
-            BedrockAnthropicInvokeModelContent.Thinking(
+            BedrockAnthropicWireContent.Thinking(
                 signature = encrypted
                     ?: throw IllegalArgumentException("Encrypted signature is required for reasoning messages but was null"),
                 thinking = thinking,
@@ -148,19 +274,47 @@ internal object BedrockAnthropicClaudeSerialization {
     internal fun createAnthropicRequest(
         prompt: Prompt,
         tools: List<ToolDescriptor>
-    ): BedrockAnthropicInvokeModel {
+    ): BedrockAnthropicInvokeModel = createAnthropicWireRequest(prompt, tools).toPublicRequest()
+
+    internal fun serializeAnthropicRequest(
+        prompt: Prompt,
+        tools: List<ToolDescriptor>,
+        requestJson: Json,
+    ): String = requestJson.encodeToString(createAnthropicWireRequest(prompt, tools))
+
+    private fun createAnthropicWireRequest(
+        prompt: Prompt,
+        tools: List<ToolDescriptor>,
+    ): BedrockAnthropicWireRequest {
         prompt.validateClientManagedExecutionPresentation()
+        validateUnsupportedCacheMarkers(prompt)
+        val toolBreakpoints = tools.mapNotNull { tool ->
+            tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
+        }
+        val requestPrompt = PromptCachePolicy.requestView(
+            prompt = prompt,
+            leadingBreakpoints = toolBreakpoints,
+            metadata = { it.toPromptCacheMetadata() },
+        )
         val systemMessages = mutableListOf<Message.System>()
         val messages = buildList {
-            prompt.messages.forEach { message ->
+            requestPrompt.messages.forEach { message ->
                 when (message) {
                     is Message.System -> systemMessages.add(message)
-                    is Message.User -> add(message.toAnthropicMessage())
-                    is Message.Assistant -> add(message.toAnthropicMessage())
+                    is Message.User -> add(message.toAnthropicWireMessage())
+                    is Message.Assistant -> add(message.toAnthropicWireMessage())
                 }
             }
         }
-        val systemText = systemMessages.flatMap { it.parts.map { part -> part.text } }.joinToString("\n")
+        val systemContent = systemMessages.flatMap { message ->
+            message.parts.map { part ->
+                BedrockAnthropicWireContent.Text(
+                    text = part.text,
+                    cacheControl = part.cacheControl.takeIf { part.text.isNotBlank() }
+                        ?.toInvokeModelCacheControl(),
+                )
+            }
+        }
 
         val params: LLMParams = prompt.params
         val temperature = params.temperature
@@ -168,7 +322,7 @@ internal object BedrockAnthropicClaudeSerialization {
 
         val bedrockTools = if (tools.isNotEmpty()) {
             tools.map { tool ->
-                BedrockAnthropicInvokeModelTool(
+                BedrockAnthropicWireTool(
                     name = tool.name,
                     description = tool.description,
                     inputSchema = buildJsonObject {
@@ -189,7 +343,8 @@ internal object BedrockAnthropicClaudeSerialization {
                                 }
                             }
                         )
-                    }
+                    },
+                    cacheControl = tool.cacheControl?.toInvokeModelCacheControl(),
                 )
             }
         } else {
@@ -223,16 +378,83 @@ internal object BedrockAnthropicClaudeSerialization {
             }
         }
 
-        return BedrockAnthropicInvokeModel(
+        return BedrockAnthropicWireRequest(
             anthropicVersion = "bedrock-2023-05-31",
             maxTokens = maxTokens,
-            system = systemText,
+            system = systemContent,
             temperature = temperature,
             messages = messages,
             tools = bedrockTools,
             toolChoice = bedrockToolChoice,
             outputConfig = outputConfig
         )
+    }
+
+    private fun BedrockAnthropicWireRequest.toPublicRequest(): BedrockAnthropicInvokeModel =
+        BedrockAnthropicInvokeModel(
+            anthropicVersion = anthropicVersion,
+            maxTokens = maxTokens,
+            system = system.joinToString("\n") { it.text },
+            temperature = temperature,
+            messages = messages.map { message ->
+                when (message) {
+                    is BedrockAnthropicWireMessage.User ->
+                        BedrockAnthropicInvokeModelMessage.User(message.content.map { it.toPublicContent() })
+                    is BedrockAnthropicWireMessage.Assistant ->
+                        BedrockAnthropicInvokeModelMessage.Assistant(message.content.map { it.toPublicContent() })
+                }
+            },
+            tools = tools?.map { tool ->
+                BedrockAnthropicInvokeModelTool(
+                    type = tool.type,
+                    name = tool.name,
+                    description = tool.description,
+                    inputSchema = tool.inputSchema,
+                )
+            },
+            toolChoice = toolChoice,
+            outputConfig = outputConfig,
+        )
+
+    private fun BedrockAnthropicWireContent.toPublicContent(): BedrockAnthropicInvokeModelContent = when (this) {
+        is BedrockAnthropicWireContent.Text -> BedrockAnthropicInvokeModelContent.Text(text)
+        is BedrockAnthropicWireContent.Thinking -> BedrockAnthropicInvokeModelContent.Thinking(signature, thinking)
+        is BedrockAnthropicWireContent.RedactedThinking ->
+            BedrockAnthropicInvokeModelContent.RedactedThinking(data)
+        is BedrockAnthropicWireContent.ToolResult -> BedrockAnthropicInvokeModelContent.ToolResult(
+            toolUseId = toolUseId,
+            content = content.map { it.toPublicContent() },
+            isError = isError,
+        )
+        is BedrockAnthropicWireContent.ToolCall ->
+            BedrockAnthropicInvokeModelContent.ToolCall(id, name, input)
+    }
+
+    private fun validateUnsupportedCacheMarkers(prompt: Prompt) {
+        prompt.messages.forEach { message ->
+            message.parts.forEach { part ->
+                when (part) {
+                    is MessagePart.Text,
+                    is MessagePart.Tool.Call -> Unit
+                    is MessagePart.Tool.Result -> part.parts.forEach { nested ->
+                        if (nested !is MessagePart.Text && nested.cacheControl != null) {
+                            throw IllegalArgumentException(
+                                "Bedrock InvokeModel cache control is unsupported on this content type"
+                            )
+                        }
+                    }
+                    is MessagePart.Attachment -> Unit
+                    is MessagePart.Reasoning,
+                    is MessagePart.CodeExecution,
+                    is MessagePart.HostedExecution,
+                    is MessagePart.GeneratedFile -> if (part.cacheControl != null) {
+                        throw IllegalArgumentException(
+                            "Bedrock InvokeModel cache control is unsupported on this content type"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     internal fun parseAnthropicResponse(responseBody: String, clock: KoogClock = KoogClock.System): Message.Assistant {

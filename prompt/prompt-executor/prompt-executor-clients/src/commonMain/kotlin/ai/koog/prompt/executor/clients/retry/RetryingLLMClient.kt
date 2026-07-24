@@ -1,6 +1,7 @@
 package ai.koog.prompt.executor.clients.retry
 
 import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.LLMClient
@@ -13,12 +14,15 @@ import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.structure.json.generator.BasicJsonSchemaGenerator
 import ai.koog.prompt.structure.json.generator.StandardJsonSchemaGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.network.sockets.ConnectTimeoutException
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.io.IOException
+import kotlinx.serialization.SerializationException
 import kotlin.jvm.JvmOverloads
-import kotlin.random.Random
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -37,10 +41,26 @@ import kotlin.time.Duration.Companion.milliseconds
  * @param delegate The LLMClient to wrap with retry logic
  * @param config Configuration for retry behavior
  */
-public class RetryingLLMClient @JvmOverloads constructor(
+public class RetryingLLMClient private constructor(
     private val delegate: LLMClient,
-    internal val config: RetryConfig = RetryConfig()
+    internal val config: RetryConfig,
+    private val runtime: RetryRuntime,
 ) : LLMClient() {
+
+    /** Preserves the published retrying-client constructor shape. */
+    @JvmOverloads
+    public constructor(
+        delegate: LLMClient,
+        config: RetryConfig = RetryConfig(),
+    ) : this(delegate, config, RetryRuntime())
+
+    /** Returns an equivalent client using the supplied runtime hooks. */
+    public fun withRuntime(runtime: RetryRuntime): RetryingLLMClient =
+        RetryingLLMClient(delegate, config, runtime)
+
+    /** Returns an equivalent client with a redacted retry observer. */
+    public fun withObserver(observer: RetryAttemptObserver?): RetryingLLMClient =
+        withRuntime(RetryRuntime(observer = observer, jitterSource = runtime.jitterSource))
 
     /**
      * Retrieves the configured instance of the `LLMProvider` in use.
@@ -53,15 +73,11 @@ public class RetryingLLMClient @JvmOverloads constructor(
      */
     override fun llmProvider(): LLMProvider = delegate.llmProvider()
 
-    private companion object {
-        private val logger = KotlinLogging.logger { }
-    }
-
     override suspend fun execute(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): Message.Assistant = withRetry("execute") {
+    ): Message.Assistant = withRetry(RetryOperation.EXECUTE) {
         delegate.execute(prompt, model, tools)
     }
 
@@ -84,20 +100,19 @@ public class RetryingLLMClient @JvmOverloads constructor(
                 } catch (e: CancellationException) {
                     throw e // Never retry cancellations
                 } catch (e: Throwable) {
+                    e.cancellationCause()?.let { throw it }
                     // If we already received tokens, don't retry - pass error through
                     if (firstFrameReceived) {
                         throw e
                     }
 
-                    if (!shouldRetry(e) || attempt >= config.maxAttempts - 1) {
+                    val decision = classifyRetry(e)
+                    if (decision == null || attempt >= config.maxAttempts - 1) {
                         throw e
                     }
 
                     val delay = calculateDelay(attempt, e)
-                    logger.warn {
-                        "Stream connection failed before first token (attempt ${attempt + 1}/${config.maxAttempts}). " +
-                            "Retrying in ${delay.inWholeMilliseconds}ms. Error: ${e.message}"
-                    }
+                    observeRetry(RetryOperation.EXECUTE_STREAMING, attempt, delay, decision)
                     delay(delay)
                 }
             }
@@ -107,18 +122,18 @@ public class RetryingLLMClient @JvmOverloads constructor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): LLMChoice = withRetry("executeMultipleChoices") {
+    ): LLMChoice = withRetry(RetryOperation.EXECUTE_MULTIPLE_CHOICES) {
         delegate.executeMultipleChoices(prompt, model, tools)
     }
 
     override suspend fun moderate(
         prompt: Prompt,
         model: LLModel
-    ): ModerationResult = withRetry("moderate") {
+    ): ModerationResult = withRetry(RetryOperation.MODERATE) {
         delegate.moderate(prompt, model)
     }
 
-    override suspend fun models(): List<LLModel> = withRetry("models") {
+    override suspend fun models(): List<LLModel> = withRetry(RetryOperation.MODELS) {
         delegate.models()
     }
 
@@ -132,7 +147,7 @@ public class RetryingLLMClient @JvmOverloads constructor(
     override suspend fun embed(
         text: String,
         model: LLModel
-    ): List<Double> = withRetry("embed") {
+    ): List<Double> = withRetry(RetryOperation.EMBED) {
         delegate.embed(text, model)
     }
 
@@ -146,12 +161,12 @@ public class RetryingLLMClient @JvmOverloads constructor(
     override suspend fun embed(
         inputs: List<String>,
         model: LLModel
-    ): List<List<Double>> = withRetry("embed") {
+    ): List<List<Double>> = withRetry(RetryOperation.EMBED_BATCH) {
         delegate.embed(inputs, model)
     }
 
     private suspend fun <T> withRetry(
-        operation: String,
+        operation: RetryOperation,
         block: suspend () -> T
     ): T {
         var lastException: Throwable? = null
@@ -162,17 +177,16 @@ public class RetryingLLMClient @JvmOverloads constructor(
             } catch (e: CancellationException) {
                 throw e // Never retry cancellations
             } catch (e: Throwable) {
+                e.cancellationCause()?.let { throw it }
                 lastException = e
 
-                if (!shouldRetry(e) || attempt >= config.maxAttempts - 1) {
+                val decision = classifyRetry(e)
+                if (decision == null || attempt >= config.maxAttempts - 1) {
                     throw e
                 }
 
                 val delay = calculateDelay(attempt, e)
-                logger.warn {
-                    "$operation failed (attempt ${attempt + 1}/${config.maxAttempts}). " +
-                        "Retrying in ${delay.inWholeMilliseconds}ms. Error: ${e.message}"
-                }
+                observeRetry(operation, attempt, delay, decision)
                 delay(delay)
             }
         }
@@ -180,14 +194,77 @@ public class RetryingLLMClient @JvmOverloads constructor(
         throw lastException!!
     }
 
-    private fun shouldRetry(error: Throwable): Boolean {
-        if (error is IncompleteStreamException) return true
+    private fun classifyRetry(error: Throwable): RetryDecision? {
+        val causes = error.causes()
+        if (causes.any { it.isNonRetryableProtocolFailure() }) {
+            return null
+        }
 
-        val message = error.message ?: return false
+        causes.firstOrNull { it is IncompleteStreamException }?.let {
+            return RetryDecision(
+                RetryFailureClassification.INCOMPLETE_STREAM,
+                RetryFailureReason.INCOMPLETE_STREAM,
+            )
+        }
 
-        // Check if error matches any retry pattern
-        return config.retryablePatterns.any { pattern ->
-            pattern.matches(message)
+        causes.filterIsInstance<KoogHttpClientException>()
+            .firstOrNull { it.statusCode != null }
+            ?.let { httpFailure ->
+                return when (val status = httpFailure.statusCode) {
+                    408 -> RetryDecision(RetryFailureClassification.HTTP_STATUS, RetryFailureReason.HTTP_408)
+                    409 -> RetryDecision(RetryFailureClassification.HTTP_STATUS, RetryFailureReason.HTTP_409)
+                    429 -> RetryDecision(RetryFailureClassification.HTTP_STATUS, RetryFailureReason.HTTP_429)
+                    in 500..599 ->
+                        RetryDecision(RetryFailureClassification.HTTP_STATUS, RetryFailureReason.HTTP_5XX)
+                    else -> null
+                }
+            }
+
+        if (causes.any { it.isRecognisedTransientTransport() }) {
+            return RetryDecision(
+                RetryFailureClassification.TRANSIENT_TRANSPORT,
+                RetryFailureReason.TRANSIENT_CONNECTIVITY,
+            )
+        }
+
+        if (causes.any { it is KoogHttpClientException }) {
+            return null
+        }
+
+        val message = error.message ?: return null
+        return if (config.retryablePatterns.any { pattern -> pattern.matches(message) }) {
+            RetryDecision(
+                RetryFailureClassification.CONFIGURED_PATTERN,
+                RetryFailureReason.CONFIGURED_PATTERN,
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun observeRetry(
+        operation: RetryOperation,
+        attempt: Int,
+        retryDelay: Duration,
+        decision: RetryDecision,
+    ) {
+        val event = RetryAttempt(
+            operation = operation,
+            attempt = attempt + 1,
+            maxAttempts = config.maxAttempts,
+            delay = retryDelay,
+            classification = decision.classification,
+            reason = decision.reason,
+        )
+        try {
+            runtime.observer?.onRetry(event)
+        } catch (_: Throwable) {
+            // Observability must never change retry control flow.
+        }
+        logger.warn {
+            "Retry scheduled: operation=${event.operation}, attempt=${event.attempt}/${event.maxAttempts}, " +
+                "delayMs=${event.delay.inWholeMilliseconds}, classification=${event.classification}, " +
+                "reason=${event.reason}"
         }
     }
 
@@ -195,7 +272,7 @@ public class RetryingLLMClient @JvmOverloads constructor(
         // Check for retry-after hint in error message
         error?.message?.let { message ->
             config.retryAfterExtractor?.extract(message)?.let { retryAfter ->
-                return retryAfter
+                return minOf(retryAfter, config.maxDelay)
             }
         }
 
@@ -207,10 +284,61 @@ public class RetryingLLMClient @JvmOverloads constructor(
         val boundedMs = minOf(exponentialMs, config.maxDelay.inWholeMilliseconds.toDouble())
 
         // Add jitter (only increases delay, never decreases)
-        val jitterMs = Random.nextDouble(0.0, boundedMs * config.jitterFactor)
-        val finalMs = (boundedMs + jitterMs).toLong()
+        val jitterSample = runtime.jitterSource.nextDouble()
+        require(jitterSample in 0.0..1.0 && jitterSample.isFinite()) {
+            "Retry jitter source must return a finite value between 0.0 and 1.0"
+        }
+        val jitterUpperBound = boundedMs * config.jitterFactor
+        val jitterMs = if (jitterUpperBound > 0.0) {
+            jitterUpperBound * jitterSample
+        } else {
+            0.0
+        }
+        val finalMs = minOf(
+            (boundedMs + jitterMs).toLong(),
+            config.maxDelay.inWholeMilliseconds,
+        )
 
         return finalMs.milliseconds
+    }
+
+    private data class RetryDecision(
+        val classification: RetryFailureClassification,
+        val reason: RetryFailureReason,
+    )
+
+    private fun Throwable.causes(): List<Throwable> {
+        val result = mutableListOf<Throwable>()
+        var current: Throwable? = this
+        while (current != null && result.size < MAX_CAUSE_DEPTH && result.none { it === current }) {
+            result += current
+            current = current.cause
+        }
+        return result
+    }
+
+    private fun Throwable.cancellationCause(): CancellationException? =
+        causes().filterIsInstance<CancellationException>().firstOrNull()
+
+    private fun Throwable.isRecognisedTransientTransport(): Boolean =
+        this is ConnectTimeoutException ||
+            this is HttpRequestTimeoutException ||
+            this is IOException
+
+    private fun Throwable.isNonRetryableProtocolFailure(): Boolean =
+        this is SerializationException ||
+            this is IllegalArgumentException ||
+            this::class.simpleName in NON_RETRYABLE_PROTOCOL_TYPES
+
+    private companion object {
+        private val logger = KotlinLogging.logger { }
+        private const val MAX_CAUSE_DEPTH = 32
+
+        private val NON_RETRYABLE_PROTOCOL_TYPES = setOf(
+            "JsonDecodingException",
+            "MissingFieldException",
+            "ProtocolException",
+        )
     }
 
     override fun close() {

@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.retry
 
 import kotlin.jvm.JvmField
 import kotlin.jvm.JvmOverloads
+import kotlin.random.Random
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -14,7 +15,7 @@ import kotlin.time.Duration.Companion.seconds
  * @property maxDelay Maximum delay between retries
  * @property backoffMultiplier Multiplier for exponential backoff
  * @property jitterFactor Random jitter factor (0.0 to 1.0)
- * @property retryablePatterns Patterns to identify retryable errors
+ * @property retryablePatterns Caller-provided legacy patterns used to classify exception messages. Empty by default.
  * @property retryAfterExtractor Optional extractor for retry-after hints
  */
 public data class RetryConfig @JvmOverloads constructor(
@@ -23,8 +24,8 @@ public data class RetryConfig @JvmOverloads constructor(
     val maxDelay: Duration = 30.seconds,
     val backoffMultiplier: Double = 2.0,
     val jitterFactor: Double = 0.1,
-    val retryablePatterns: List<RetryablePattern> = DEFAULT_PATTERNS,
-    val retryAfterExtractor: RetryAfterExtractor? = DefaultRetryAfterExtractor
+    val retryablePatterns: List<RetryablePattern> = emptyList(),
+    val retryAfterExtractor: RetryAfterExtractor? = DefaultRetryAfterExtractor,
 ) {
     init {
         require(maxAttempts >= 1) { "maxAttempts must be at least 1" }
@@ -42,7 +43,10 @@ public data class RetryConfig @JvmOverloads constructor(
      */
     public companion object {
         /**
-         * Default retry patterns that work across all providers.
+         * Legacy message patterns available for explicit caller opt-in.
+         *
+         * These patterns inspect unstructured exception messages and are therefore excluded from the default
+         * configuration. Prefer typed HTTP or transport failures where possible.
          */
         @JvmField
         public val DEFAULT_PATTERNS: List<RetryablePattern> = listOf(
@@ -116,6 +120,67 @@ public data class RetryConfig @JvmOverloads constructor(
         public val DEFAULT: RetryConfig = RetryConfig()
     }
 }
+
+/** Closed operation names exposed to a retry-attempt observer. */
+public enum class RetryOperation {
+    EXECUTE,
+    EXECUTE_STREAMING,
+    EXECUTE_MULTIPLE_CHOICES,
+    MODERATE,
+    MODELS,
+    EMBED,
+    EMBED_BATCH,
+}
+
+/** High-level retry failure category, free of provider payloads and exception text. */
+public enum class RetryFailureClassification {
+    HTTP_STATUS,
+    TRANSIENT_TRANSPORT,
+    INCOMPLETE_STREAM,
+    CONFIGURED_PATTERN,
+}
+
+/** Closed reason for scheduling another attempt. */
+public enum class RetryFailureReason {
+    HTTP_408,
+    HTTP_409,
+    HTTP_429,
+    HTTP_5XX,
+    TRANSIENT_CONNECTIVITY,
+    INCOMPLETE_STREAM,
+    CONFIGURED_PATTERN,
+}
+
+/** Redacted information supplied immediately before a retry delay. */
+public data class RetryAttempt(
+    public val operation: RetryOperation,
+    public val attempt: Int,
+    public val maxAttempts: Int,
+    public val delay: Duration,
+    public val classification: RetryFailureClassification,
+    public val reason: RetryFailureReason,
+)
+
+/** Receives redacted retry scheduling information. Observer failures are ignored. */
+public fun interface RetryAttemptObserver {
+    public fun onRetry(attempt: RetryAttempt)
+}
+
+/** Supplies a normalised jitter sample in the inclusive range from zero to one. */
+public fun interface RetryJitterSource {
+    public fun nextDouble(): Double
+}
+
+/**
+ * Runtime retry hooks kept separate from [RetryConfig] so configuration retains its published data-class ABI.
+ *
+ * [jitterSource] is evaluated once per scheduled retry. Values outside zero to one are rejected before a delay is
+ * calculated. Observer failures are ignored and cannot alter retry or cancellation control flow.
+ */
+public class RetryRuntime @JvmOverloads constructor(
+    public val observer: RetryAttemptObserver? = null,
+    public val jitterSource: RetryJitterSource = RetryJitterSource { Random.nextDouble() },
+)
 
 /**
  * Pattern for identifying retryable errors.

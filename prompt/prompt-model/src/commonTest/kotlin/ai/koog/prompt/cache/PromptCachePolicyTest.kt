@@ -3,12 +3,20 @@ package ai.koog.prompt.cache
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
+import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.PromptCacheControl
 import ai.koog.prompt.message.PromptCacheTtl
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,6 +25,63 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 internal class PromptCachePolicyTest {
+    private val json = Json
+
+    @Test
+    fun testNonNullCacheMetadataRoundTripsThroughResponseMetaInfoJson() {
+        val original = ResponseMetaInfo(
+            timestamp = ResponseMetaInfo.Empty.timestamp,
+            metadata = buildJsonObject {
+                put("cacheCreationInputTokens", 123)
+                put("cacheReadInputTokens", 456)
+            },
+        )
+
+        val encoded = json.encodeToString(original)
+        val decoded = json.decodeFromString<ResponseMetaInfo>(encoded)
+
+        assertEquals(original, decoded)
+        assertEquals(original.metadata, decoded.metadata)
+    }
+
+    @Test
+    fun testNonNullPromptCacheControlRoundTripsThroughMessagePartJson() {
+        val metadataJson = Json {
+            serializersModule = SerializersModule {
+                polymorphic(CacheControl::class) {
+                    subclass(PromptCacheControl::class)
+                }
+            }
+        }
+        val original: MessagePart = MessagePart.Text(
+            text = "persisted",
+            cacheControl = PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+        )
+
+        val encoded = metadataJson.encodeToString(MessagePart.serializer(), original)
+        val decoded = metadataJson.decodeFromString(MessagePart.serializer(), encoded)
+
+        assertEquals(original, decoded)
+        assertEquals(
+            PromptCacheControl(cacheable = true, ttl = PromptCacheTtl.OneHour),
+            decoded.cacheControl,
+        )
+    }
+
+    @Test
+    fun testLegacyRequestViewSourceShapeRemainsUnambiguous() {
+        val legacyReference:
+            (Prompt, List<PromptCacheTtl>, Boolean, (CacheControl) -> PromptCacheControl?) -> Prompt =
+            PromptCachePolicy::requestView
+        val prompt = Prompt(emptyList(), "legacy-source-shape")
+
+        assertSame(
+            prompt,
+            legacyReference(prompt, emptyList(), false) { it as? PromptCacheControl },
+        )
+        assertSame(prompt, PromptCachePolicy.requestView(prompt, automaticBreakpoint = false))
+    }
+
     @Test
     fun testRequestViewAddsFiveMinuteMarkerToLatestEligiblePartWithoutMutatingHistory() {
         val eligible = Message.User(
@@ -187,6 +252,45 @@ internal class PromptCachePolicyTest {
             PromptCachePolicy.requestView(
                 prompt,
                 leadingBreakpoints = listOf(PromptCacheTtl.FiveMinutes, PromptCacheTtl.OneHour),
+            )
+        }
+    }
+
+    @Test
+    fun testTrailingBreakpointsParticipateInCapacityAndOrdering() {
+        val prompt = Prompt(listOf(Message.User("latest", RequestMetaInfo.Empty)), "trailing")
+
+        assertSame(
+            prompt,
+            PromptCachePolicy.requestView(
+                prompt,
+                leadingBreakpoints = emptyList(),
+                trailingBreakpoints = List(4) { PromptCacheTtl.FiveMinutes },
+            ),
+        )
+        assertSame(
+            prompt,
+            PromptCachePolicy.requestView(
+                prompt,
+                leadingBreakpoints = emptyList(),
+                trailingBreakpoints = listOf(PromptCacheTtl.OneHour),
+            ),
+        )
+        val explicitFiveMinutes = Prompt(
+            listOf(
+                Message.User(
+                    "explicit",
+                    RequestMetaInfo.Empty,
+                    PromptCacheControl(cacheable = true),
+                )
+            ),
+            "trailing-explicit-order",
+        )
+        assertFailsWith<IllegalArgumentException> {
+            PromptCachePolicy.requestView(
+                explicitFiveMinutes,
+                leadingBreakpoints = emptyList(),
+                trailingBreakpoints = listOf(PromptCacheTtl.OneHour),
             )
         }
     }

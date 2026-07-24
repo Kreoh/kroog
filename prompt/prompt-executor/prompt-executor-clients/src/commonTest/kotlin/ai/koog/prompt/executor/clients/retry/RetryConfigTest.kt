@@ -22,7 +22,7 @@ class RetryConfigTest {
         assertEquals(2.0, config.backoffMultiplier)
         assertEquals(0.1, config.jitterFactor)
         assertNotNull(config.retryAfterExtractor)
-        assertTrue(config.retryablePatterns.isNotEmpty())
+        assertTrue(config.retryablePatterns.isEmpty())
     }
 
     @Test

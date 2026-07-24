@@ -60,6 +60,24 @@ class AnthropicVertexLLMClientTest {
     }
 
     @Test
+    fun `includes Vertex root cache marker in breakpoint validation`() {
+        val client = vertexClient(RecordingAnthropicVertexHttpClient())
+        val prompt = Prompt.build(
+            id = "vertex-root-cache",
+            params = AnthropicParams(cacheControl = AnthropicCacheControl.Default),
+        ) {
+            system("system", AnthropicCacheControl.OneHour)
+            user("first", AnthropicCacheControl.Default)
+            user("second", AnthropicCacheControl.Default)
+            user("third", AnthropicCacheControl.Default)
+        }
+
+        shouldThrow<IllegalArgumentException> {
+            client.createAnthropicRequest(prompt, emptyList(), model, false)
+        }
+    }
+
+    @Test
     fun `builds Vertex adaptive requests with typed output config winning collisions`() {
         val transport = RecordingAnthropicVertexHttpClient()
         val client = vertexClient(transport)

@@ -9,7 +9,6 @@ import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.bedrock.converse.BedrockConverseConverters
-import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModel
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.amazon.BedrockAmazonNovaSerialization
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.amazon.BedrockAmazonTitanEmbeddingSerialization
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.amazon.NovaRequest
@@ -603,10 +602,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
             )
 
             is BedrockModelFamilies.AnthropicClaude -> {
-                json.encodeToString(
-                    BedrockAnthropicInvokeModel.serializer(),
-                    BedrockAnthropicClaudeSerialization.createAnthropicRequest(prompt, tools)
-                )
+                BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(prompt, tools, json)
             }
 
             is BedrockModelFamilies.Meta -> json.encodeToString(

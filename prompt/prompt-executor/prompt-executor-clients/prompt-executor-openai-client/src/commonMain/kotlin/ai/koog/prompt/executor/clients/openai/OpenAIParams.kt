@@ -293,11 +293,11 @@ public class OpenAIChatParams(
         append(", schema=$schema")
         append(", toolChoice=$toolChoice")
         append(", user=$user")
-        append(", additionalProperties=$additionalProperties")
+        append(", additionalProperties=${additionalProperties?.let { "<redacted:${it.size}>" }}")
         append(", frequencyPenalty=$frequencyPenalty")
         append(", presencePenalty=$presencePenalty")
         append(", parallelToolCalls=$parallelToolCalls")
-        append(", promptCacheKey=$promptCacheKey")
+        append(", promptCacheKey=${promptCacheKey?.let { "<redacted>" }}")
         append(", safetyIdentifier=$safetyIdentifier")
         append(", serviceTier=$serviceTier")
         append(", store=$store")
@@ -639,9 +639,6 @@ public class OpenAIResponsesParams(
         codeInterpreter = this.codeInterpreter,
         stateless = this.stateless,
     ).also {
-        require(promptCacheKey == null || this.promptCacheIdentity == null) {
-            "promptCacheKey and promptCacheIdentity are mutually exclusive"
-        }
         it.promptCacheIdentity = this.promptCacheIdentity
     }
 
@@ -702,9 +699,6 @@ public class OpenAIResponsesParams(
             codeInterpreter = codeInterpreter,
             stateless = stateless,
         ).also {
-            require(promptCacheKey == null || identity == null) {
-                "promptCacheKey and promptCacheIdentity are mutually exclusive"
-            }
             it.promptCacheIdentity = identity
         }
 
@@ -788,14 +782,14 @@ public class OpenAIResponsesParams(
         append(", schema=$schema")
         append(", toolChoice=$toolChoice")
         append(", user=$user")
-        append(", additionalProperties=$additionalProperties")
+        append(", additionalProperties=${additionalProperties?.let { "<redacted:${it.size}>" }}")
         append(", background=$background")
         append(", include=$include")
         append(", maxToolCalls=$maxToolCalls")
         append(", parallelToolCalls=$parallelToolCalls")
         append(", reasoning=$reasoning")
         append(", truncation=$truncation")
-        append(", promptCacheKey=$promptCacheKey")
+        append(", promptCacheKey=${promptCacheKey?.let { "<redacted>" }}")
         append(", safetyIdentifier=$safetyIdentifier")
         append(", serviceTier=$serviceTier")
         append(", store=$store")

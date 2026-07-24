@@ -4,6 +4,7 @@ package ai.koog.prompt.executor.clients.openai
 internal object OpenAIPromptCacheKey {
     private const val DialectVersion: Byte = 1
     private val dialectPrefix = "koog.openai.prompt-cache-key".encodeToByteArray()
+    private const val LegacyKeyKind = "legacy-key"
 
     fun derive(
         dialect: OpenAIResponsesDialect,
@@ -18,6 +19,24 @@ internal object OpenAIPromptCacheKey {
             appendField(model)
             appendField(identity.userId)
             appendField(identity.chatId)
+        }.toByteArray()
+        return sha256(encoded).toHexString()
+    }
+
+    fun deriveLegacy(
+        dialect: OpenAIResponsesDialect,
+        model: String,
+        legacyKey: String,
+    ): String {
+        require(model.isNotBlank()) { "Prompt-cache model must be non-blank" }
+        require(legacyKey.isNotBlank()) { "Legacy prompt-cache key must be non-blank" }
+        val encoded = buildList {
+            addAll(dialectPrefix.asList())
+            add(DialectVersion)
+            appendField(LegacyKeyKind)
+            appendField(dialect.name)
+            appendField(model)
+            appendField(legacyKey)
         }.toByteArray()
         return sha256(encoded).toHexString()
     }
@@ -42,8 +61,14 @@ internal object OpenAIPromptCacheKey {
         }
 
         val hash = intArrayOf(
-            0x6a09e667, 0xbb67ae85.toInt(), 0x3c6ef372, 0xa54ff53a.toInt(),
-            0x510e527f, 0x9b05688c.toInt(), 0x1f83d9ab, 0x5be0cd19,
+            0x6a09e667,
+            0xbb67ae85.toInt(),
+            0x3c6ef372,
+            0xa54ff53a.toInt(),
+            0x510e527f,
+            0x9b05688c.toInt(),
+            0x1f83d9ab,
+            0x5be0cd19,
         )
         val schedule = IntArray(64)
         for (chunkStart in padded.indices step 64) {
@@ -51,9 +76,9 @@ internal object OpenAIPromptCacheKey {
                 val offset = chunkStart + index * 4
                 schedule[index] =
                     ((padded[offset].toInt() and 0xff) shl 24) or
-                        ((padded[offset + 1].toInt() and 0xff) shl 16) or
-                        ((padded[offset + 2].toInt() and 0xff) shl 8) or
-                        (padded[offset + 3].toInt() and 0xff)
+                    ((padded[offset + 1].toInt() and 0xff) shl 16) or
+                    ((padded[offset + 2].toInt() and 0xff) shl 8) or
+                    (padded[offset + 3].toInt() and 0xff)
             }
             for (index in 16 until 64) {
                 val previous15 = schedule[index - 15]
