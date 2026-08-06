@@ -1,5 +1,5 @@
 import ai.koog.gradle.publish.maven.configureJvmJarManifest
-import jetbrains.sign.GpgSignSignatoryProvider
+import ai.koog.gradle.publish.maven.configurePublicationSigning
 
 plugins {
     kotlin("jvm")
@@ -22,13 +22,7 @@ publishing {
 
 configureJvmJarManifest("jar")
 
-val isUnderTeamCity = System.getenv("TEAMCITY_VERSION") != null
-signing {
-    if (isUnderTeamCity) {
-        signatories = GpgSignSignatoryProvider()
-        sign(publishing.publications)
-    }
-}
+configurePublicationSigning()
 
 // In KMP+Android projects, Android publication tasks implicitly consume .asc files produced by
 // signing tasks for other publications (e.g. signJvmPublication). Declare an explicit dependency

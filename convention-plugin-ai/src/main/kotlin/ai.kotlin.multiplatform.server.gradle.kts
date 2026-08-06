@@ -1,8 +1,8 @@
 @file:OptIn(ExperimentalWasmDsl::class)
 
 import ai.koog.gradle.publish.maven.configureJvmJarManifest
+import ai.koog.gradle.publish.maven.configurePublicationSigning
 import ai.koog.gradle.tests.configureTests
-import jetbrains.sign.GpgSignSignatoryProvider
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
@@ -34,13 +34,7 @@ publishing {
     }
 }
 
-val isUnderTeamCity = System.getenv("TEAMCITY_VERSION") != null
-signing {
-    if (isUnderTeamCity) {
-        signatories = GpgSignSignatoryProvider()
-        sign(publishing.publications)
-    }
-}
+configurePublicationSigning()
 
 // In KMP+Android projects, Android publication tasks implicitly consume .asc files produced by
 // signing tasks for other publications (e.g. signJvmPublication). Declare an explicit dependency

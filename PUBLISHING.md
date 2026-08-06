@@ -193,4 +193,51 @@ repositories {
 
 After a new remote snapshot generation appears, consumers must refresh their
 dependency locks and dependency-verification checksums from that generation.
-Stable releases require a separate reviewed release process.
+
+## Stable releases
+
+Stable releases use the separate, manually dispatched `Publish Maven release`
+workflow. The configured version in `gradle.properties` must be stable. Create
+an immutable tag whose name exactly matches that version, for example
+`1.0.0-kroog.1`, only after the release commit has been reviewed. Protect the
+release tag pattern in GitHub and never move or reuse a release tag. Dispatch
+the workflow from that tag.
+
+Configure these GitHub Actions secrets:
+
+- `MAVEN_GPG_PRIVATE_KEY`: the ASCII-armoured, unencrypted private signing key.
+- `CENTRAL_PORTAL_USERNAME`: the Central Portal token username.
+- `CENTRAL_PORTAL_PASSWORD`: the Central Portal token password.
+
+The workflow imports the signing key with `actions/setup-java` and enables
+Gradle's native GPG signing path through `KOOG_GITHUB_RELEASE=true`. TeamCity
+continues to use its existing signatory when `TEAMCITY_VERSION` is present.
+Do not set either release signal during ordinary local builds.
+
+Before the first release with a signing key, publish its public key to a
+supported public keyserver:
+
+```shell
+gpg --keyserver keyserver.ubuntu.com --send-keys <full-key-fingerprint>
+```
+
+Confirm that the key is discoverable by its full fingerprint before dispatching
+the workflow. Restrict the unencrypted private key to the local GnuPG keyring,
+the GitHub Actions secret and a protected offline backup. Preserve its
+revocation certificate separately.
+
+The workflow builds only the 38 module-qualified JVM publication tasks listed
+above, signs their release artefacts and validates the exact Maven-layout
+bundle. It retains the bundle as a workflow artefact, then uploads it to the
+Central Portal publisher API with `publishingType=USER_MANAGED`. It does not
+publish or drop the deployment.
+
+After a successful upload, a human must open Central Portal, inspect the
+validation results and exact coordinate closure, and approve publication there.
+If validation fails, fix the release commit and prepare a new version and tag.
+Do not move the failed tag.
+
+Once Central has published and synchronised the release, update consumers to
+the new stable or beta coordinate as appropriate. Refresh dependency locks and
+dependency-verification checksums, review the resolved graph, and run the
+consumer's focused compilation and test checks before merging the update.

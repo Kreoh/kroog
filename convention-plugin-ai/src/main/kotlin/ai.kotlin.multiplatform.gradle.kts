@@ -1,9 +1,9 @@
 @file:OptIn(ExperimentalWasmDsl::class)
 
 import ai.koog.gradle.publish.maven.configureJvmJarManifest
+import ai.koog.gradle.publish.maven.configurePublicationSigning
 import ai.koog.gradle.tests.configureTests
 import ai.koog.gradle.xcframework.XCFrameworkConfig.configureXCFrameworkIfRequested
-import jetbrains.sign.GpgSignSignatoryProvider
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
@@ -193,26 +193,16 @@ publishing {
     }
 }
 
-val isUnderTeamCity = System.getenv("TEAMCITY_VERSION") != null
-signing {
-    if (isUnderTeamCity) {
-        signatories = GpgSignSignatoryProvider()
-        // Sign publications lazily as they are created. KMP and AGP add publications
-        // (in particular the `*-android` one for `publishLibraryVariants("release")`)
-        // after this block evaluates, so an eager `sign(publishing.publications)` call
-        // could miss them and silently produce unsigned artifacts on CI.
-        publishing.publications.withType(MavenPublication::class).configureEach {
-            sign(this)
-        }
-    }
-}
+configurePublicationSigning()
 
 // In KMP+Android projects, Android publication tasks implicitly consume .asc files produced by
 // signing tasks for other publications (e.g. signJvmPublication). Declare an explicit dependency
 // so Gradle's work validation does not flag it as an implicit dependency problem.
-tasks.withType<AbstractPublishToMaven>().configureEach {
-    dependsOn(tasks.withType<Sign>())
-}
+tasks.withType<AbstractPublishToMaven>()
+    .matching { it.name.contains("Android", ignoreCase = true) }
+    .configureEach {
+        dependsOn(tasks.withType<Sign>())
+    }
 
 // Disable ABI validation tasks for beta modules. The isBeta extra property is set in
 // each module's build.gradle.kts body, which runs after the plugins {} block applies

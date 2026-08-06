@@ -1,0 +1,273 @@
+name: Publish Maven release
+
+'on':
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-maven-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Prepare Kroog Maven Central release
+    if: github.repository == 'Kreoh/kroog'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Configure Git
+        run: git config --global core.autocrlf input
+
+      - name: Checkout immutable release commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify release tag and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          configured_version="$(sed -n 's/^version=//p' gradle.properties)"
+          if [[ -z "$configured_version" || "$configured_version" == *-SNAPSHOT ]]; then
+            echo "gradle.properties must contain one stable release version." >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$configured_version" ]]; then
+            echo "Dispatch this workflow from the immutable $configured_version tag." >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-list -n 1 "$GITHUB_REF")"
+          if [[ "$tag_commit" != "$GITHUB_SHA" ]]; then
+            echo "The selected tag does not resolve to the checked-out workflow commit." >&2
+            exit 1
+          fi
+
+      - name: Verify release secrets
+        env:
+          CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in \
+            CENTRAL_PORTAL_USERNAME \
+            CENTRAL_PORTAL_PASSWORD \
+            MAVEN_GPG_PRIVATE_KEY
+          do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "$secret_name is required but is not set." >&2
+              exit 1
+            fi
+          done
+
+      - name: Set up JDK 21 and release signing key
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'corretto'
+          java-version: 21
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build exact signed JVM release closure
+        env:
+          BRANCH_KOOG_IS_RELEASING_FROM: release/${{ github.ref_name }}
+          KOOG_GITHUB_RELEASE: 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :agents:agents-core:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-event-handler:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-memory:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-opentelemetry:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-snapshot:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-tokenizer:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-features:agents-features-trace:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-mcp-metadata:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-tools:publishJvmPublicationToArtifactsRepository \
+            :agents:agents-utils:publishJvmPublicationToArtifactsRepository \
+            :embeddings:embeddings-base:publishJvmPublicationToArtifactsRepository \
+            :embeddings:embeddings-llm:publishJvmPublicationToArtifactsRepository \
+            :http-client:http-client-core:publishJvmPublicationToArtifactsRepository \
+            :http-client:http-client-ktor:publishJvmPublicationToArtifactsRepository \
+            :koog-agents:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-cache:prompt-cache-files:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-cache:prompt-cache-model:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-cached:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-anthropic-client:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-bedrock-client:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-ollama-client:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client-base:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-managed-execution:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-model:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-llm:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-markdown:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-model:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-processor:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-structure:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-tokenizer:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-xml:publishJvmPublicationToArtifactsRepository \
+            :rag:rag-base:publishJvmPublicationToArtifactsRepository \
+            :serialization:serialization-core:publishJvmPublicationToArtifactsRepository \
+            :utils:publishJvmPublicationToArtifactsRepository \
+            :prompt:prompt-executor:prompt-executor-clients:prompt-executor-google-client:publishJvmPublicationToArtifactsRepository \
+            :serialization:serialization-jackson:publishMavenPublicationToArtifactsRepository \
+            --no-parallel \
+            --no-daemon \
+            --stacktrace
+
+      - name: Assemble Maven Central bundle
+        id: bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          stable_version="$(sed -n 's/^version=//p' gradle.properties)"
+          beta_version="${stable_version%%-*}-beta-${stable_version#*-}"
+          source_root="build/artifacts/maven/com/kreoh/kroog"
+          bundle_root="build/central-bundle/com/kreoh/kroog"
+          coordinates_file="build/release-coordinates.txt"
+          stable_artifacts=(
+            agents-core-jvm
+            agents-features-event-handler-jvm
+            agents-features-memory-jvm
+            agents-features-opentelemetry-jvm
+            agents-features-snapshot-jvm
+            agents-features-tokenizer-jvm
+            agents-features-trace-jvm
+            agents-mcp-metadata-jvm
+            agents-tools-jvm
+            agents-utils-jvm
+            embeddings-base-jvm
+            embeddings-llm-jvm
+            http-client-core-jvm
+            http-client-ktor-jvm
+            koog-agents-jvm
+            prompt-cache-files-jvm
+            prompt-cache-model-jvm
+            prompt-executor-cached-jvm
+            prompt-executor-clients-jvm
+            prompt-executor-anthropic-client-jvm
+            prompt-executor-bedrock-client-jvm
+            prompt-executor-ollama-client-jvm
+            prompt-executor-openai-client-jvm
+            prompt-executor-openai-client-base-jvm
+            prompt-executor-managed-execution-jvm
+            prompt-executor-model-jvm
+            prompt-llm-jvm
+            prompt-markdown-jvm
+            prompt-model-jvm
+            prompt-processor-jvm
+            prompt-structure-jvm
+            prompt-tokenizer-jvm
+            prompt-xml-jvm
+            rag-base-jvm
+            serialization-core-jvm
+            utils-jvm
+            serialization-jackson
+          )
+          copy_coordinate() {
+            local artifact="$1"
+            local version="$2"
+            local source_directory="$source_root/$artifact/$version"
+            local bundle_directory="$bundle_root/$artifact/$version"
+            local primary
+            mkdir -p "$bundle_directory"
+            for primary in \
+              "$artifact-$version.jar" \
+              "$artifact-$version-sources.jar" \
+              "$artifact-$version-javadoc.jar" \
+              "$artifact-$version.pom"
+            do
+              for suffix in '' .asc .md5 .sha1; do
+                test -s "$source_directory/$primary$suffix"
+                cp "$source_directory/$primary$suffix" "$bundle_directory/"
+              done
+            done
+            printf '%s|%s\n' "$artifact" "$version" >> "$coordinates_file"
+          }
+          : > "$coordinates_file"
+          for artifact in "${stable_artifacts[@]}"; do
+            copy_coordinate "$artifact" "$stable_version"
+          done
+          copy_coordinate prompt-executor-google-client-jvm "$beta_version"
+          (
+            cd build/central-bundle
+            zip -q -r ../kroog-maven-central-bundle.zip com
+          )
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve Maven Central bundle
+        if: always() && steps.bundle.outputs.created == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: kroog-maven-central-bundle-${{ github.ref_name }}
+          path: build/kroog-maven-central-bundle.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Validate exact Maven Central bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_root="build/central-bundle/com/kreoh/kroog"
+          coordinates_file="build/release-coordinates.txt"
+          validate_coordinate() {
+            local artifact="$1"
+            local version="$2"
+            local directory="$bundle_root/$artifact/$version"
+            local primary
+            test -d "$directory"
+            for primary in \
+              "$artifact-$version.jar" \
+              "$artifact-$version-sources.jar" \
+              "$artifact-$version-javadoc.jar" \
+              "$artifact-$version.pom"
+            do
+              local file="$directory/$primary"
+              test -s "$file"
+              gpg --batch --verify "$file.asc" "$file"
+              [[ "$(cut -d ' ' -f 1 "$file.md5")" == "$(md5sum "$file" | cut -d ' ' -f 1)" ]]
+              [[ "$(cut -d ' ' -f 1 "$file.sha1")" == "$(sha1sum "$file" | cut -d ' ' -f 1)" ]]
+            done
+            jar tf "$directory/$artifact-$version.jar" >/dev/null
+            jar tf "$directory/$artifact-$version-sources.jar" >/dev/null
+            jar tf "$directory/$artifact-$version-javadoc.jar" >/dev/null
+            grep -Fq "<artifactId>$artifact</artifactId>" "$directory/$artifact-$version.pom"
+            grep -Fq "<version>$version</version>" "$directory/$artifact-$version.pom"
+          }
+          [[ "$(wc -l < "$coordinates_file")" -eq 38 ]]
+          while IFS='|' read -r artifact version; do
+            validate_coordinate "$artifact" "$version"
+          done < "$coordinates_file"
+          [[ "$(find "$bundle_root" -mindepth 2 -maxdepth 2 -type d | wc -l)" -eq 38 ]]
+          [[ "$(find "$bundle_root" -type f | wc -l)" -eq 608 ]]
+          unzip -t build/kroog-maven-central-bundle.zip >/dev/null
+
+      - name: Upload user-managed deployment to Central Portal
+        env:
+          CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          portal_token="$(printf '%s:%s' "$CENTRAL_PORTAL_USERNAME" "$CENTRAL_PORTAL_PASSWORD" | base64 --wrap=0)"
+          echo "::add-mask::$portal_token"
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Authorization: Bearer $portal_token" \
+            --form bundle=@build/kroog-maven-central-bundle.zip \
+            --write-out 'Central Portal accepted the user-managed bundle (HTTP %{http_code}).\n' \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=kroog-$GITHUB_REF_NAME&publishingType=USER_MANAGED"
