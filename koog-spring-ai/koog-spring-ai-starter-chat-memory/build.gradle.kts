@@ -28,6 +28,7 @@ tasks.withType<JavaCompile>().configureEach {
 dependencies {
     api(project(":koog-spring-ai:koog-spring-ai-common"))
     api(project(":agents:agents-features:agents-features-memory"))
+    api(project.dependencies.platform(libs.spring.ai.bom))
     api(libs.spring.ai.model)
 
     testImplementation(libs.spring.boot.starter.test)

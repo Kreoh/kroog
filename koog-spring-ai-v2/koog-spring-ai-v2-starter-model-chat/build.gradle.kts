@@ -29,6 +29,7 @@ dependencies {
     api(project(":koog-spring-ai-v2:koog-spring-ai-v2-common"))
     api(project(":prompt:prompt-executor:prompt-executor-clients"))
     api(project(":prompt:prompt-executor:prompt-executor-model"))
+    api(project.dependencies.platform(libs.spring.ai.v2.bom))
     api(libs.spring.ai.model)
     implementation(libs.kotlinx.serialization.json)
 

@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 68 Kotlin JVM publications and 17 pure-JVM
 Maven publications, 85 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.0.0-kroog.2`; modules which apply a beta version transform
+stable version is `1.0.0-kroog.3`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -137,10 +137,13 @@ dependency locks and dependency-verification checksums from that generation.
 Stable releases use the separate, manually dispatched `Publish Maven release`
 workflow. The configured version in `gradle.properties` must be stable. Create
 an immutable tag whose name exactly matches that version, for example
-`1.0.0-kroog.2`, only after the release commit has been reviewed. The immutable
-`1.0.0-kroog.1` tag contains the incomplete 38-coordinate workflow and must not
-be moved or reused. Protect the release tag pattern in GitHub and never move or
-reuse a release tag. Dispatch the workflow from the new tag.
+`1.0.0-kroog.3`, only after the release commit has been reviewed. The immutable
+`1.0.0-kroog.2` tag uploaded all 85 components, but Central rejected eight
+Spring AI starter POMs because they omitted the matching Spring AI BOM imports.
+It must not be moved or reused. The immutable `1.0.0-kroog.1` tag contains the
+incomplete 38-coordinate workflow and must not be moved or reused. Protect the
+release tag pattern in GitHub and never move or reuse a release tag. Dispatch
+the workflow from the new tag.
 
 Configure these GitHub Actions secrets:
 
