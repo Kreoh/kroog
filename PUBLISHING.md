@@ -3,58 +3,27 @@
 Kroog snapshots use Maven coordinates under `com.kreoh.kroog`. Kotlin packages
 remain under `ai.koog` for compatibility with JetBrains Koog.
 
-The ChatUI dependency closure is built from source commit
-`a9b1ecdbfca6656b71ca54188fa29c9e27798326`. It contains 37 Kotlin JVM target
-coordinates plus the pure-JVM `serialization-jackson` coordinate, 38 in total.
-Thirty-seven coordinates use `1.0.0-kroog.1-SNAPSHOT`; the Google client uses
-`1.0.0-beta-kroog.1-SNAPSHOT`. Publication requires Ubuntu 24.04, Java 21 and
-`--no-parallel`.
+The complete catalogue contains 68 Kotlin JVM publications and 17 pure-JVM
+Maven publications, 85 in total. `gradle/kroog-jvm-publications.txt` is the
+shared source of truth for snapshot and stable release workflows. The base
+stable version is `1.0.0-kroog.2`; modules which apply a beta version transform
+retain their module-specific version. Publication requires Ubuntu 24.04,
+Java 21, `--no-parallel` and `--no-daemon`.
 
 ## Exact target closure
 
-The stable Kotlin JVM targets are:
+Each non-empty inventory line has one publication kind and one full Gradle
+project path:
 
 ```text
-agents-core-jvm
-agents-features-event-handler-jvm
-agents-features-memory-jvm
-agents-features-opentelemetry-jvm
-agents-features-snapshot-jvm
-agents-features-tokenizer-jvm
-agents-features-trace-jvm
-agents-mcp-metadata-jvm
-agents-tools-jvm
-agents-utils-jvm
-embeddings-base-jvm
-embeddings-llm-jvm
-http-client-core-jvm
-http-client-ktor-jvm
-koog-agents-jvm
-prompt-cache-files-jvm
-prompt-cache-model-jvm
-prompt-executor-cached-jvm
-prompt-executor-clients-jvm
-prompt-executor-anthropic-client-jvm
-prompt-executor-bedrock-client-jvm
-prompt-executor-ollama-client-jvm
-prompt-executor-openai-client-jvm
-prompt-executor-openai-client-base-jvm
-prompt-executor-managed-execution-jvm
-prompt-executor-model-jvm
-prompt-llm-jvm
-prompt-markdown-jvm
-prompt-model-jvm
-prompt-processor-jvm
-prompt-structure-jvm
-prompt-tokenizer-jvm
-prompt-xml-jvm
-rag-base-jvm
-serialization-core-jvm
-utils-jvm
+jvm :agents:agents-core
+maven :serialization:serialization-jackson
 ```
 
-The beta Kotlin JVM target is `prompt-executor-google-client-jvm`. The
-additional stable pure-JVM target is `serialization-jackson`.
+`jvm` selects only `JvmPublication`; `maven` selects only `MavenPublication`.
+Both workflows reject malformed lines and require exactly 68 `jvm` entries and
+17 `maven` entries. This prevents aggregate publication selectors from adding
+Kotlin Multiplatform root, Android, JavaScript, Wasm, Native or iOS artefacts.
 
 `prompt-executor-managed-execution-jvm` exports
 `aws.sdk.kotlin:bedrockagentcore:1.6.72`. The Bedrock client exports
@@ -67,45 +36,15 @@ Run the exact module-qualified tasks from a clean archive of the pinned commit.
 Do not run aggregate publication or Kotlin Multiplatform root publication tasks.
 
 ```shell
-./gradlew \
-  :agents:agents-core:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-event-handler:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-memory:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-opentelemetry:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-snapshot:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-tokenizer:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-features:agents-features-trace:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-mcp-metadata:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-tools:publishJvmPublicationToArtifactsRepository \
-  :agents:agents-utils:publishJvmPublicationToArtifactsRepository \
-  :embeddings:embeddings-base:publishJvmPublicationToArtifactsRepository \
-  :embeddings:embeddings-llm:publishJvmPublicationToArtifactsRepository \
-  :http-client:http-client-core:publishJvmPublicationToArtifactsRepository \
-  :http-client:http-client-ktor:publishJvmPublicationToArtifactsRepository \
-  :koog-agents:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-cache:prompt-cache-files:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-cache:prompt-cache-model:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-cached:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-anthropic-client:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-bedrock-client:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-ollama-client:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client-base:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-managed-execution:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-model:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-llm:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-markdown:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-model:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-processor:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-structure:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-tokenizer:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-xml:publishJvmPublicationToArtifactsRepository \
-  :rag:rag-base:publishJvmPublicationToArtifactsRepository \
-  :serialization:serialization-core:publishJvmPublicationToArtifactsRepository \
-  :utils:publishJvmPublicationToArtifactsRepository \
-  :prompt:prompt-executor:prompt-executor-clients:prompt-executor-google-client:publishJvmPublicationToArtifactsRepository \
-  :serialization:serialization-jackson:publishMavenPublicationToArtifactsRepository \
+tasks=()
+while read -r kind project; do
+  case "$kind" in
+    jvm) tasks+=("${project}:publishJvmPublicationToArtifactsRepository") ;;
+    maven) tasks+=("${project}:publishMavenPublicationToArtifactsRepository") ;;
+  esac
+done < gradle/kroog-jvm-publications.txt
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew \
+  "${tasks[@]}" \
   --no-parallel --no-daemon
 ```
 
@@ -137,7 +76,7 @@ temporary root, copies only the recorded primary files into it and resolves from
 that private verified snapshot. POSIX mode 0700 or an exactly verified
 single-owner ACL is mandatory. Immediately before every project or buildscript
 configuration resolves, ChatUI rechecks the captured root identity and exact
-266-file sizes, hashes and no-follow closure. Kroog is not configured as a
+595-file sizes, hashes and no-follow closure. Kroog is not configured as a
 Gradle plugin repository. Concurrent builds share no snapshot, lock or cache.
 Build-finished and JVM-shutdown hooks attempt bounded cleanup without following
 links and only while the root retains its original identity. A process crash can
@@ -163,15 +102,14 @@ Central Portal snapshot publication is opt-in. Supply token credentials through
 `ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword`, and set
 `-PpublishCentralSnapshots=true`.
 
-The current `Publish Maven snapshot` workflow still uses broad publication task
-selectors and Java 17. It does not yet implement this exact JVM-only contract.
-Before it may publish the closure, change it to Ubuntu 24.04 and Java 21,
-replace its selectors with the same module-qualified tasks above using the
-`publishJvmPublicationToCentralPortalSnapshotsRepository` suffix, use
-`publishMavenPublicationToCentralPortalSnapshotsRepository` for
-serialization-jackson, retain `--no-parallel`, and generate the manifest after
-the remote publication step. The manifest must be uploaded as a workflow
-artefact even when a later verification step fails.
+The `Publish Maven snapshot` workflow first derives 85 local
+`ArtifactsRepository` tasks from the shared inventory and completes them without
+publication credentials. Only after that step succeeds does it run the existing
+JVM and pure-JVM Maven publication-type selectors and expose credentials to the
+remote Gradle invocation. The locally verified inventory establishes that those
+selectors resolve to the same 85 publication tasks. Both invocations use Java
+21, `--no-parallel` and `--no-daemon`. A local failure therefore prevents every
+remote upload.
 
 Do not use Central Portal credentials during configuration-only checks. A
 remote consumer can configure the repository without credentials:
@@ -199,9 +137,10 @@ dependency locks and dependency-verification checksums from that generation.
 Stable releases use the separate, manually dispatched `Publish Maven release`
 workflow. The configured version in `gradle.properties` must be stable. Create
 an immutable tag whose name exactly matches that version, for example
-`1.0.0-kroog.1`, only after the release commit has been reviewed. Protect the
-release tag pattern in GitHub and never move or reuse a release tag. Dispatch
-the workflow from that tag.
+`1.0.0-kroog.2`, only after the release commit has been reviewed. The immutable
+`1.0.0-kroog.1` tag contains the incomplete 38-coordinate workflow and must not
+be moved or reused. Protect the release tag pattern in GitHub and never move or
+reuse a release tag. Dispatch the workflow from the new tag.
 
 Configure these GitHub Actions secrets:
 
@@ -226,11 +165,14 @@ the workflow. Restrict the unencrypted private key to the local GnuPG keyring,
 the GitHub Actions secret and a protected offline backup. Preserve its
 revocation certificate separately.
 
-The workflow builds only the 38 module-qualified JVM publication tasks listed
-above, signs their release artefacts and validates the exact Maven-layout
-bundle. It retains the bundle as a workflow artefact, then uploads it to the
-Central Portal publisher API with `publishingType=USER_MANAGED`. It does not
-publish or drop the deployment.
+The workflow derives all 85 module-qualified local tasks from the shared
+inventory, then signs and stages every release artefact. It discovers each
+coordinate and its actual version from the staged POM path, validates the POM,
+JARs, detached signatures and checksum sidecars, and copies the exact Maven
+layout into one bundle. This version discovery covers every beta-version module
+without a hard-coded beta list. The workflow retains the bundle as a workflow
+artefact, then uploads it once to the Central Portal publisher API with
+`publishingType=USER_MANAGED`. It does not publish or drop the deployment.
 
 After a successful upload, a human must open Central Portal, inspect the
 validation results and exact coordinate closure, and approve publication there.

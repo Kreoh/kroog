@@ -24,14 +24,50 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v6
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: 'corretto'
-          java-version: 17
+          java-version: 21
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
+
+      - name: Stage complete JVM snapshot closure locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          inventory=gradle/kroog-jvm-publications.txt
+          mapfile -t publications < "$inventory"
+          [[ "${#publications[@]}" -eq 85 ]]
+
+          local_tasks=()
+          jvm_count=0
+          maven_count=0
+          for publication in "${publications[@]}"; do
+            read -r kind project extra <<< "$publication"
+            [[ -z "${extra:-}" && "$project" =~ ^(:[a-z0-9][a-z0-9-]*)+$ ]]
+            case "$kind" in
+              jvm)
+                local_tasks+=("${project}:publishJvmPublicationToArtifactsRepository")
+                ((++jvm_count))
+                ;;
+              maven)
+                local_tasks+=("${project}:publishMavenPublicationToArtifactsRepository")
+                ((++maven_count))
+                ;;
+              *)
+                echo "Unsupported publication kind: $kind" >&2
+                exit 1
+                ;;
+            esac
+          done
+          [[ "$jvm_count" -eq 68 && "$maven_count" -eq 17 ]]
+          ./gradlew \
+            "${local_tasks[@]}" \
+            --no-parallel \
+            --no-daemon \
+            --stacktrace
 
       - name: Verify Central Portal credentials
         env:
@@ -47,7 +83,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish JVM Maven snapshot artefacts
+      - name: Publish exact JVM snapshot closure
         env:
           ORG_GRADLE_PROJECT_centralPortalSnapshotsUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
           ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
@@ -56,6 +92,6 @@ jobs:
             publishJvmPublicationToCentralPortalSnapshotsRepository \
             publishMavenPublicationToCentralPortalSnapshotsRepository \
             -PpublishCentralSnapshots=true \
-            --parallel \
+            --no-parallel \
             --no-daemon \
             --stacktrace

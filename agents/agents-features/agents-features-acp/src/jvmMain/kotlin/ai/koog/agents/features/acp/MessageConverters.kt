@@ -16,6 +16,7 @@ import com.agentclientprotocol.model.ContentBlock
 import com.agentclientprotocol.model.EmbeddedResourceResource
 import com.agentclientprotocol.model.SessionUpdate
 import com.agentclientprotocol.model.SessionUpdate.AgentMessageChunk
+import com.agentclientprotocol.model.ToolCallContent
 import com.agentclientprotocol.model.ToolCallId
 import com.agentclientprotocol.model.ToolCallStatus
 
@@ -291,6 +292,135 @@ public fun Message.Assistant.toAcpEvents(tools: List<ToolDescriptor> = emptyList
                     )
                 }
 
+                is MessagePart.GeneratedFile -> {
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCallUpdate(
+                                toolCallId = part.acpToolCallId(),
+                                title = "Generated file",
+                                status = ToolCallStatus.COMPLETED,
+                                content = listOf(part.describeAsToolCallContent()),
+                            )
+                        )
+                    )
+                }
+
+                is MessagePart.HostedExecution.Request -> {
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCall(
+                                toolCallId = part.acpToolCallId(),
+                                title = "Hosted execution ${part.executionId ?: UNKNOWN_TOOL_CALL_ID}",
+                                status = ToolCallStatus.PENDING,
+                                content = listOf(
+                                    toolCallText(
+                                        buildString {
+                                            append("Execute")
+                                            append(" ").append(part.language)
+                                            append(":\n")
+                                            append(part.code)
+                                        }
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                }
+
+                is MessagePart.HostedExecution.Progress -> {
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCallUpdate(
+                                toolCallId = part.acpToolCallId(),
+                                status = ToolCallStatus.IN_PROGRESS,
+                                content = listOf(
+                                    toolCallText(
+                                        buildString {
+                                            append("Progress")
+                                            part.sequence?.let { append(" ").append(it) }
+                                            append(": ")
+                                            append(part.message)
+                                        }
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                }
+
+                is MessagePart.HostedExecution.CumulativeOutput -> {
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCallUpdate(
+                                toolCallId = part.acpToolCallId(),
+                                status = ToolCallStatus.IN_PROGRESS,
+                                content = listOf(
+                                    toolCallText(
+                                        buildString {
+                                            append("Output")
+                                            part.sequence?.let { append(" ").append(it) }
+                                            append(":\n")
+                                            append(part.output)
+                                        }
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                }
+
+                is MessagePart.HostedExecution.Result -> {
+                    val status = if (part.exitCode == null || part.exitCode == 0) {
+                        ToolCallStatus.COMPLETED
+                    } else {
+                        ToolCallStatus.FAILED
+                    }
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCallUpdate(
+                                toolCallId = part.acpToolCallId(),
+                                status = status,
+                                content = buildList {
+                                    add(
+                                        toolCallText(
+                                            buildString {
+                                                append("Result")
+                                                part.exitCode?.let { append(" (exit code ").append(it).append(")") }
+                                                if (!part.output.isNullOrEmpty()) {
+                                                    append(":\n")
+                                                    append(part.output)
+                                                }
+                                            }
+                                        )
+                                    )
+                                    part.generatedFiles.forEach { add(it.describeAsToolCallContent()) }
+                                },
+                            )
+                        )
+                    )
+                }
+
+                is MessagePart.HostedExecution.Error -> {
+                    add(
+                        SessionUpdateEvent(
+                            update = SessionUpdate.ToolCallUpdate(
+                                toolCallId = part.acpToolCallId(),
+                                status = ToolCallStatus.FAILED,
+                                content = listOf(
+                                    toolCallText(
+                                        buildString {
+                                            append("Error")
+                                            part.code?.let { append(" (").append(it).append(")") }
+                                            append(": ")
+                                            append(part.message)
+                                        }
+                                    )
+                                ),
+                            )
+                        )
+                    )
+                }
+
                 is MessagePart.Text -> {
                     add(
                         SessionUpdateEvent(
@@ -309,6 +439,35 @@ public fun Message.Assistant.toAcpEvents(tools: List<ToolDescriptor> = emptyList
             }
         }
     }
+}
+
+private fun MessagePart.HostedExecution.acpToolCallId(): ToolCallId {
+    return ToolCallId(toolCallId ?: executionId ?: UNKNOWN_TOOL_CALL_ID)
+}
+
+private fun MessagePart.GeneratedFile.acpToolCallId(): ToolCallId {
+    return ToolCallId(toolCallId ?: producingExecutionId ?: fileId ?: providerFileId)
+}
+
+private fun MessagePart.GeneratedFile.describeAsToolCallContent(): ToolCallContent.Content {
+    return toolCallText(
+        buildString {
+            append("Generated file ")
+            append(filename ?: UNKNOWN_FILE_NAME)
+            mediaType?.let { append(" (").append(it).append(")") }
+            sizeBytes?.let { append(", ").append(it).append(" bytes") }
+            toolCallId?.let { append(", tool call id ").append(it) }
+            append(", provider file id ").append(providerFileId)
+            fileId?.let { append(", file id ").append(it) }
+            producingExecutionId?.let { append(", producing execution id ").append(it) }
+            providerItemId?.let { append(", provider item id ").append(it) }
+            containerId?.let { append(", container id ").append(it) }
+        }
+    )
+}
+
+private fun toolCallText(text: String): ToolCallContent.Content {
+    return ToolCallContent.Content(ContentBlock.Text(text))
 }
 
 /**
