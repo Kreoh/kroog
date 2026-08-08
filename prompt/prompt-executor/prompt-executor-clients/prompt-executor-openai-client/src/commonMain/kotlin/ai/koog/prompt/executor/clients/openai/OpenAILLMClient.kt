@@ -392,8 +392,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             topP = chatParams.topP,
             user = chatParams.user,
             webSearchOptions = chatParams.webSearchOptions,
+            chatTemplateKwargs = chatParams.chatTemplateKwargs,
             additionalProperties = chatParams.additionalProperties
-                ?.minus(OPENAI_PROMPT_CACHE_KEY_PROPERTY),
+                ?.minus(OPENAI_PROMPT_CACHE_KEY_PROPERTY)
+                ?.minus(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY),
         )
 
         return json.encodeToString(OpenAIChatCompletionRequestSerializer, request)

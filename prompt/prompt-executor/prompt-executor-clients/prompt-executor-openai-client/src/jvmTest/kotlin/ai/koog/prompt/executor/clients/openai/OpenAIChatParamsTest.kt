@@ -13,6 +13,8 @@ import io.kotest.matchers.equality.shouldBeEqualToComparingFields
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -145,5 +147,29 @@ class OpenAIChatParamsTest {
 
         val target = source.copy()
         target shouldBeEqualToComparingFields source
+    }
+
+    @Test
+    fun `chat template kwargs preserve arbitrary JSON and can be removed`() {
+        val kwargs = buildJsonObject {
+            put("thinking", JsonPrimitive(true))
+            put("provider_options", buildJsonArray { add(JsonPrimitive("arbitrary")) })
+        }
+        val configured = OpenAIChatParams(temperature = 0.7).withChatTemplateKwargs(kwargs)
+
+        configured.temperature shouldBe 0.7
+        configured.chatTemplateKwargs shouldBe kwargs
+        configured.withChatTemplateKwargs(null).chatTemplateKwargs shouldBe null
+    }
+
+    @Test
+    fun `chat template kwargs reserved additional property must be an object`() {
+        shouldThrow<IllegalArgumentException> {
+            OpenAIChatParams(
+                additionalProperties = mapOf(
+                    OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY to JsonPrimitive(true),
+                ),
+            )
+        }.message shouldBe "$OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY must be a JSON object"
     }
 }

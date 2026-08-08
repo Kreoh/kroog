@@ -99,8 +99,16 @@ val chatParams = OpenAIChatParams(
     parallelToolCalls = true,
     audio = OpenAIAudioConfig(voice = "alloy", format = "mp3"),
     webSearchOptions = OpenAIWebSearchOptions(enabled = true)
+).withChatTemplateKwargs(
+    buildJsonObject {
+        put("thinking", true)
+    }
 )
 ```
+
+`withChatTemplateKwargs` accepts any `JsonObject` and sends it unchanged as `chat_template_kwargs`. This supports
+OpenAI-compatible providers whose model families use different chat template controls, without encoding those
+provider-specific keys in Kroog's public API.
 
 #### OpenAI Responses API Parameters
 

@@ -8,7 +8,11 @@ import ai.koog.prompt.params.LLMParams
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
@@ -145,6 +149,30 @@ class OpenAILLMClientTest {
             request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
             request["temperature"]?.jsonPrimitive?.double shouldBe 0.4
         }
+    }
+
+    @Test
+    fun `Chat Completions passes arbitrary chat template kwargs unchanged`() {
+        val chatTemplateKwargs = buildJsonObject {
+            put("thinking", JsonPrimitive(true))
+            put("thinking_mode", JsonPrimitive("adaptive"))
+            put(
+                "provider_options",
+                buildJsonArray {
+                    add(JsonPrimitive(7))
+                    add(buildJsonObject { put("nested", JsonPrimitive("value")) })
+                },
+            )
+        }
+
+        val request = chatRequest(
+            OpenAIModels.Chat.GPT4o,
+            OpenAIChatParams().withChatTemplateKwargs(chatTemplateKwargs),
+        )
+
+        request["chat_template_kwargs"]?.jsonObject shouldBe chatTemplateKwargs
+        request["chat_template_kwargs"]?.jsonObject
+            ?.get("provider_options")?.jsonArray?.size shouldBe 2
     }
 
     private fun chatRequest(model: LLModel, params: OpenAIChatParams): JsonObject =

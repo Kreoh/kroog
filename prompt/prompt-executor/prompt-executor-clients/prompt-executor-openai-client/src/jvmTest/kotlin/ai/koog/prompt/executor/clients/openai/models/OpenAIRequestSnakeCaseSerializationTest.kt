@@ -100,6 +100,26 @@ class OpenAIRequestSnakeCaseSerializationTest {
     }
 
     @Test
+    fun `chat completion request always uses the provider chat template kwargs field`() {
+        val kwargs = buildJsonObject {
+            put("thinking", JsonPrimitive(true))
+            put("model_specific", buildJsonObject { put("depth", JsonPrimitive(7)) })
+        }
+        val request = OpenAIChatCompletionRequest(
+            model = "provider/model",
+            messages = emptyList(),
+            chatTemplateKwargs = kwargs,
+        )
+
+        val tree = snakeCaseJson.parseToJsonElement(
+            snakeCaseJson.encodeToString(OpenAIChatCompletionRequestSerializer, request),
+        ).jsonObject
+
+        tree["chat_template_kwargs"]?.jsonObject shouldBe kwargs
+        tree.keys.shouldNotContain("chatTemplateKwargs")
+    }
+
+    @Test
     fun testChatCompletionRequestSerializesXhighReasoningEffort() {
         val request = OpenAIChatCompletionRequest(
             model = "gpt-5.4",

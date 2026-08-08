@@ -9,10 +9,13 @@ import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.executor.clients.openai.models.Truncation
 import ai.koog.prompt.params.LLMParams
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.jetbrains.annotations.ApiStatus.Experimental
 import kotlin.jvm.JvmOverloads
 
 internal sealed interface OpenAIParams
+
+internal const val OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY: String = "chat_template_kwargs"
 
 /** Raw application identity used only as input to Kroog's OpenAI prompt-cache digest. */
 public data class OpenAIPromptCacheIdentity(
@@ -149,6 +152,9 @@ public class OpenAIChatParams(
         require(safetyIdentifier == null || safetyIdentifier.isNotBlank()) {
             "safetyIdentifier must be non-blank"
         }
+        require(additionalProperties?.get(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY).let { it == null || it is JsonObject }) {
+            "$OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY must be a JSON object"
+        }
 
         // --- Stop sequences ---
         if (stop != null) {
@@ -242,6 +248,27 @@ public class OpenAIChatParams(
         topP = topP,
         webSearchOptions = webSearchOptions,
     )
+
+    /**
+     * Returns a copy with arbitrary provider-specific chat template arguments.
+     *
+     * Kroog passes the object through unchanged as `chat_template_kwargs` in Chat Completions requests. A null value
+     * removes previously configured arguments. The object contents remain provider-defined.
+     */
+    public fun withChatTemplateKwargs(chatTemplateKwargs: JsonObject?): OpenAIChatParams {
+        val properties = additionalProperties.orEmpty().toMutableMap().apply {
+            if (chatTemplateKwargs == null) {
+                remove(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY)
+            } else {
+                put(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY, chatTemplateKwargs)
+            }
+        }
+        return copy(additionalProperties = properties.takeIf { it.isNotEmpty() })
+    }
+
+    /** Arbitrary provider-specific chat template arguments configured for Chat Completions requests. */
+    public val chatTemplateKwargs: JsonObject?
+        get() = additionalProperties?.get(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY) as? JsonObject
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true

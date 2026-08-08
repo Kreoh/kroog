@@ -21,6 +21,7 @@ import ai.koog.prompt.executor.clients.serialization.AdditionalPropertiesFlatten
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlin.collections.List
 
 /**
@@ -156,6 +157,7 @@ import kotlin.collections.List
  * A stable identifier for your end-users.
  * Used to boost cache hit rates by better bucketing similar requests and to help OpenAI detect and prevent abuse.
  * @property webSearchOptions This tool searches the web for relevant results to use in a response.
+ * @property chatTemplateKwargs Arbitrary provider-specific chat template arguments passed through unchanged.
  */
 @Serializable
 internal class OpenAIChatCompletionRequest(
@@ -191,6 +193,8 @@ internal class OpenAIChatCompletionRequest(
     override val topP: Double? = null,
     val user: String? = null,
     val webSearchOptions: OpenAIWebSearchOptions? = null,
+    @SerialName("chat_template_kwargs")
+    val chatTemplateKwargs: JsonObject? = null,
     val additionalProperties: Map<String, JsonElement>? = null,
 ) : OpenAIBaseLLMRequest
 

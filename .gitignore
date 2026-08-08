@@ -15,6 +15,7 @@ docs/docs-code-snippets/*.java
 .DS_Store
 /.claude/*
 !/.claude/skills/
+/.codex/
 /.junie/memory
 
 # Logs
