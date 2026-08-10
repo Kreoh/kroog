@@ -44,6 +44,7 @@ include(":integration-tests")
 
 include(":koog-agents")
 include(":koog-agents-additions")
+include(":skills")
 
 include(":prompt:prompt-cache:prompt-cache-files")
 include(":prompt:prompt-cache:prompt-cache-model")
