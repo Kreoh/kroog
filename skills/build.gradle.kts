@@ -4,6 +4,7 @@ val isBeta by extra(true)
 
 plugins {
     id("ai.kotlin.multiplatform.server")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -11,6 +12,7 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":agents:agents-tools"))
+                implementation(libs.kotlinx.serialization.json)
             }
         }
 
