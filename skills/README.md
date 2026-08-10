@@ -114,11 +114,10 @@ with no-follow operations, which preserves containment during concurrent path
 replacement. Strict character decoding reports malformed or unmappable input
 as `SkillError.DecodingFailure`.
 
-Symlinks fail closed. The default `SymlinkPolicy.REJECT` produces
-`SkillError.SymlinkRejected`. The current `ALLOW_INTERNAL` option also refuses
-the link and produces `SkillError.ContainmentViolation`, because race-safe link
-following is unavailable. This applies to directory and document links, whether
-their targets are internal or escaping.
+Symlinks fail closed. `SymlinkPolicy.REJECT` produces
+`SkillError.SymlinkRejected` for every directory or document link, whether its
+target is internal or escaping. Race-safe link following is unavailable, so the
+public policy does not offer a link-following option.
 
 Filesystem failures remain typed as `SkillError.IoFailure` inside
 `SkillException`; they are not converted into missing skills. With the default

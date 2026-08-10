@@ -226,7 +226,7 @@ class JvmFileSystemSkillSourceTest {
     }
 
     @Test
-    fun `internal file symlinks are rejected or safely refused`() = runTest {
+    fun `internal file symlinks are rejected`() = runTest {
         val root = tempDir.resolve("root").createDirectories()
         val backing = root.resolve("backing.md")
         Files.writeString(backing, skillDocument("linked"))
@@ -236,29 +236,24 @@ class JvmFileSystemSkillSourceTest {
         assertIs<SkillError.SymlinkRejected>(
             assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
         )
-        val policy = SkillLoadPolicy(symlink = SymlinkPolicy.ALLOW_INTERNAL)
-        assertIs<SkillError.ContainmentViolation>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root), policy).load() }.error
-        )
     }
 
     @Test
-    fun `escaping file and directory symlinks violate containment`() = runTest {
+    fun `escaping file and directory symlinks are rejected`() = runTest {
         val root = tempDir.resolve("root").createDirectories()
         val outsideFile = tempDir.resolve("outside.md")
         Files.writeString(outsideFile, skillDocument("escape"))
         Files.createSymbolicLink(root.resolve("escape").createDirectories().resolve("SKILL.md"), outsideFile)
-        val allow = SkillLoadPolicy(symlink = SymlinkPolicy.ALLOW_INTERNAL)
-        assertIs<SkillError.ContainmentViolation>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root), allow).load() }.error
+        assertIs<SkillError.SymlinkRejected>(
+            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
         )
 
         Files.delete(root.resolve("escape").resolve("SKILL.md"))
         val outsideDirectory = tempDir.resolve("outside-dir").createDirectories()
         writeSkill(outsideDirectory, "linked-dir")
         Files.createSymbolicLink(root.resolve("linked-dir"), outsideDirectory.resolve("linked-dir"))
-        assertIs<SkillError.ContainmentViolation>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root), allow).load() }.error
+        assertIs<SkillError.SymlinkRejected>(
+            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
         )
     }
 

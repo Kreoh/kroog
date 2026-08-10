@@ -11,8 +11,8 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":agents:agents-tools"))
-                implementation(libs.kotlinx.serialization.json)
+                api(project(":agents:agents-tools"))
+                api(libs.kotlinx.serialization.json)
             }
         }
 

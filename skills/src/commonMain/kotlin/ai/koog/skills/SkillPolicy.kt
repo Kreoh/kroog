@@ -31,7 +31,7 @@ public enum class MissingRootPolicy { FAIL, IGNORE, DIAGNOSTIC }
 public enum class MalformedSkillPolicy { FAIL, SKIP_WITH_DIAGNOSTIC }
 public enum class DuplicateSkillPolicy { FAIL, KEEP_FIRST, KEEP_LAST }
 public enum class ToolCollisionPolicy { FAIL, KEEP_EXISTING, REPLACE }
-public enum class SymlinkPolicy { REJECT, ALLOW_INTERNAL }
+public enum class SymlinkPolicy { REJECT }
 public enum class UnknownFieldPolicy { REJECT, IGNORE }
 public enum class DiagnosticPathPolicy { REDACT, DISCLOSE }
 public enum class SkillLifecyclePolicy { IMMUTABLE_SNAPSHOT, EXPLICIT_RELOAD }

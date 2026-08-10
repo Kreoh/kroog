@@ -312,11 +312,8 @@ public class JvmFileSystemSkillSource internal constructor(
     }
 
     private fun handleSymlink(path: Path, diagnostics: MutableList<SkillDiagnostic>) {
-        val error: SkillError = when (policy.symlink) {
-            SymlinkPolicy.REJECT -> SkillError.SymlinkRejected(reference(path))
-            SymlinkPolicy.ALLOW_INTERNAL -> SkillError.ContainmentViolation(reference(path))
-        }
-        handleMalformed(error, diagnostics)
+        check(policy.symlink == SymlinkPolicy.REJECT)
+        handleMalformed(SkillError.SymlinkRejected(reference(path)), diagnostics)
     }
 
     private fun exhaustBudget(
