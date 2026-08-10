@@ -31,7 +31,10 @@ kotlin {
 
         jvmTest {
             dependencies {
+                implementation(project(":agents:agents-test"))
+                implementation(project(":agents:agents-features:agents-features-event-handler"))
                 implementation(kotlin("test-junit5"))
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
     }
