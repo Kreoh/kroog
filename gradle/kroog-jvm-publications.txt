@@ -1,6 +1,7 @@
 jvm :koog-agents
 jvm :koog-agents-additions
 jvm :koog-ktor
+jvm :skills
 jvm :utils
 jvm :a2a:a2a-client
 jvm :a2a:a2a-core

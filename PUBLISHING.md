@@ -3,8 +3,8 @@
 Kroog snapshots use Maven coordinates under `com.kreoh.kroog`. Kotlin packages
 remain under `ai.koog` for compatibility with JetBrains Koog.
 
-The complete catalogue contains 68 Kotlin JVM publications and 18 pure-JVM
-Maven publications, 86 in total. `gradle/kroog-jvm-publications.txt` is the
+The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
+Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
 stable version is `1.1.1-kroog.1`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
@@ -21,9 +21,18 @@ maven :serialization:serialization-jackson
 ```
 
 `jvm` selects only `JvmPublication`; `maven` selects only `MavenPublication`.
-Both workflows reject malformed lines and require exactly 68 `jvm` entries and
+Both workflows reject malformed lines and require exactly 69 `jvm` entries and
 18 `maven` entries. This prevents aggregate publication selectors from adding
 Kotlin Multiplatform root, Android, JavaScript, Wasm, Native or iOS artefacts.
+Snapshot staging requires exactly 87 POMs and 1,392 files. The release bundle
+requires exactly 87 coordinate entries and the same 1,392-file signed and
+checksummed closure.
+
+`com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
+snapshot version is `1.1.1-beta-kroog.1-SNAPSHOT`, and its release version is
+`1.1.1-beta-kroog.1`. It remains excluded from `koog-agents` and
+`koog-agents-additions`; publication is deferred to the normal release
+workflow.
 
 `prompt-executor-managed-execution-jvm` exports
 `aws.sdk.kotlin:bedrockagentcore:1.6.72`. The Bedrock client exports
@@ -76,7 +85,7 @@ temporary root, copies only the recorded primary files into it and resolves from
 that private verified snapshot. POSIX mode 0700 or an exactly verified
 single-owner ACL is mandatory. Immediately before every project or buildscript
 configuration resolves, ChatUI rechecks the captured root identity and exact
-602-file sizes, hashes and no-follow closure. Kroog is not configured as a
+609-file sizes, hashes and no-follow closure. Kroog is not configured as a
 Gradle plugin repository. Concurrent builds share no snapshot, lock or cache.
 Build-finished and JVM-shutdown hooks attempt bounded cleanup without following
 links and only while the root retains its original identity. A process crash can
@@ -102,12 +111,12 @@ Central Portal snapshot publication is opt-in. Supply token credentials through
 `ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword`, and set
 `-PpublishCentralSnapshots=true`.
 
-The `Publish Maven snapshot` workflow first derives 86 local
+The `Publish Maven snapshot` workflow first derives 87 local
 `ArtifactsRepository` tasks from the shared inventory and completes them without
 publication credentials. Only after that step succeeds does it run the existing
 JVM and pure-JVM Maven publication-type selectors and expose credentials to the
 remote Gradle invocation. The locally verified inventory establishes that those
-selectors resolve to the same 86 publication tasks. Both invocations use Java
+selectors resolve to the same 87 publication tasks. Both invocations use Java
 21, `--no-parallel` and `--no-daemon`. A local failure therefore prevents every
 remote upload.
 
@@ -168,7 +177,7 @@ the workflow. Restrict the unencrypted private key to the local GnuPG keyring,
 the GitHub Actions secret and a protected offline backup. Preserve its
 revocation certificate separately.
 
-The workflow derives all 86 module-qualified local tasks from the shared
+The workflow derives all 87 module-qualified local tasks from the shared
 inventory, then signs and stages every release artefact. It discovers each
 coordinate and its actual version from the staged POM path, validates the POM,
 JARs, detached signatures and checksum sidecars, and copies the exact Maven
