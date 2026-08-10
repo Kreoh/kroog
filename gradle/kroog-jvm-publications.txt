@@ -66,6 +66,7 @@ jvm :prompt:prompt-executor:prompt-executor-clients:prompt-executor-ollama-clien
 jvm :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client
 jvm :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client-base
 jvm :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openrouter-client
+maven :koog-bedrock-agentcore-runtime
 maven :koog-spring-boot-starter
 maven :http-client:http-client-java
 maven :http-client:http-client-okhttp

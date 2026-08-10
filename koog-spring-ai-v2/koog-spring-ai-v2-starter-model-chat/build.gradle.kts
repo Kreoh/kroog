@@ -30,7 +30,7 @@ dependencies {
     api(project(":prompt:prompt-executor:prompt-executor-clients"))
     api(project(":prompt:prompt-executor:prompt-executor-model"))
     api(project.dependencies.platform(libs.spring.ai.v2.bom))
-    api(libs.spring.ai.model)
+    api(libs.spring.ai.v2.model)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.spring.boot.starter.test)

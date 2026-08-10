@@ -29,7 +29,7 @@ dependencies {
     api(project(":koog-spring-ai-v2:koog-spring-ai-v2-common"))
     api(project(":agents:agents-features:agents-features-memory"))
     api(project.dependencies.platform(libs.spring.ai.v2.bom))
-    api(libs.spring.ai.model)
+    api(libs.spring.ai.v2.model)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -3,10 +3,10 @@
 Kroog snapshots use Maven coordinates under `com.kreoh.kroog`. Kotlin packages
 remain under `ai.koog` for compatibility with JetBrains Koog.
 
-The complete catalogue contains 68 Kotlin JVM publications and 17 pure-JVM
-Maven publications, 85 in total. `gradle/kroog-jvm-publications.txt` is the
+The complete catalogue contains 68 Kotlin JVM publications and 18 pure-JVM
+Maven publications, 86 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.0.0-kroog.3`; modules which apply a beta version transform
+stable version is `1.1.1-kroog.1`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -22,7 +22,7 @@ maven :serialization:serialization-jackson
 
 `jvm` selects only `JvmPublication`; `maven` selects only `MavenPublication`.
 Both workflows reject malformed lines and require exactly 68 `jvm` entries and
-17 `maven` entries. This prevents aggregate publication selectors from adding
+18 `maven` entries. This prevents aggregate publication selectors from adding
 Kotlin Multiplatform root, Android, JavaScript, Wasm, Native or iOS artefacts.
 
 `prompt-executor-managed-execution-jvm` exports
@@ -76,7 +76,7 @@ temporary root, copies only the recorded primary files into it and resolves from
 that private verified snapshot. POSIX mode 0700 or an exactly verified
 single-owner ACL is mandatory. Immediately before every project or buildscript
 configuration resolves, ChatUI rechecks the captured root identity and exact
-595-file sizes, hashes and no-follow closure. Kroog is not configured as a
+602-file sizes, hashes and no-follow closure. Kroog is not configured as a
 Gradle plugin repository. Concurrent builds share no snapshot, lock or cache.
 Build-finished and JVM-shutdown hooks attempt bounded cleanup without following
 links and only while the root retains its original identity. A process crash can
@@ -102,12 +102,12 @@ Central Portal snapshot publication is opt-in. Supply token credentials through
 `ORG_GRADLE_PROJECT_centralPortalSnapshotsPassword`, and set
 `-PpublishCentralSnapshots=true`.
 
-The `Publish Maven snapshot` workflow first derives 85 local
+The `Publish Maven snapshot` workflow first derives 86 local
 `ArtifactsRepository` tasks from the shared inventory and completes them without
 publication credentials. Only after that step succeeds does it run the existing
 JVM and pure-JVM Maven publication-type selectors and expose credentials to the
 remote Gradle invocation. The locally verified inventory establishes that those
-selectors resolve to the same 85 publication tasks. Both invocations use Java
+selectors resolve to the same 86 publication tasks. Both invocations use Java
 21, `--no-parallel` and `--no-daemon`. A local failure therefore prevents every
 remote upload.
 
@@ -137,7 +137,7 @@ dependency locks and dependency-verification checksums from that generation.
 Stable releases use the separate, manually dispatched `Publish Maven release`
 workflow. The configured version in `gradle.properties` must be stable. Create
 an immutable tag whose name exactly matches that version, for example
-`1.0.0-kroog.3`, only after the release commit has been reviewed. The immutable
+`1.1.1-kroog.1`, only after the release commit has been reviewed. The immutable
 `1.0.0-kroog.2` tag uploaded all 85 components, but Central rejected eight
 Spring AI starter POMs because they omitted the matching Spring AI BOM imports.
 It must not be moved or reused. The immutable `1.0.0-kroog.1` tag contains the
@@ -168,7 +168,7 @@ the workflow. Restrict the unencrypted private key to the local GnuPG keyring,
 the GitHub Actions secret and a protected offline backup. Preserve its
 revocation certificate separately.
 
-The workflow derives all 85 module-qualified local tasks from the shared
+The workflow derives all 86 module-qualified local tasks from the shared
 inventory, then signs and stages every release artefact. It discovers each
 coordinate and its actual version from the staged POM path, validates the POM,
 JARs, detached signatures and checksum sidecars, and copies the exact Maven

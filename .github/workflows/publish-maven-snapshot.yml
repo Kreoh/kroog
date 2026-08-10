@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           inventory=gradle/kroog-jvm-publications.txt
           mapfile -t publications < "$inventory"
-          [[ "${#publications[@]}" -eq 85 ]]
+          [[ "${#publications[@]}" -eq 86 ]]
 
           local_tasks=()
           jvm_count=0
@@ -62,12 +62,19 @@ jobs:
                 ;;
             esac
           done
-          [[ "$jvm_count" -eq 68 && "$maven_count" -eq 17 ]]
+          [[ "$jvm_count" -eq 68 && "$maven_count" -eq 18 ]]
           ./gradlew \
             "${local_tasks[@]}" \
             --no-parallel \
             --no-daemon \
             --stacktrace
+
+          staged_root="build/artifacts/maven/com/kreoh/kroog"
+          mapfile -d '' -t staged_poms < <(
+            find "$staged_root" -mindepth 3 -maxdepth 3 -type f -name '*.pom' -print0 | sort -z
+          )
+          [[ "${#staged_poms[@]}" -eq 86 ]]
+          [[ "$(find "$staged_root" -type f | wc -l)" -eq 1376 ]]
 
       - name: Verify Central Portal credentials
         env:

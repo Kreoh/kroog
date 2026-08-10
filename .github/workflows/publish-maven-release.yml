@@ -77,7 +77,7 @@ jobs:
           set -euo pipefail
           inventory=gradle/kroog-jvm-publications.txt
           mapfile -t publications < "$inventory"
-          [[ "${#publications[@]}" -eq 85 ]]
+          [[ "${#publications[@]}" -eq 86 ]]
 
           local_tasks=()
           jvm_count=0
@@ -100,7 +100,7 @@ jobs:
                 ;;
             esac
           done
-          [[ "$jvm_count" -eq 68 && "$maven_count" -eq 17 ]]
+          [[ "$jvm_count" -eq 68 && "$maven_count" -eq 18 ]]
           ./gradlew \
             "${local_tasks[@]}" \
             --no-parallel \
@@ -160,7 +160,7 @@ jobs:
           mapfile -d '' -t staged_poms < <(
             find "$source_root" -mindepth 3 -maxdepth 3 -type f -name '*.pom' -print0 | sort -z
           )
-          [[ "${#staged_poms[@]}" -eq 85 ]]
+          [[ "${#staged_poms[@]}" -eq 86 ]]
           for pom in "${staged_poms[@]}"; do
             copy_coordinate "$pom"
           done
@@ -209,12 +209,12 @@ jobs:
             grep -Fq "<artifactId>$artifact</artifactId>" "$directory/$artifact-$version.pom"
             grep -Fq "<version>$version</version>" "$directory/$artifact-$version.pom"
           }
-          [[ "$(wc -l < "$coordinates_file")" -eq 85 ]]
+          [[ "$(wc -l < "$coordinates_file")" -eq 86 ]]
           while IFS='|' read -r artifact version; do
             validate_coordinate "$artifact" "$version"
           done < "$coordinates_file"
-          [[ "$(find "$bundle_root" -mindepth 2 -maxdepth 2 -type d | wc -l)" -eq 85 ]]
-          [[ "$(find "$bundle_root" -type f | wc -l)" -eq 1360 ]]
+          [[ "$(find "$bundle_root" -mindepth 2 -maxdepth 2 -type d | wc -l)" -eq 86 ]]
+          [[ "$(find "$bundle_root" -type f | wc -l)" -eq 1376 ]]
           unzip -t build/kroog-maven-central-bundle.zip >/dev/null
 
       - name: Upload user-managed deployment to Central Portal

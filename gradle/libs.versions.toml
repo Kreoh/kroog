@@ -81,6 +81,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor3" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor3" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor3" }
+ktor-server-rate-limit = { module = "io.ktor:ktor-server-rate-limit", version.ref = "ktor3" }
 ktor-server-sse = { module = "io.ktor:ktor-server-sse", version.ref = "ktor3" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor3" }
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor3" }
@@ -152,8 +153,10 @@ reactor-kotlin-extensions = { module = "io.projectreactor.kotlin:reactor-kotlin-
 # Spring AI
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
 spring-ai-v2-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai-v2" }
-spring-ai-model = { module = "org.springframework.ai:spring-ai-model" }
-spring-ai-vectorstore = { module = "org.springframework.ai:spring-ai-vector-store" }
+spring-ai-model = { module = "org.springframework.ai:spring-ai-model", version.ref = "spring-ai" }
+spring-ai-vectorstore = { module = "org.springframework.ai:spring-ai-vector-store", version.ref = "spring-ai" }
+spring-ai-v2-model = { module = "org.springframework.ai:spring-ai-model", version.ref = "spring-ai-v2" }
+spring-ai-v2-vectorstore = { module = "org.springframework.ai:spring-ai-vector-store", version.ref = "spring-ai-v2" }
 spring-ai-v2-openai = { module = "org.springframework.ai:spring-ai-openai" }
 spring-ai-v2-google = { module = "org.springframework.ai:spring-ai-google-genai" }
 spring-ai-v2-anthropic = { module = "org.springframework.ai:spring-ai-anthropic" }
