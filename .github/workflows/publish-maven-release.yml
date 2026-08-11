@@ -2,6 +2,11 @@ name: Publish Maven release
 
 'on':
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Exact annotated release tag matching the stable Gradle version'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,31 +26,136 @@ jobs:
       - name: Configure Git
         run: git config --global core.autocrlf input
 
+      - name: Verify workflow dispatch source
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_REF_NAME: ${{ github.ref_name }}
+          DISPATCH_REF_TYPE: ${{ github.ref_type }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$REQUESTED_RELEASE_TAG" ]]; then
+            echo "Enter the exact annotated release tag in the release_tag input." >&2
+            exit 1
+          fi
+          if [[ ! "$REQUESTED_RELEASE_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+-kroog\.[0-9]+$ ]]; then
+            echo "release_tag must use the stable MAJOR.MINOR.PATCH-kroog.REVISION format, for example 1.1.1-kroog.1." >&2
+            exit 1
+          fi
+          tag_ref="refs/tags/$REQUESTED_RELEASE_TAG"
+          if ! git check-ref-format "$tag_ref"; then
+            echo "release_tag must be the exact name of a valid annotated release tag." >&2
+            exit 1
+          fi
+          case "$DISPATCH_REF_TYPE" in
+            branch)
+              default_branch_ref="refs/heads/$DEFAULT_BRANCH"
+              if [[ -z "$DEFAULT_BRANCH" || "$DISPATCH_REF_NAME" != "$DEFAULT_BRANCH" || "$DISPATCH_REF" != "$default_branch_ref" ]]; then
+                echo "Browser dispatches must select the repository default branch and enter the exact annotated release tag." >&2
+                exit 1
+              fi
+              ;;
+            tag)
+              if [[ "$DISPATCH_REF_NAME" != "$REQUESTED_RELEASE_TAG" || "$DISPATCH_REF" != "$tag_ref" ]]; then
+                echo "Tag-ref dispatches must use the same exact annotated tag as the release_tag input." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Dispatch from the repository default branch, or from the same exact tag supplied as release_tag." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Checkout immutable release commit
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
-          ref: ${{ github.sha }}
+          ref: refs/tags/${{ inputs.release_tag }}
 
       - name: Verify release tag and version
+        id: release
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_REF_NAME: ${{ github.ref_name }}
+          DISPATCH_REF_TYPE: ${{ github.ref_type }}
+          DISPATCH_SHA: ${{ github.sha }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          configured_version="$(sed -n 's/^version=//p' gradle.properties)"
+          mapfile -t configured_versions < <(sed -n 's/^version=//p' gradle.properties)
+          if [[ "${#configured_versions[@]}" -ne 1 ]]; then
+            echo "gradle.properties must contain one stable release version." >&2
+            exit 1
+          fi
+          configured_version="${configured_versions[0]}"
           if [[ -z "$configured_version" || "$configured_version" == *-SNAPSHOT ]]; then
             echo "gradle.properties must contain one stable release version." >&2
             exit 1
           fi
-          if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != "$configured_version" ]]; then
-            echo "Dispatch this workflow from the immutable $configured_version tag." >&2
+          if [[ ! "$configured_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-kroog\.[0-9]+$ ]]; then
+            echo "The stable Gradle version must use the MAJOR.MINOR.PATCH-kroog.REVISION format." >&2
             exit 1
           fi
-          tag_commit="$(git rev-list -n 1 "$GITHUB_REF")"
-          if [[ "$tag_commit" != "$GITHUB_SHA" ]]; then
-            echo "The selected tag does not resolve to the checked-out workflow commit." >&2
+          if [[ "$REQUESTED_RELEASE_TAG" != "$configured_version" ]]; then
+            echo "release_tag must exactly match the stable Gradle version: $configured_version" >&2
             exit 1
           fi
+
+          tag_ref="refs/tags/$configured_version"
+          if ! git show-ref --verify --quiet -- "$tag_ref"; then
+            echo "The exact release tag $tag_ref is absent from the checkout." >&2
+            exit 1
+          fi
+          tag_type="$(git cat-file -t "$tag_ref")"
+          if [[ "$tag_type" != "tag" ]]; then
+            echo "$tag_ref must be an annotated tag; lightweight release tags are rejected." >&2
+            exit 1
+          fi
+
+          local_tag_object="$(git rev-parse --verify --end-of-options "$tag_ref")"
+          tag_commit="$(git rev-parse --verify --end-of-options "${tag_ref}^{commit}")"
+          head_commit="$(git rev-parse --verify HEAD)"
+          if [[ "$head_commit" != "$tag_commit" ]]; then
+            echo "The checked-out HEAD does not equal the release tag's peeled commit." >&2
+            exit 1
+          fi
+
+          remote_output="$(git ls-remote --refs origin "$tag_ref")" || {
+            echo "Could not verify the exact release tag on origin." >&2
+            exit 1
+          }
+          remote_matches=()
+          while IFS= read -r remote_line; do
+            [[ -n "$remote_line" ]] && remote_matches+=("$remote_line")
+          done <<< "$remote_output"
+          if [[ "${#remote_matches[@]}" -ne 1 ]]; then
+            echo "origin must contain exactly one $tag_ref object; found ${#remote_matches[@]}." >&2
+            exit 1
+          fi
+          IFS=$'\t' read -r remote_tag_object remote_tag_ref extra <<< "${remote_matches[0]}"
+          if [[ -n "${extra:-}" || "$remote_tag_ref" != "$tag_ref" || "$remote_tag_object" != "$local_tag_object" ]]; then
+            echo "The exact annotated tag object on origin does not match the local release tag object." >&2
+            exit 1
+          fi
+
+          if [[ "$DISPATCH_REF_TYPE" == "tag" ]]; then
+            if [[ "$DISPATCH_REF" != "$tag_ref" || "$DISPATCH_REF_NAME" != "$configured_version" || "$DISPATCH_SHA" != "$tag_commit" ]]; then
+              echo "The tag-ref dispatch context does not match the exact release tag and peeled commit." >&2
+              exit 1
+            fi
+          fi
+
+          if [[ "$DISPATCH_REF_TYPE" != "branch" && "$DISPATCH_REF_TYPE" != "tag" ]]; then
+            echo "The verified dispatch source must be a branch or tag." >&2
+            exit 1
+          fi
+          echo "release_tag=$configured_version" >> "$GITHUB_OUTPUT"
 
       - name: Verify release signing key
         env:
@@ -70,7 +180,7 @@ jobs:
 
       - name: Build exact signed JVM release closure
         env:
-          BRANCH_KOOG_IS_RELEASING_FROM: release/${{ github.ref_name }}
+          BRANCH_KOOG_IS_RELEASING_FROM: release/${{ steps.release.outputs.release_tag }}
           KOOG_GITHUB_RELEASE: 'true'
         shell: bash
         run: |
@@ -174,7 +284,7 @@ jobs:
         if: always() && steps.bundle.outputs.created == 'true'
         uses: actions/upload-artifact@v6
         with:
-          name: kroog-maven-central-bundle-${{ github.ref_name }}
+          name: kroog-maven-central-bundle-${{ steps.release.outputs.release_tag }}
           path: build/kroog-maven-central-bundle.zip
           if-no-files-found: error
           retention-days: 30
@@ -221,11 +331,29 @@ jobs:
         env:
           CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
           CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
           portal_token="$(printf '%s:%s' "$CENTRAL_PORTAL_USERNAME" "$CENTRAL_PORTAL_PASSWORD" | base64 --wrap=0)"
           echo "::add-mask::$portal_token"
+          encoded_upload_url="$(
+            curl \
+              --get \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --write-out '%{url_effective}' \
+              --data-urlencode "name=kroog-$RELEASE_TAG" \
+              --data-urlencode 'publishingType=USER_MANAGED' \
+              'file:///dev/null'
+          )"
+          local_url_prefix='file:///dev/null'
+          if [[ "$encoded_upload_url" != "$local_url_prefix"\?* ]]; then
+            echo "Could not construct the encoded Central Portal upload URL." >&2
+            exit 1
+          fi
+          upload_url="https://central.sonatype.com/api/v1/publisher/upload${encoded_upload_url#"$local_url_prefix"}"
           curl \
             --fail-with-body \
             --silent \
@@ -234,4 +362,4 @@ jobs:
             --header "Authorization: Bearer $portal_token" \
             --form bundle=@build/kroog-maven-central-bundle.zip \
             --write-out 'Central Portal accepted the user-managed bundle (HTTP %{http_code}).\n' \
-            "https://central.sonatype.com/api/v1/publisher/upload?name=kroog-$GITHUB_REF_NAME&publishingType=USER_MANAGED"
+            "$upload_url"

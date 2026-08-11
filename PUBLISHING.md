@@ -147,12 +147,63 @@ Stable releases use the separate, manually dispatched `Publish Maven release`
 workflow. The configured version in `gradle.properties` must be stable. Create
 an immutable tag whose name exactly matches that version, for example
 `1.1.1-kroog.1`, only after the release commit has been reviewed. The immutable
-`1.0.0-kroog.2` tag uploaded all 85 components, but Central rejected eight
+tag must use decimal `MAJOR.MINOR.PATCH-kroog.REVISION` fields. Characters
+with path or query meaning, separators and whitespace are rejected before
+checkout. The immutable `1.0.0-kroog.2` tag uploaded all 85 components, but
+Central rejected eight
 Spring AI starter POMs because they omitted the matching Spring AI BOM imports.
 It must not be moved or reused. The immutable `1.0.0-kroog.1` tag contains the
 incomplete 38-coordinate workflow and must not be moved or reused. Protect the
-release tag pattern in GitHub and never move or reuse a release tag. Dispatch
-the workflow from the new tag.
+release tag pattern with a GitHub tag ruleset that restricts tag updates and
+deletions, and tightly restrict any bypass permission. Never move, delete or
+reuse a release tag.
+
+Create and push an annotated tag, then verify that origin has the same tag
+object. A lightweight tag is rejected even when it points at the right commit.
+
+```shell
+version="$(sed -n 's/^version=//p' gradle.properties)"
+git tag -a "$version" -m "Kroog $version"
+git push origin "refs/tags/$version"
+test "$(git cat-file -t "refs/tags/$version")" = tag
+test "$(git ls-remote --refs origin "refs/tags/$version" | cut -f1)" = \
+  "$(git rev-parse "refs/tags/$version")"
+```
+
+To dispatch in the GitHub browser, open **Actions**, select **Publish Maven
+release**, and choose **Run workflow**. Select the repository default branch in
+the branch selector, enter the exact annotated tag in `release_tag`, and run
+the workflow. The branch selects the trusted workflow definition. The workflow
+checks out and publishes the commit peeled from `release_tag`, rather than the
+default-branch commit.
+
+The equivalent GitHub CLI command is:
+
+```shell
+default_branch="$(gh repo view Kreoh/kroog --json defaultBranchRef --jq \
+  '.defaultBranchRef.name')"
+gh workflow run publish-maven-release.yml \
+  --repo Kreoh/kroog \
+  --ref "$default_branch" \
+  --field release_tag="$version"
+```
+
+An API caller may dispatch from the same exact tag ref instead. In that mode,
+both the dispatch ref and `release_tag` must equal the configured stable
+version, and the dispatch SHA must equal the tag's peeled commit:
+
+```shell
+gh api --method POST \
+  "repos/Kreoh/kroog/actions/workflows/publish-maven-release.yml/dispatches" \
+  --field ref="$version" \
+  --field "inputs[release_tag]=$version"
+```
+
+Before dispatch, inspect the repository tag ruleset and confirm that the
+release-tag pattern cannot be updated or deleted. The workflow also requires
+the exact annotated tag object to exist on origin and match the local checkout.
+These checks make the explicit tag the immutable publication source even when
+the browser starts the workflow from the default branch.
 
 Configure these GitHub Actions secrets:
 
@@ -184,7 +235,9 @@ JARs, detached signatures and checksum sidecars, and copies the exact Maven
 layout into one bundle. This version discovery covers every beta-version module
 without a hard-coded beta list. The workflow retains the bundle as a workflow
 artefact, then uploads it once to the Central Portal publisher API with
-`publishingType=USER_MANAGED`. It does not publish or drop the deployment.
+`publishingType=USER_MANAGED`. Curl URL-encodes the verified deployment name and
+fixed publishing type before sending the multipart POST. The workflow does not
+publish or drop the deployment.
 
 After a successful upload, a human must open Central Portal, inspect the
 validation results and exact coordinate closure, and approve publication there.
