@@ -337,29 +337,14 @@ jobs:
           set -euo pipefail
           portal_token="$(printf '%s:%s' "$CENTRAL_PORTAL_USERNAME" "$CENTRAL_PORTAL_PASSWORD" | base64 --wrap=0)"
           echo "::add-mask::$portal_token"
-          encoded_upload_url="$(
-            curl \
-              --get \
-              --silent \
-              --show-error \
-              --output /dev/null \
-              --write-out '%{url_effective}' \
-              --data-urlencode "name=kroog-$RELEASE_TAG" \
-              --data-urlencode 'publishingType=USER_MANAGED' \
-              'file:///dev/null'
-          )"
-          local_url_prefix='file:///dev/null'
-          if [[ "$encoded_upload_url" != "$local_url_prefix"\?* ]]; then
-            echo "Could not construct the encoded Central Portal upload URL." >&2
-            exit 1
-          fi
-          upload_url="https://central.sonatype.com/api/v1/publisher/upload${encoded_upload_url#"$local_url_prefix"}"
           curl \
             --fail-with-body \
             --silent \
             --show-error \
             --request POST \
+            --url-query "name=kroog-$RELEASE_TAG" \
+            --url-query 'publishingType=USER_MANAGED' \
             --header "Authorization: Bearer $portal_token" \
             --form bundle=@build/kroog-maven-central-bundle.zip \
             --write-out 'Central Portal accepted the user-managed bundle (HTTP %{http_code}).\n' \
-            "$upload_url"
+            'https://central.sonatype.com/api/v1/publisher/upload'
