@@ -8,12 +8,12 @@ Use the local snapshot while developing against this Kroog line:
 
 ```kotlin
 dependencies {
-    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.1-SNAPSHOT")
+    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.2-SNAPSHOT")
 }
 ```
 
 The corresponding release coordinate is
-`com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.1`. Publication is deferred to
+`com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.2`. Publication is deferred to
 Kroog's normal release workflow.
 
 ## Skill documents
