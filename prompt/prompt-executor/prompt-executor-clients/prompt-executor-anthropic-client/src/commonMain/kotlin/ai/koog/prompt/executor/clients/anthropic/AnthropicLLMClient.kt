@@ -581,9 +581,10 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         require(additionalOutputConfig == null || additionalOutputConfig is JsonObject) {
             "Anthropic additionalProperties output_config must be a JSON object"
         }
+        val supportsTemperature = model.supports(LLMCapability.Temperature)
         val requestAdditionalProperties =
             anthropicParams.additionalProperties
-                ?.filterKeys { it != "output_config" }
+                ?.filterKeys { key -> key != "output_config" && (supportsTemperature || key != "temperature") }
                 ?.takeIf { it.isNotEmpty() }
 
         // Always include max_tokens as it's required by the API
@@ -599,7 +600,9 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             stopSequence = anthropicParams.stopSequences,
             stream = stream,
             system = systemMessages,
-            temperature = anthropicParams.temperature.takeUnless { adaptiveThinking != null },
+            temperature = anthropicParams.temperature.takeIf {
+                adaptiveThinking == null && supportsTemperature
+            },
             thinking = anthropicParams.thinking,
             toolChoice = toolChoice,
             tools = tools,

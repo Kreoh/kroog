@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
+import ai.koog.prompt.executor.clients.bedrock.BedrockModels
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModel
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelContent
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelMessage
@@ -32,6 +33,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -113,6 +115,47 @@ class BedrockAnthropicClaudeSerializationTest {
         assertTrue(userMessageActual is BedrockAnthropicInvokeModelMessage.User)
         assertEquals(1, userMessageActual.content.size)
         assertEquals(userMessage, (userMessageActual.content[0] as BedrockAnthropicInvokeModelContent.Text).text)
+    }
+
+    @Test
+    fun testClaudeOpus5InvokeModelRequestOmitsTypedAndAdditionalTemperature() {
+        val prompt = Prompt.build(
+            "opus-5-temperature",
+            params = LLMParams(
+                temperature = 0.7,
+                additionalProperties = mapOf("temperature" to JsonPrimitive(0.9)),
+            ),
+        ) {
+            user(userMessage)
+        }
+        val productionJson = Json {
+            explicitNulls = false
+            encodeDefaults = true
+        }
+
+        val encoded = BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(
+            prompt = prompt,
+            model = BedrockModels.AnthropicClaude5Opus,
+            tools = emptyList(),
+            requestJson = productionJson,
+        )
+
+        assertFalse("temperature" in Json.parseToJsonElement(encoded).jsonObject)
+    }
+
+    @Test
+    fun testTemperatureCapableClaudeInvokeModelRequestRetainsTemperature() {
+        val prompt = Prompt.build("opus-4-6-temperature", params = LLMParams(temperature = 0.7)) {
+            user(userMessage)
+        }
+
+        val request = BedrockAnthropicClaudeSerialization.createAnthropicRequest(
+            prompt = prompt,
+            model = BedrockModels.AnthropicClaude46Opus,
+            tools = emptyList(),
+        )
+
+        assertEquals(0.7, request.temperature)
     }
 
     @Test

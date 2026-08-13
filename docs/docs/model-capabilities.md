@@ -380,6 +380,8 @@ In the tables below:
     | Gemini2_0Flash001      | ✓           | Full        | ✓          | ✓                | ✓     | ✓           | ✓              | ✓              | ✓     |
     | Gemini2_0FlashLite     | ✓           | Full        | ✓          | ✓                | ✓     | ✓           | ✓              | ✓              | ✓     |
     | Gemini2_0FlashLite001  | ✓           | Full        | ✓          | ✓                | ✓     | ✓           | ✓              | ✓              | ✓     |
+    | Gemini3_5FlashLite     | -           | Full        | ✓          | -                | ✓     | ✓           | ✓              | ✓              | ✓     |
+    | Gemini3_6Flash         | -           | Full        | ✓          | -                | ✓     | ✓           | ✓              | ✓              | ✓     |
 
 ??? "OpenAI models"
     #### OpenAI models
@@ -408,7 +410,8 @@ In the tables below:
 
     | Model      | Temperature | JSON Schema | Completion | Tools | Tool Choice | Vision (Image) |
     |------------|-------------|-------------|------------|-------|-------------|----------------|
-    | Fable_5    | ✓           | Full        | ✓          | ✓     | ✓           | ✓              |
+    | Fable_5    | -           | Full        | ✓          | ✓     | ✓           | ✓              |
+    | Opus_5     | -           | Full        | ✓          | ✓     | ✓           | ✓              |
     | Opus_4_6   | ✓           | Full        | ✓          | ✓     | ✓           | ✓              |
     | Opus_4_5   | ✓           | Full        | ✓          | ✓     | ✓           | ✓              |
     | Opus_4_1   | ✓           | -           | ✓          | ✓     | ✓           | ✓              |
@@ -505,8 +508,9 @@ In the tables below:
 
     | Model                       | Temperature | JSON Schema | Completion | Tools | Tool Choice | Vision (Image) | Document |
     |-----------------------------|-------------|-------------|------------|-------|-------------|----------------|----------|
-    | AnthropicClaudeFable5       | ✓           | Full        | ✓          | ✓     | ✓           | ✓              | ✓        |
-    | AnthropicClaude47Opus       | ✓           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |
+    | AnthropicClaudeFable5       | -           | Full        | ✓          | ✓     | ✓           | ✓              | ✓        |
+    | AnthropicClaude5Opus        | -           | Full        | ✓          | ✓     | ✓           | ✓              | ✓        |
+    | AnthropicClaude47Opus       | -           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |
     | AnthropicClaude46Opus       | ✓           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |
     | AnthropicClaude45Opus       | ✓           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |
     | AnthropicClaude41Opus       | ✓           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |

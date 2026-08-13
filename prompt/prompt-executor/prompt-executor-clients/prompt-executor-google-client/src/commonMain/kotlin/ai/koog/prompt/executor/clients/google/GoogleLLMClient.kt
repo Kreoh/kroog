@@ -136,6 +136,20 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     private companion object {
         private const val GOOGLE_CLIENT_NAME = "GoogleLLMClient"
 
+        private val FIXED_SAMPLING_MODEL_IDS = setOf(
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+        )
+        private val UNSUPPORTED_SAMPLING_PROPERTY_NAMES = setOf(
+            "temperature",
+            "candidateCount",
+            "candidate_count",
+            "topP",
+            "top_p",
+            "topK",
+            "top_k",
+        )
+
         private val logger = KotlinLogging.logger { }
         private val json = Json {
             ignoreUnknownKeys = true
@@ -518,6 +532,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
+        require(model.id !in FIXED_SAMPLING_MODEL_IDS || contents.lastOrNull()?.role != "model") {
+            "Model ${model.id} does not accept a GenerateContent request whose final content role is model"
+        }
+
         val customGoogleTool = tools
             .map { tool ->
                 val properties = (tool.requiredParameters + tool.optionalParameters)
@@ -570,6 +588,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
+        val supportsCustomSampling = model.id !in FIXED_SAMPLING_MODEL_IDS
         val generationConfig = GoogleGenerationConfig(
             responseMimeType = responseFormat?.responseMimeType,
             responseSchema = responseFormat?.responseSchema,
@@ -577,10 +596,12 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             maxOutputTokens = googleParams.maxTokens,
             temperature = if (model.supports(LLMCapability.Temperature)) googleParams.temperature else null,
             candidateCount = if (model.supports(LLMCapability.MultipleChoices)) googleParams.numberOfChoices else null,
-            topP = googleParams.topP,
-            topK = googleParams.topK,
+            topP = googleParams.topP.takeIf { supportsCustomSampling },
+            topK = googleParams.topK.takeIf { supportsCustomSampling },
             thinkingConfig = googleParams.thinkingConfig,
             additionalProperties = googleParams.additionalProperties
+                ?.filterKeys { supportsCustomSampling || it !in UNSUPPORTED_SAMPLING_PROPERTY_NAMES }
+                ?.takeIf { it.isNotEmpty() }
         )
 
         val functionCallingConfig = when (val toolChoice = googleParams.toolChoice) {

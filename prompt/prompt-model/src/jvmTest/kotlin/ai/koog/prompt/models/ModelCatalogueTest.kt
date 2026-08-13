@@ -20,7 +20,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryCurrentKreLLMSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(32, ModelCatalogue.entries.size)
+        assertEquals(35, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -33,7 +33,11 @@ class ModelCatalogueTest {
         assertTrue(sonnet.structuredOutput)
         assertTrue(sonnet.hostedExecution)
         assertEquals(
-            setOf(ProviderApi.VERTEX_ANTHROPIC_MESSAGES, ProviderApi.BEDROCK_ANTHROPIC_MESSAGES),
+            setOf(
+                ProviderApi.VERTEX_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_CONVERSE,
+            ),
             sonnet.providerApis,
         )
         assertEquals(
@@ -59,6 +63,56 @@ class ModelCatalogueTest {
             setOf(ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT),
             flashLite.providerApis,
         )
+    }
+
+    @Test
+    fun testProviderVerifiedPostBaselineModelsRetainExactSemantics() {
+        listOf("gemini-3.5-flash-lite", "gemini-3.6-flash").forEach { id ->
+            val gemini = assertNotNull(ModelCatalogue.find(id))
+            assertEquals(ModelPublisher.GOOGLE, gemini.publisher)
+            assertEquals(1_048_576, gemini.maxInputTokens)
+            assertEquals(65_536, gemini.maxOutputTokens)
+            assertEquals(
+                mapOf("minimal" to 0.0, "low" to 0.25, "medium" to 0.5, "high" to 1.0),
+                (gemini.reasoning as ReasoningSupport.Supported).efforts,
+            )
+            assertEquals(
+                setOf(ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT),
+                gemini.providerApis,
+            )
+            assertEquals(gemini.providerApis, gemini.temperature.omittedProviderApis)
+            assertEquals(expectedGoogleMultimodalMimeTypes, gemini.supportedMimeTypes)
+            assertTrue(gemini.structuredOutput)
+            assertTrue(gemini.hostedExecution)
+        }
+
+        val opus = assertNotNull(ModelCatalogue.find("claude-opus-5"))
+        assertEquals(ModelPublisher.ANTHROPIC, opus.publisher)
+        assertEquals(1_000_000, opus.maxInputTokens)
+        assertEquals(128_000, opus.maxOutputTokens)
+        assertEquals(
+            mapOf(
+                "off" to 0.0,
+                "low" to 0.2,
+                "medium" to 0.4,
+                "high" to 0.6,
+                "xhigh" to 0.8,
+                "max" to 1.0,
+            ),
+            (opus.reasoning as ReasoningSupport.Supported).efforts,
+        )
+        assertEquals(
+            setOf(
+                ProviderApi.VERTEX_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_CONVERSE,
+            ),
+            opus.providerApis,
+        )
+        assertEquals(opus.providerApis, opus.temperature.omittedProviderApis)
+        assertEquals(expectedMultimodalMimeTypes, opus.supportedMimeTypes)
+        assertTrue(opus.structuredOutput)
+        assertTrue(opus.hostedExecution)
     }
 
     @Test
@@ -172,6 +226,44 @@ class ModelCatalogueTest {
     }
 
     private companion object {
+        val expectedMultimodalMimeTypes = setOf(
+            "text/plain",
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "application/pdf",
+        )
+        val expectedGoogleMultimodalMimeTypes = setOf(
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/heic",
+            "image/heif",
+            "application/pdf",
+            "text/plain",
+            "audio/x-aac",
+            "audio/flac",
+            "audio/m4a",
+            "audio/mp3",
+            "audio/mp4",
+            "audio/mpga",
+            "audio/mpeg",
+            "audio/ogg",
+            "audio/pcm",
+            "audio/wav",
+            "audio/webm",
+            "video/x-flv",
+            "video/quicktime",
+            "video/mpeg",
+            "video/mpegs",
+            "video/mpg",
+            "video/mp4",
+            "video/webm",
+            "video/wmv",
+            "video/3gpp",
+        )
+
         val expectedIds = setOf(
             "gpt-4.1",
             "gpt-4.1-mini",
@@ -195,12 +287,15 @@ class ModelCatalogueTest {
             "claude-4.8-opus",
             "claude-fable-5",
             "claude-sonnet-5",
+            "claude-opus-5",
             "deepseek-3.2",
             "gemini-2.5-pro",
             "gemini-2.5-flash",
             "gemini-3.1-pro",
             "gemini-3.1-flash-lite",
             "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
             "gemini-3-flash",
             "text-embedding-3-large",
             "gpt-realtime",

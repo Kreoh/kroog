@@ -9,6 +9,8 @@ import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_1FlashLite
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_1FlashLite_Preview
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_1Pro_Preview
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_5Flash
+import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_5FlashLite
+import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_6Flash
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_Flash_Preview
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -30,6 +32,8 @@ import kotlin.jvm.JvmField
  * | [Gemini3_1FlashLite_Preview]| Very fast | $0.25-$0.50 / $1.50          | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_1FlashLite]        | Very fast | $0.25-$0.50 / $1.50          | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_5Flash]            | Fast      | $1.50 / $9.00                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
+ * | [Gemini3_5FlashLite]        | Very fast | $0.30 / $2.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
+ * | [Gemini3_6Flash]            | Fast      | $1.50 / $7.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  *
  * @see <a href="modelcards.withgoogle.com/model-cards">
  */
@@ -69,7 +73,13 @@ public object GoogleModels : LLModelDefinitions {
      * Full capabilities including standard, multimodal, tools, native structured output
      */
     private val fullCapabilities: List<LLMCapability> =
-        standardCapabilities + multimodalCapabilities + toolCapabilities + structuredOutputCapabilities
+        standardCapabilities + multimodalCapabilities + LLMCapability.Document +
+            toolCapabilities + structuredOutputCapabilities
+
+    /** Capabilities for Gemini models that reject custom sampling and multiple candidates. */
+    private val fixedSamplingCapabilities: List<LLMCapability> =
+        listOf(LLMCapability.Completion) + multimodalCapabilities + LLMCapability.Document +
+            toolCapabilities + structuredOutputCapabilities + LLMCapability.Thinking
 
     /**
      * Specific version of Gemini 2.0 Flash-Lite
@@ -204,6 +214,38 @@ public object GoogleModels : LLModelDefinitions {
     )
 
     /**
+     * Gemini 3.5 Flash-Lite is a generally available, low-latency multimodal model.
+     * Its default thinking level is minimal and it supports minimal, low, medium, and high thinking.
+     * Custom temperature, top-p, top-k, and multiple candidates are unsupported.
+     *
+     * @see <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite">
+     */
+    @JvmField
+    public val Gemini3_5FlashLite: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-3.5-flash-lite",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 65_536,
+    )
+
+    /**
+     * Gemini 3.6 Flash is a generally available multimodal reasoning model.
+     * Its default thinking level is medium and it supports minimal, low, medium, and high thinking.
+     * Custom temperature, top-p, top-k, and multiple candidates are unsupported.
+     *
+     * @see <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-6-flash">
+     */
+    @JvmField
+    public val Gemini3_6Flash: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-3.6-flash",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 65_536,
+    )
+
+    /**
      * Models for generating text embeddings.
      */
     public object Embeddings {
@@ -236,6 +278,8 @@ public object GoogleModels : LLModelDefinitions {
         Gemini3_1FlashLite_Preview,
         Gemini3_1FlashLite,
         Gemini3_5Flash,
+        Gemini3_5FlashLite,
+        Gemini3_6Flash,
         Embeddings.GeminiEmbedding001,
     )
 

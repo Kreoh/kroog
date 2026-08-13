@@ -126,7 +126,8 @@ public data class ModelCatalogueIssue(
 /**
  * Kroog's authoritative semantic model catalogue.
  *
- * It is mechanically derived from local KreLLM commit [sourceRevision] and the exact source digests below.
+ * The source constants identify the frozen KreLLM baseline used for the original entries. Entries added after that
+ * baseline cite their provider documentation in source comments and do not claim KreLLM provenance.
  */
 public object ModelCatalogue {
     public const val sourceRevision: String = "ee0eb29e3f0befa21f8637b713fe5d00ce1113df"
@@ -265,6 +266,15 @@ public object ModelCatalogue {
             reasoning = categorical(frontierReasoningWithOff),
             omitTemperature = true,
         ),
+        // Provider-verified post-baseline addition:
+        // https://platform.claude.com/docs/en/about-claude/models/whats-new-opus-5
+        claude(
+            id = "claude-opus-5",
+            input = 1_000_000,
+            output = 128_000,
+            reasoning = categorical(frontierReasoningWithOff),
+            omitTemperature = true,
+        ),
         deepSeek(),
         gemini(
             id = "gemini-2.5-pro",
@@ -297,6 +307,26 @@ public object ModelCatalogue {
             input = 1_048_576,
             output = 65_535,
             reasoning = categorical(standardReasoning),
+        ),
+        // Provider-verified post-baseline addition:
+        // https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite
+        gemini(
+            id = "gemini-3.5-flash-lite",
+            input = 1_048_576,
+            output = 65_536,
+            reasoning = categorical(standardReasoning),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes,
+        ),
+        // Provider-verified post-baseline addition:
+        // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-6-flash
+        gemini(
+            id = "gemini-3.6-flash",
+            input = 1_048_576,
+            output = 65_536,
+            reasoning = categorical(standardReasoning),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes,
         ),
         gemini(
             id = "gemini-3.1-pro",
@@ -381,7 +411,7 @@ public object ModelCatalogue {
         return issues
     }
 
-    /** Deterministic representation used by the checked-in KreLLM provenance fixture. */
+    /** Deterministic representation used by the checked-in baseline and provider-verified fixture. */
     public fun normalisedSnapshot(): String = buildString {
         appendLine("# source-revision=$sourceRevision")
         appendLine("# models.py-sha256=$sourceModelsSha256")
@@ -567,6 +597,43 @@ private val claudeApis: Set<ProviderApi> =
 private val openAiVisualMimeTypes: Set<String> =
     setOf("text/plain", "image/jpeg", "image/png", "image/gif", "image/webp")
 private val multimodalMimeTypes: Set<String> = openAiVisualMimeTypes + "application/pdf"
+private val googleImageMimeTypes: Set<String> = setOf(
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+)
+private val googleDocumentMimeTypes: Set<String> = setOf(
+    "application/pdf",
+    "text/plain",
+)
+private val googleAudioMimeTypes: Set<String> = setOf(
+    "audio/x-aac",
+    "audio/flac",
+    "audio/m4a",
+    "audio/mp3",
+    "audio/mp4",
+    "audio/mpga",
+    "audio/mpeg",
+    "audio/ogg",
+    "audio/pcm",
+    "audio/wav",
+    "audio/webm",
+)
+private val googleVideoMimeTypes: Set<String> = setOf(
+    "video/x-flv",
+    "video/quicktime",
+    "video/mpeg",
+    "video/mpegs",
+    "video/mpg",
+    "video/mp4",
+    "video/webm",
+    "video/wmv",
+    "video/3gpp",
+)
+private val googleMultimodalMimeTypes: Set<String> =
+    googleImageMimeTypes + googleDocumentMimeTypes + googleAudioMimeTypes + googleVideoMimeTypes
 private val standardReasoning: Map<String, Double> =
     mapOf("minimal" to 0.0, "low" to 0.25, "medium" to 0.5, "high" to 1.0)
 private val extendedReasoning: Map<String, Double> =
@@ -726,6 +793,8 @@ private fun gemini(
     input: Long,
     output: Long,
     reasoning: ReasoningSupport.Supported,
+    omitTemperature: Boolean = false,
+    mimeTypes: Set<String> = multimodalMimeTypes,
 ): ModelCatalogueEntry = ModelCatalogueEntry(
     id = id,
     publisher = ModelPublisher.GOOGLE,
@@ -734,8 +803,16 @@ private fun gemini(
     reasoning = reasoning,
     maxInputTokens = input,
     maxOutputTokens = output,
-    temperature = TemperatureSupport(0.0, 2.0),
-    supportedMimeTypes = multimodalMimeTypes,
+    temperature = TemperatureSupport(
+        minimum = 0.0,
+        maximum = 2.0,
+        omittedProviderApis = if (omitTemperature) {
+            setOf(ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT)
+        } else {
+            emptySet()
+        },
+    ),
+    supportedMimeTypes = mimeTypes,
     structuredOutput = true,
     hostedExecution = true,
 )

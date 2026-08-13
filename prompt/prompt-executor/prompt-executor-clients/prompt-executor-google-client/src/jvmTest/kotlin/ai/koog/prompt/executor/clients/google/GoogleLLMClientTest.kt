@@ -40,6 +40,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.reflect.KClass
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.time.Instant
 
 class GoogleLLMClientTest {
@@ -267,6 +268,81 @@ class GoogleLLMClientTest {
         gen.thinkingConfig?.thinkingBudget shouldBe 99
         gen.additionalProperties shouldNotBe null
         gen.additionalProperties!!["custom"]?.jsonPrimitive?.content shouldBe "v"
+    }
+
+    @Test
+    fun testNewGeminiModelsOmitUnsupportedSamplingParameters() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "apiKey")
+        val params = GoogleParams(
+            temperature = 0.4,
+            numberOfChoices = 3,
+            topP = 0.8,
+            topK = 10,
+            additionalProperties = mapOf(
+                "temperature" to JsonPrimitive(0.6),
+                "candidateCount" to JsonPrimitive(2),
+                "topP" to JsonPrimitive(0.7),
+                "topK" to JsonPrimitive(20),
+                "kept" to JsonPrimitive(true),
+            ),
+        )
+
+        listOf(GoogleModels.Gemini3_5FlashLite, GoogleModels.Gemini3_6Flash).forEach { model ->
+            val config = client.createGoogleRequest(
+                prompt = Prompt(messages = emptyList(), id = "id", params = params),
+                model = model,
+                tools = emptyList(),
+            ).generationConfig!!
+
+            config.temperature shouldBe null
+            config.candidateCount shouldBe null
+            config.topP shouldBe null
+            config.topK shouldBe null
+            config.additionalProperties shouldBe mapOf("kept" to JsonPrimitive(true))
+        }
+    }
+
+    @Test
+    fun testNewGeminiModelsRejectFinalModelContentButAllowToolResults() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "apiKey")
+
+        listOf(GoogleModels.Gemini3_5FlashLite, GoogleModels.Gemini3_6Flash).forEach { model ->
+            assertFailsWith<IllegalArgumentException> {
+                client.createGoogleRequest(
+                    prompt = Prompt.build("final-model") {
+                        user("question")
+                        assistant("answer")
+                    },
+                    model = model,
+                    tools = emptyList(),
+                )
+            }
+
+            client.createGoogleRequest(
+                prompt = Prompt.build("tool-result") {
+                    user("question")
+                    toolCall(tool = "lookup", args = "{}", id = "call-1")
+                    toolResult(tool = "lookup", output = "result", id = "call-1")
+                },
+                model = model,
+                tools = emptyList(),
+            ).contents.last().role shouldBe "user"
+        }
+    }
+
+    @Test
+    fun testNewGeminiModelsRejectMultipleChoicesBeforeNetworkWork() = runTest {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "apiKey")
+
+        listOf(GoogleModels.Gemini3_5FlashLite, GoogleModels.Gemini3_6Flash).forEach { model ->
+            assertFailsWith<IllegalArgumentException> {
+                client.executeMultipleChoices(
+                    prompt = Prompt(messages = emptyList(), id = "id"),
+                    model = model,
+                    tools = emptyList(),
+                )
+            }
+        }
     }
 
     @Test

@@ -17,6 +17,8 @@ import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInv
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicResponse
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicToolChoice
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
@@ -274,16 +276,30 @@ internal object BedrockAnthropicClaudeSerialization {
     internal fun createAnthropicRequest(
         prompt: Prompt,
         tools: List<ToolDescriptor>
-    ): BedrockAnthropicInvokeModel = createAnthropicWireRequest(prompt, tools).toPublicRequest()
+    ): BedrockAnthropicInvokeModel = createAnthropicWireRequest(prompt, null, tools).toPublicRequest()
+
+    internal fun createAnthropicRequest(
+        prompt: Prompt,
+        model: LLModel,
+        tools: List<ToolDescriptor>,
+    ): BedrockAnthropicInvokeModel = createAnthropicWireRequest(prompt, model, tools).toPublicRequest()
 
     internal fun serializeAnthropicRequest(
         prompt: Prompt,
         tools: List<ToolDescriptor>,
         requestJson: Json,
-    ): String = requestJson.encodeToString(createAnthropicWireRequest(prompt, tools))
+    ): String = requestJson.encodeToString(createAnthropicWireRequest(prompt, null, tools))
+
+    internal fun serializeAnthropicRequest(
+        prompt: Prompt,
+        model: LLModel,
+        tools: List<ToolDescriptor>,
+        requestJson: Json,
+    ): String = requestJson.encodeToString(createAnthropicWireRequest(prompt, model, tools))
 
     private fun createAnthropicWireRequest(
         prompt: Prompt,
+        model: LLModel?,
         tools: List<ToolDescriptor>,
     ): BedrockAnthropicWireRequest {
         prompt.validateClientManagedExecutionPresentation()
@@ -317,7 +333,9 @@ internal object BedrockAnthropicClaudeSerialization {
         }
 
         val params: LLMParams = prompt.params
-        val temperature = params.temperature
+        val temperature = params.temperature.takeIf {
+            model == null || model.supports(LLMCapability.Temperature)
+        }
         val maxTokens = params.maxTokens ?: 4000
 
         val bedrockTools = if (tools.isNotEmpty()) {

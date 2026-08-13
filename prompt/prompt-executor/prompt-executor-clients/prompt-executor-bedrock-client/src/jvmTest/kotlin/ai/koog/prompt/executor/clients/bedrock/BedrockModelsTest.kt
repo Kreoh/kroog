@@ -61,4 +61,16 @@ class BedrockModelsTest {
         assertEquals(128_000, model.maxOutputTokens)
         BedrockModels.models shouldContain model
     }
+
+    @Test
+    fun testClaudeOpus5BedrockModelExposesExactEffectiveProfile() {
+        val model = BedrockModels.AnthropicClaude5Opus
+
+        assertEquals(LLMProvider.Bedrock, model.provider)
+        assertEquals("us.anthropic.claude-opus-5", model.id)
+        assertEquals(AnthropicModels.Opus_5.capabilities, model.capabilities)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        BedrockModels.models shouldContain model
+    }
 }

@@ -260,6 +260,7 @@ private val ANTHROPIC_MODELS_MAP = mapOf(
     "opus_4_5" to AnthropicModels.Opus_4_5,
     "opus_4_6" to AnthropicModels.Opus_4_6,
     "opus_4_7" to AnthropicModels.Opus_4_7,
+    "opus_5" to AnthropicModels.Opus_5,
     "haiku_4_5" to AnthropicModels.Haiku_4_5,
     "sonnet_4" to AnthropicModels.Sonnet_4,
     "sonnet_4_5" to AnthropicModels.Sonnet_4_5,
@@ -276,6 +277,8 @@ private val GOOGLE_MODELS_MAP = mapOf(
     "gemini3_1flashlitepreview" to GoogleModels.Gemini3_1FlashLite_Preview,
     "gemini3_1flashlite" to GoogleModels.Gemini3_1FlashLite,
     "gemini3_5flash" to GoogleModels.Gemini3_5Flash,
+    "gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
+    "gemini3_6flash" to GoogleModels.Gemini3_6Flash,
     "gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
 )
 

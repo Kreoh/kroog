@@ -209,6 +209,16 @@ public object BedrockModels : LLModelDefinitions {
     ).effectiveModel
 
     /**
+     * Claude Opus 5 on Amazon Bedrock.
+     *
+     * @see <a href="https://platform.claude.com/docs/en/about-claude/models/overview">
+     */
+    public val AnthropicClaude5Opus: LLModel = BedrockModel(
+        AnthropicModels.Opus_5,
+        "anthropic.claude-opus-5",
+    ).effectiveModel
+
+    /**
      * Claude Fable 5 is Anthropic's most capable widely released model, built for the most demanding
      * reasoning and long-horizon agentic work.
      *
@@ -874,6 +884,7 @@ public object BedrockModels : LLModelDefinitions {
         AnthropicClaude46Opus,
         AnthropicClaude47Opus,
         AnthropicClaude48Opus,
+        AnthropicClaude5Opus,
         AnthropicClaudeFable5,
         AnthropicClaude4Sonnet,
         AnthropicClaude4_5Sonnet,

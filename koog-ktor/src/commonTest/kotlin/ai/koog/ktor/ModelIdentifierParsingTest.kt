@@ -230,6 +230,7 @@ class ModelIdentifierParsingTest {
             "anthropic.opus_4_5" to AnthropicModels.Opus_4_5,
             "anthropic.opus_4_6" to AnthropicModels.Opus_4_6,
             "anthropic.opus_4_7" to AnthropicModels.Opus_4_7,
+            "anthropic.opus_5" to AnthropicModels.Opus_5,
             "anthropic.haiku_4_5" to AnthropicModels.Haiku_4_5,
             "anthropic.sonnet_4" to AnthropicModels.Sonnet_4,
             "anthropic.sonnet_4_5" to AnthropicModels.Sonnet_4_5,
@@ -250,6 +251,8 @@ class ModelIdentifierParsingTest {
             "google.gemini3_1flashlitepreview" to GoogleModels.Gemini3_1FlashLite_Preview,
             "google.gemini3_1flashlite" to GoogleModels.Gemini3_1FlashLite,
             "google.gemini3_5flash" to GoogleModels.Gemini3_5Flash,
+            "google.gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
+            "google.gemini3_6flash" to GoogleModels.Gemini3_6Flash,
             "google.gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
         )
     )

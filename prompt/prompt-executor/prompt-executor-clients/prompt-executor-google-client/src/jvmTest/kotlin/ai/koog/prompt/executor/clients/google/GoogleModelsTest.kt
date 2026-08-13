@@ -16,8 +16,10 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 // "Bad" request from Gemini with missing `parts` field
 private val badRequest: String = """
@@ -109,5 +111,34 @@ class GoogleModelsTest {
         assertNotNull(GoogleModels.Gemini3_1FlashLite_Preview.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(GoogleModels.Gemini3_1FlashLite.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(GoogleModels.Gemini3_5Flash.capabilities) shouldContain LLMCapability.Thinking
+    }
+
+    @Test
+    fun testNewGeminiModelsExposeExactProfiles() {
+        listOf(GoogleModels.Gemini3_5FlashLite, GoogleModels.Gemini3_6Flash).forEach { model ->
+            assertEquals(LLMProvider.Google, model.provider)
+            assertEquals(1_048_576, model.contextLength)
+            assertEquals(65_536, model.maxOutputTokens)
+            assertTrue(model.supports(LLMCapability.Completion))
+            assertTrue(model.supports(LLMCapability.Vision.Image))
+            assertTrue(model.supports(LLMCapability.Vision.Video))
+            assertTrue(model.supports(LLMCapability.Audio))
+            assertTrue(model.supports(LLMCapability.Document))
+            assertTrue(model.supports(LLMCapability.Tools))
+            assertTrue(model.supports(LLMCapability.ToolChoice))
+            assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+            assertTrue(model.supports(LLMCapability.Thinking))
+            assertFalse(model.supports(LLMCapability.Temperature))
+            assertFalse(model.supports(LLMCapability.MultipleChoices))
+            assertTrue(model in GoogleModels.models)
+        }
+        assertEquals("gemini-3.5-flash-lite", GoogleModels.Gemini3_5FlashLite.id)
+        assertEquals("gemini-3.6-flash", GoogleModels.Gemini3_6Flash.id)
+    }
+
+    @Test
+    fun testSharedGoogleCapabilitiesIncludeDocuments() {
+        assertTrue(GoogleModels.Gemini2_5Pro.supports(LLMCapability.Document))
+        assertTrue(GoogleModels.Gemini3_5Flash.supports(LLMCapability.Document))
     }
 }

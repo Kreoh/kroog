@@ -1,12 +1,17 @@
 package ai.koog.prompt.executor.clients.anthropic
 
+import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequest
 import ai.koog.prompt.executor.clients.list
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.params.LLMParams
 import io.kotest.matchers.collections.shouldContain
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
@@ -38,6 +43,7 @@ class AnthropicModelsTest {
             AnthropicModels.Opus_4_6,
             AnthropicModels.Opus_4_7,
             AnthropicModels.Opus_4_8,
+            AnthropicModels.Opus_5,
         )
 
         modelsWithSchema.forEach { model ->
@@ -119,6 +125,7 @@ class AnthropicModelsTest {
         assertNotNull(AnthropicModels.Opus_4_6.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_7.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_8.capabilities) shouldContain LLMCapability.Thinking
+        assertNotNull(AnthropicModels.Opus_5.capabilities) shouldContain LLMCapability.Thinking
     }
 
     @Test
@@ -144,5 +151,70 @@ class AnthropicModelsTest {
         assertEquals(128_000, model.maxOutputTokens)
         AnthropicModels.models shouldContain model
         assertEquals("claude-opus-4-8", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+    }
+
+    @Test
+    fun testClaudeOpus5ExposesExactProfileAndDefaultVersion() {
+        val model = AnthropicModels.Opus_5
+
+        assertEquals(LLMProvider.Anthropic, model.provider)
+        assertEquals("claude-opus-5", model.id)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        assertFalse(model.supports(LLMCapability.Temperature))
+        assertTrue(model.supports(LLMCapability.Tools))
+        assertTrue(model.supports(LLMCapability.ToolChoice))
+        assertTrue(model.supports(LLMCapability.Vision.Image))
+        assertTrue(model.supports(LLMCapability.Document))
+        assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+        assertTrue(model.supports(LLMCapability.Thinking))
+        assertTrue(model.supports(LLMCapability.PromptCaching))
+        assertTrue(model in AnthropicModels.models)
+        assertEquals("claude-opus-5", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+    }
+
+    @Test
+    fun testModelsAfterOpus46OmitTemperatureFromRequests() {
+        val client = AnthropicLLMClient(apiKey = "unused")
+        val models = listOf(
+            AnthropicModels.Opus_4_7,
+            AnthropicModels.Opus_4_8,
+            AnthropicModels.Fable_5,
+            AnthropicModels.Opus_5,
+        )
+
+        models.forEach { model ->
+            assertFalse(model.supports(LLMCapability.Temperature))
+            val request = client.createAnthropicRequest(
+                prompt = prompt(
+                    "${model.id}-temperature",
+                    params = LLMParams(
+                        temperature = 0.7,
+                        additionalProperties = mapOf("temperature" to kotlinx.serialization.json.JsonPrimitive(0.9)),
+                    ),
+                ) {
+                    user("Hello")
+                },
+                tools = emptyList(),
+                model = model,
+                stream = false,
+            )
+
+            assertFalse("temperature" in Json.parseToJsonElement(request).jsonObject)
+        }
+    }
+
+    @Test
+    fun testTemperatureCapableAnthropicModelRetainsTypedTemperature() {
+        val request = AnthropicLLMClient(apiKey = "unused").createAnthropicRequest(
+            prompt = prompt("opus-4-6-temperature", params = LLMParams(temperature = 0.7)) {
+                user("Hello")
+            },
+            tools = emptyList(),
+            model = AnthropicModels.Opus_4_6,
+            stream = false,
+        )
+
+        assertEquals(0.7, Json.parseToJsonElement(request).jsonObject.getValue("temperature").toString().toDouble())
     }
 }

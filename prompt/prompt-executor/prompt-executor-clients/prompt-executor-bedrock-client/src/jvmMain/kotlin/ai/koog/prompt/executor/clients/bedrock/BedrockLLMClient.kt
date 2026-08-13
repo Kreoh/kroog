@@ -602,7 +602,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
             )
 
             is BedrockModelFamilies.AnthropicClaude -> {
-                BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(prompt, tools, json)
+                BedrockAnthropicClaudeSerialization.serializeAnthropicRequest(prompt, model, tools, json)
             }
 
             is BedrockModelFamilies.Meta -> json.encodeToString(
