@@ -349,6 +349,7 @@ public final class ai/koog/prompt/executor/clients/bedrock/converse/BedrockReaso
 	public static final field LOW Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
 	public static final field MAX Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
 	public static final field MEDIUM Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
+	public static final field XHIGH Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;
 	public static fun values ()[Lai/koog/prompt/executor/clients/bedrock/converse/BedrockReasoningEffort;

@@ -71,6 +71,32 @@ class BedrockConverseReplayTest {
     }
 
     @Test
+    fun `xhigh adaptive thinking serializes exactly for regular and streaming requests`() {
+        val params = BedrockConverseParams().withThinking(
+            BedrockThinkingConfig.Adaptive(
+                effort = BedrockReasoningEffort.XHIGH,
+                display = BedrockThinkingDisplay.SUMMARIZED,
+            ),
+        )
+
+        val requestFields = listOf(
+            BedrockConverseConverters
+                .createConverseRequest(prompt(params), thinkingModel, emptyList())
+                .additionalModelRequestFields,
+            BedrockConverseConverters
+                .createConverseStreamRequest(prompt(params), thinkingModel, emptyList())
+                .additionalModelRequestFields,
+        )
+
+        requestFields.forEach { fields ->
+            assertEquals(
+                """{"thinking":{"type":"adaptive","display":"summarized"},"output_config":{"effort":"xhigh"}}""",
+                JsonDocumentConverters.convertToJsonElement(fields).toString(),
+            )
+        }
+    }
+
+    @Test
     fun `typed thinking rejects reserved additional property collisions`() {
         listOf("thinking", "output_config").forEach { reservedKey ->
             val params = BedrockConverseParams(

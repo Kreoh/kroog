@@ -20,6 +20,7 @@ public enum class BedrockReasoningEffort {
     LOW,
     MEDIUM,
     HIGH,
+    XHIGH,
     MAX,
 }
 
