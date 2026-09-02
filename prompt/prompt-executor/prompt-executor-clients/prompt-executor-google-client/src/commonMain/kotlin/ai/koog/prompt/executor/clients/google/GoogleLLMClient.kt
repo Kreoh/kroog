@@ -139,6 +139,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         private val FIXED_SAMPLING_MODEL_IDS = setOf(
             "gemini-3.5-flash-lite",
             "gemini-3.6-flash",
+            "gemini-3.7-flash",
         )
         private val UNSUPPORTED_SAMPLING_PROPERTY_NAMES = setOf(
             "temperature",
