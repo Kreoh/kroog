@@ -105,6 +105,7 @@ public final class ai/koog/prompt/executor/clients/google/GoogleModels : ai/koog
 	public static final field Gemini3_5Flash Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini3_5FlashLite Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini3_6Flash Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini3_7Flash Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini3_Flash_Preview Lai/koog/prompt/llm/LLModel;
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleModels;
 	public fun addCustomModel (Lai/koog/prompt/llm/LLModel;)V

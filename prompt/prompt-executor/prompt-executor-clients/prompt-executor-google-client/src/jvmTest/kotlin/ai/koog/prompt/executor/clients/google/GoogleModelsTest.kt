@@ -115,7 +115,11 @@ class GoogleModelsTest {
 
     @Test
     fun testNewGeminiModelsExposeExactProfiles() {
-        listOf(GoogleModels.Gemini3_5FlashLite, GoogleModels.Gemini3_6Flash).forEach { model ->
+        listOf(
+            GoogleModels.Gemini3_5FlashLite,
+            GoogleModels.Gemini3_6Flash,
+            GoogleModels.Gemini3_7Flash,
+        ).forEach { model ->
             assertEquals(LLMProvider.Google, model.provider)
             assertEquals(1_048_576, model.contextLength)
             assertEquals(65_536, model.maxOutputTokens)
@@ -134,6 +138,7 @@ class GoogleModelsTest {
         }
         assertEquals("gemini-3.5-flash-lite", GoogleModels.Gemini3_5FlashLite.id)
         assertEquals("gemini-3.6-flash", GoogleModels.Gemini3_6Flash.id)
+        assertEquals("gemini-3.7-flash", GoogleModels.Gemini3_7Flash.id)
     }
 
     @Test

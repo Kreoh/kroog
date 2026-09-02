@@ -11,6 +11,7 @@ import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_1Pro_Preview
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_5Flash
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_5FlashLite
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_6Flash
+import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_7Flash
 import ai.koog.prompt.executor.clients.google.GoogleModels.Gemini3_Flash_Preview
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -34,6 +35,7 @@ import kotlin.jvm.JvmField
  * | [Gemini3_5Flash]            | Fast      | $1.50 / $9.00                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_5FlashLite]        | Very fast | $0.30 / $2.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_6Flash]            | Fast      | $1.50 / $7.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
+ * | [Gemini3_7Flash]            | Fast      | $0.75 / $3.75                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  *
  * @see <a href="modelcards.withgoogle.com/model-cards">
  */
@@ -246,6 +248,22 @@ public object GoogleModels : LLModelDefinitions {
     )
 
     /**
+     * Gemini 3.7 Flash is a generally available multimodal reasoning model for coding and agents.
+     * Its default thinking level is medium and it supports low, medium, and high thinking.
+     * Minimal thinking, custom temperature, top-p, top-k, and multiple candidates are unsupported.
+     *
+     * @see <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash">
+     */
+    @JvmField
+    public val Gemini3_7Flash: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-3.7-flash",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 65_536,
+    )
+
+    /**
      * Models for generating text embeddings.
      */
     public object Embeddings {
@@ -280,6 +298,7 @@ public object GoogleModels : LLModelDefinitions {
         Gemini3_5Flash,
         Gemini3_5FlashLite,
         Gemini3_6Flash,
+        Gemini3_7Flash,
         Embeddings.GeminiEmbedding001,
     )
 

@@ -279,6 +279,7 @@ private val GOOGLE_MODELS_MAP = mapOf(
     "gemini3_5flash" to GoogleModels.Gemini3_5Flash,
     "gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
     "gemini3_6flash" to GoogleModels.Gemini3_6Flash,
+    "gemini3_7flash" to GoogleModels.Gemini3_7Flash,
     "gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
 )
 

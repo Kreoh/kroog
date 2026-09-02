@@ -20,7 +20,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryCurrentKreLLMSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(35, ModelCatalogue.entries.size)
+        assertEquals(36, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -85,6 +85,23 @@ class ModelCatalogueTest {
             assertTrue(gemini.structuredOutput)
             assertTrue(gemini.hostedExecution)
         }
+
+        val gemini37 = assertNotNull(ModelCatalogue.find("gemini-3.7-flash"))
+        assertEquals(ModelPublisher.GOOGLE, gemini37.publisher)
+        assertEquals(1_048_576, gemini37.maxInputTokens)
+        assertEquals(65_536, gemini37.maxOutputTokens)
+        assertEquals(
+            mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0),
+            (gemini37.reasoning as ReasoningSupport.Supported).efforts,
+        )
+        assertEquals(
+            setOf(ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT),
+            gemini37.providerApis,
+        )
+        assertEquals(gemini37.providerApis, gemini37.temperature.omittedProviderApis)
+        assertEquals(expectedGoogleMultimodalMimeTypes, gemini37.supportedMimeTypes)
+        assertTrue(gemini37.structuredOutput)
+        assertTrue(gemini37.hostedExecution)
 
         val opus = assertNotNull(ModelCatalogue.find("claude-opus-5"))
         assertEquals(ModelPublisher.ANTHROPIC, opus.publisher)
@@ -296,6 +313,7 @@ class ModelCatalogueTest {
             "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-3.6-flash",
+            "gemini-3.7-flash",
             "gemini-3-flash",
             "text-embedding-3-large",
             "gpt-realtime",

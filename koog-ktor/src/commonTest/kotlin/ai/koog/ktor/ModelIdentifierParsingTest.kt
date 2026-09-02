@@ -253,6 +253,7 @@ class ModelIdentifierParsingTest {
             "google.gemini3_5flash" to GoogleModels.Gemini3_5Flash,
             "google.gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
             "google.gemini3_6flash" to GoogleModels.Gemini3_6Flash,
+            "google.gemini3_7flash" to GoogleModels.Gemini3_7Flash,
             "google.gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
         )
     )

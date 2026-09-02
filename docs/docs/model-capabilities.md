@@ -382,6 +382,7 @@ In the tables below:
     | Gemini2_0FlashLite001  | ✓           | Full        | ✓          | ✓                | ✓     | ✓           | ✓              | ✓              | ✓     |
     | Gemini3_5FlashLite     | -           | Full        | ✓          | -                | ✓     | ✓           | ✓              | ✓              | ✓     |
     | Gemini3_6Flash         | -           | Full        | ✓          | -                | ✓     | ✓           | ✓              | ✓              | ✓     |
+    | Gemini3_7Flash         | -           | Full        | ✓          | -                | ✓     | ✓           | ✓              | ✓              | ✓     |
 
 ??? "OpenAI models"
     #### OpenAI models

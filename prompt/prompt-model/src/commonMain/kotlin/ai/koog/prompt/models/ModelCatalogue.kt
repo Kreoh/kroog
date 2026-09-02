@@ -328,6 +328,16 @@ public object ModelCatalogue {
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes,
         ),
+        // Provider-verified post-baseline addition:
+        // https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash
+        gemini(
+            id = "gemini-3.7-flash",
+            input = 1_048_576,
+            output = 65_536,
+            reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0)),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes,
+        ),
         gemini(
             id = "gemini-3.1-pro",
             input = 983_040,
