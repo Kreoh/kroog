@@ -412,6 +412,7 @@ In the tables below:
     | Model      | Temperature | JSON Schema | Completion | Tools | Tool Choice | Vision (Image) |
     |------------|-------------|-------------|------------|-------|-------------|----------------|
     | Fable_5    | -           | Full        | ✓          | ✓     | ✓           | ✓              |
+    | Fable_5_1  | -           | Full        | ✓          | ✓     | -           | ✓              |
     | Opus_5     | -           | Full        | ✓          | ✓     | ✓           | ✓              |
     | Opus_4_6   | ✓           | Full        | ✓          | ✓     | ✓           | ✓              |
     | Opus_4_5   | ✓           | Full        | ✓          | ✓     | ✓           | ✓              |
@@ -510,6 +511,7 @@ In the tables below:
     | Model                       | Temperature | JSON Schema | Completion | Tools | Tool Choice | Vision (Image) | Document |
     |-----------------------------|-------------|-------------|------------|-------|-------------|----------------|----------|
     | AnthropicClaudeFable5       | -           | Full        | ✓          | ✓     | ✓           | ✓              | ✓        |
+    | AnthropicClaudeFable5_1     | -           | Full        | ✓          | ✓     | -           | ✓              | ✓        |
     | AnthropicClaude5Opus        | -           | Full        | ✓          | ✓     | ✓           | ✓              | ✓        |
     | AnthropicClaude47Opus       | -           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |
     | AnthropicClaude46Opus       | ✓           | -           | ✓          | ✓     | ✓           | ✓              | ✓        |

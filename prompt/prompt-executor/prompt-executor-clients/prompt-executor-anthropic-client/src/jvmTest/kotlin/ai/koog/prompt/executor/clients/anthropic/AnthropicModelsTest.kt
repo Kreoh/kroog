@@ -11,8 +11,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -36,6 +36,7 @@ class AnthropicModelsTest {
     fun `Claude 4_5 and newer models should support structured output`() {
         val modelsWithSchema = listOf(
             AnthropicModels.Fable_5,
+            AnthropicModels.Fable_5_1,
             AnthropicModels.Haiku_4_5,
             AnthropicModels.Sonnet_4_5,
             AnthropicModels.Sonnet_4_6,
@@ -120,6 +121,7 @@ class AnthropicModelsTest {
     @Test
     fun `Anthropic thinking-capable models should advertise thinking capability`() {
         assertNotNull(AnthropicModels.Fable_5.capabilities) shouldContain LLMCapability.Thinking
+        assertNotNull(AnthropicModels.Fable_5_1.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Haiku_4_5.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Sonnet_4.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_6.capabilities) shouldContain LLMCapability.Thinking
@@ -138,6 +140,26 @@ class AnthropicModelsTest {
         assertTrue(model.supports(LLMCapability.Vision.Image))
         assertTrue(model.supports(LLMCapability.Tools))
         assertTrue(model.supports(LLMCapability.ToolChoice))
+    }
+
+    @Test
+    fun testClaudeFable51ExposesExactProfileAndDefaultVersion() {
+        val model = AnthropicModels.Fable_5_1
+
+        assertEquals(LLMProvider.Anthropic, model.provider)
+        assertEquals("claude-fable-5-1", model.id)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        assertFalse(model.supports(LLMCapability.Temperature))
+        assertTrue(model.supports(LLMCapability.Tools))
+        assertFalse(model.supports(LLMCapability.ToolChoice))
+        assertTrue(model.supports(LLMCapability.Vision.Image))
+        assertTrue(model.supports(LLMCapability.Document))
+        assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+        assertTrue(model.supports(LLMCapability.Thinking))
+        assertTrue(model.supports(LLMCapability.PromptCaching))
+        assertTrue(model in AnthropicModels.models)
+        assertEquals("claude-fable-5-1", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
     }
 
     @Test
@@ -180,6 +202,7 @@ class AnthropicModelsTest {
             AnthropicModels.Opus_4_7,
             AnthropicModels.Opus_4_8,
             AnthropicModels.Fable_5,
+            AnthropicModels.Fable_5_1,
             AnthropicModels.Opus_5,
         )
 

@@ -33,8 +33,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -433,7 +433,7 @@ class BedrockAnthropicClaudeSerializationTest {
     }
 
     @Test
-    fun `transformAnthropicStreamChunks with simple message`() = runTest {
+    fun testTransformAnthropicStreamChunksEmitsIndexedTextLifecycle() = runTest {
         val chunkJsonStringFlow = flowOf(
             """
                 {
@@ -466,8 +466,9 @@ class BedrockAnthropicClaudeSerializationTest {
         val content =
             BedrockAnthropicClaudeSerialization.transformAnthropicStreamChunks(chunkJsonStringFlow, mockClock).toList()
         val expected = listOf(
-            StreamFrame.TextDelta("hello"),
-            StreamFrame.TextDelta("world"),
+            StreamFrame.TextDelta("hello", index = 0),
+            StreamFrame.TextDelta("world", index = 0),
+            StreamFrame.TextComplete("helloworld", index = 0),
         )
         assertEquals(expected, content)
     }

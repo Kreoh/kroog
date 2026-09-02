@@ -12,6 +12,7 @@ It handles authentication, request formatting, response parsing, multimodal cont
 
 | Model              | Speed           | Context | Input Support     | Output Support                | Pricing (per 1M tokens) |
 |--------------------|-----------------|---------|-------------------|-------------------------------|-------------------------|
+| Claude Fable 5.1   | Moderate        | 1M      | Text, Images, PDF | Text, Tools, Structured (JSON)| See provider pricing    |
 | Claude 3 Haiku     | Fast            | 200K    | Text, Images, PDF | Text, Tools                   | $0.25 / $1.25           |
 | Claude Haiku 4.5   | Fastest         | 200K    | Text, Images, PDF | Text, Tools, Structured (JSON)| $1.00 / $5.00           |
 | Claude Sonnet 4    | Fast            | 200K    | Text, Images, PDF | Text, Tools                   | $3.00 / $15.00          |

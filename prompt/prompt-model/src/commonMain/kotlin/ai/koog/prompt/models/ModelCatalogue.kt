@@ -259,6 +259,23 @@ public object ModelCatalogue {
             reasoning = categorical(adaptiveReasoning),
             omitTemperature = true,
         ),
+        // Provider-verified post-baseline addition:
+        // https://platform.claude.com/docs/en/about-claude/models/overview
+        claude(
+            id = "claude-fable-5-1",
+            input = 1_000_000,
+            output = 128_000,
+            reasoning = categorical(
+                mapOf(
+                    "low" to 0.0,
+                    "medium" to 0.25,
+                    "high" to 0.5,
+                    "xhigh" to 0.75,
+                    "max" to 1.0,
+                )
+            ),
+            omitTemperature = true,
+        ),
         claude(
             id = "claude-sonnet-5",
             input = 1_000_000,

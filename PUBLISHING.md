@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.1.1-kroog.3`; modules which apply a beta version transform
+stable version is `1.1.1-kroog.5`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -29,8 +29,8 @@ requires exactly 87 coordinate entries and the same 1,392-file signed and
 checksummed closure.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.1.1-beta-kroog.3-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.3`. It remains excluded from `koog-agents` and
+snapshot version is `1.1.1-beta-kroog.5-SNAPSHOT`, and its release version is
+`1.1.1-beta-kroog.5`. It remains excluded from `koog-agents` and
 `koog-agents-additions`; publication is deferred to the normal release
 workflow.
 

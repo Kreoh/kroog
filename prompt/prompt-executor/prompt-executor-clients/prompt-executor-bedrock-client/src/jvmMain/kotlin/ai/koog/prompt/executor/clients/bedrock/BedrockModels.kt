@@ -230,6 +230,17 @@ public object BedrockModels : LLModelDefinitions {
     ).effectiveModel
 
     /**
+     * Claude Fable 5.1 on Amazon Bedrock. The default effective model uses the US inference profile;
+     * [BedrockInferencePrefixes.GLOBAL] selects the Global inference profile when constructing a [BedrockModel].
+     *
+     * @see <a href="https://platform.claude.com/docs/en/about-claude/models/overview">
+     */
+    public val AnthropicClaudeFable5_1: LLModel = BedrockModel(
+        AnthropicModels.Fable_5_1,
+        "anthropic.claude-fable-5-1",
+    ).effectiveModel
+
+    /**
      * Claude 4 Sonnet - High-performance model with exceptional reasoning and efficiency
      *
      * This model offers:
@@ -886,6 +897,7 @@ public object BedrockModels : LLModelDefinitions {
         AnthropicClaude48Opus,
         AnthropicClaude5Opus,
         AnthropicClaudeFable5,
+        AnthropicClaudeFable5_1,
         AnthropicClaude4Sonnet,
         AnthropicClaude4_5Sonnet,
         AnthropicClaude4_6Sonnet,

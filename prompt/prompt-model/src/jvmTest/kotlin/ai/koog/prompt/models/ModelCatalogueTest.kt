@@ -20,7 +20,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryCurrentKreLLMSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(36, ModelCatalogue.entries.size)
+        assertEquals(37, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -130,6 +130,33 @@ class ModelCatalogueTest {
         assertEquals(expectedMultimodalMimeTypes, opus.supportedMimeTypes)
         assertTrue(opus.structuredOutput)
         assertTrue(opus.hostedExecution)
+
+        val fable = assertNotNull(ModelCatalogue.find("claude-fable-5-1"))
+        assertEquals(ModelPublisher.ANTHROPIC, fable.publisher)
+        assertEquals(1_000_000, fable.maxInputTokens)
+        assertEquals(128_000, fable.maxOutputTokens)
+        assertEquals(
+            mapOf(
+                "low" to 0.0,
+                "medium" to 0.25,
+                "high" to 0.5,
+                "xhigh" to 0.75,
+                "max" to 1.0,
+            ),
+            (fable.reasoning as ReasoningSupport.Supported).efforts,
+        )
+        assertEquals(
+            setOf(
+                ProviderApi.VERTEX_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_ANTHROPIC_MESSAGES,
+                ProviderApi.BEDROCK_CONVERSE,
+            ),
+            fable.providerApis,
+        )
+        assertEquals(fable.providerApis, fable.temperature.omittedProviderApis)
+        assertEquals(expectedMultimodalMimeTypes, fable.supportedMimeTypes)
+        assertTrue(fable.structuredOutput)
+        assertTrue(fable.hostedExecution)
     }
 
     @Test
@@ -303,6 +330,7 @@ class ModelCatalogueTest {
             "claude-4.7-opus",
             "claude-4.8-opus",
             "claude-fable-5",
+            "claude-fable-5-1",
             "claude-sonnet-5",
             "claude-opus-5",
             "deepseek-3.2",
