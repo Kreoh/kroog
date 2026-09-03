@@ -423,6 +423,66 @@ You can use it as follows:
     ```
     <!--- KNIT exampleHistoryCompressionJava04.java -->
 
+### Tiered
+
+The tiered strategy summarises older conversation turns into one compact message and retains the newest user-led turns
+as a recent tier. Set `preserveRecentTurns` to the minimum number of recent turns that must remain uncompressed. Turn
+boundaries start at ordinary user messages, so each retained custom tool call stays with its result.
+
+Both tiers use Koog's provider-neutral message representation. The strategy removes provider response identifiers,
+encrypted reasoning, reasoning replay data, raw responses, cache directives, and provider-hosted execution items before
+requesting or storing the summary. Ordinary text, user attachments, and complete custom-tool exchanges keep their typed
+representation. The resulting history can be sent through any Koog provider without replaying another provider's
+private state.
+
+When compression runs again, the previous summary is included in the older tier and folded into its replacement. If
+there are no older turns to summarise, the strategy leaves the history unchanged.
+
+Use the same strategy with a compression node or `replaceHistoryWithTLDR()`:
+
+=== "Kotlin"
+
+    <!--- INCLUDE
+    import ai.koog.agents.core.dsl.builder.strategy
+    import ai.koog.agents.core.dsl.builder.node
+    import ai.koog.agents.core.dsl.extension.HistoryCompressionStrategy
+    import ai.koog.agents.core.dsl.extension.nodeLLMCompressHistory
+    typealias ProcessedInput = String
+    val strategy = strategy<String, String>("strategy_name") {
+        val node by node<Unit, Unit> {
+    -->
+    <!--- SUFFIX
+        }
+    }
+    -->
+    ```kotlin
+    val compressHistory by nodeLLMCompressHistory<ProcessedInput>(
+        strategy = HistoryCompressionStrategy.Tiered(preserveRecentTurns = 3)
+    )
+    ```
+    <!--- KNIT example-history-compression-06.kt -->
+
+=== "Java"
+
+    <!--- INCLUDE
+    import ai.koog.agents.core.agent.entity.AIAgentNode;
+    import ai.koog.agents.core.dsl.extension.HistoryCompressionStrategy;
+    class exampleHistoryCompressionTieredJava {
+        public static void main(String[] args) {
+    -->
+    <!--- SUFFIX
+        }
+    }
+    -->
+    ```java
+    var compressHistory = AIAgentNode
+        .llmCompressHistory("compressHistory")
+        .withInput(String.class)
+        .compressionStrategy(HistoryCompressionStrategy.Tiered(3))
+        .build();
+    ```
+    <!--- KNIT exampleHistoryCompressionJava05.java -->
+
 ### FromLastNMessages
 
 The strategy compresses only the last `n` messages into a TLDR message and completely discards earlier messages.
@@ -454,7 +514,7 @@ You can use it as follows:
         strategy = HistoryCompressionStrategy.FromLastNMessages(5)
     )
     ```
-    <!--- KNIT example-history-compression-06.kt -->
+    <!--- KNIT example-history-compression-07.kt -->
 
 === "Java"
 
@@ -484,7 +544,7 @@ You can use it as follows:
     // Note: This example only shows the node creation.
     // You would need to add edges and other nodes to complete the graph.
     ```
-    <!--- KNIT exampleHistoryCompressionJava05.java -->
+    <!--- KNIT exampleHistoryCompressionJava06.java -->
 
 * In a custom node:
 
@@ -508,7 +568,7 @@ You can use it as follows:
         replaceHistoryWithTLDR(strategy = HistoryCompressionStrategy.FromLastNMessages(5))
     }
     ```
-    <!--- KNIT example-history-compression-07.kt -->
+    <!--- KNIT example-history-compression-08.kt -->
 
 === "Java"
 
@@ -540,7 +600,7 @@ You can use it as follows:
         return null;
     });
     ```
-    <!--- KNIT exampleHistoryCompressionJava06.java -->
+    <!--- KNIT exampleHistoryCompressionJava07.java -->
 
 ### Chunked
 
@@ -574,7 +634,7 @@ You can use it as follows:
         strategy = HistoryCompressionStrategy.Chunked(10)
     )
     ```
-    <!--- KNIT example-history-compression-08.kt -->
+    <!--- KNIT example-history-compression-09.kt -->
 
 === "Java"
 
@@ -604,7 +664,7 @@ You can use it as follows:
     // Note: This example only shows the node creation.
     // You would need to add edges and other nodes to complete the graph.
     ```
-    <!--- KNIT exampleHistoryCompressionJava07.java -->
+    <!--- KNIT exampleHistoryCompressionJava08.java -->
 
 * In a custom node:
 
@@ -628,7 +688,7 @@ You can use it as follows:
         replaceHistoryWithTLDR(strategy = HistoryCompressionStrategy.Chunked(10))
     }
     ```
-    <!--- KNIT example-history-compression-09.kt -->
+    <!--- KNIT example-history-compression-10.kt -->
 
 === "Java"
 
@@ -660,7 +720,7 @@ You can use it as follows:
         return null;
     });
     ```
-    <!--- KNIT exampleHistoryCompressionJava08.java -->
+    <!--- KNIT exampleHistoryCompressionJava09.java -->
 
 ### FactRetrievalHistoryCompressionStrategy
 
@@ -717,7 +777,7 @@ You can use it as follows:
         )
     )
     ```
-    <!--- KNIT example-history-compression-10.kt -->
+    <!--- KNIT example-history-compression-11.kt -->
 
 === "Java"
 
@@ -765,7 +825,7 @@ You can use it as follows:
         // Note: This example only shows the node creation.
         // You would need to add edges and other nodes to complete the graph.
     ```
-    <!--- KNIT exampleHistoryCompressionJava09.java -->
+    <!--- KNIT exampleHistoryCompressionJava10.java -->
 
 * In a custom node:
 
@@ -815,7 +875,7 @@ You can use it as follows:
         )
     }
     ```
-    <!--- KNIT example-history-compression-11.kt -->
+    <!--- KNIT example-history-compression-12.kt -->
 
 === "Java"
 
@@ -872,7 +932,7 @@ You can use it as follows:
         return null;
     });
     ```
-    <!--- KNIT exampleHistoryCompressionJava10.java -->
+    <!--- KNIT exampleHistoryCompressionJava11.java -->
 
 ## Custom history compression strategy implementation
 
@@ -925,7 +985,7 @@ Here is an example:
         }
     }
     ```
-    <!--- KNIT example-history-compression-12.kt -->
+    <!--- KNIT example-history-compression-13.kt -->
 
 In this example, the custom strategy filters messages that contain the word "important" and keeps only those in the
 compressed history.
@@ -941,7 +1001,7 @@ Then you can use it as follows:
     import ai.koog.agents.core.dsl.builder.node
     import ai.koog.agents.core.dsl.builder.subgraph
     import ai.koog.agents.core.dsl.extension.nodeLLMCompressHistory
-    import ai.koog.agents.example.exampleHistoryCompression12.MyCustomCompressionStrategy
+    import ai.koog.agents.example.exampleHistoryCompression13.MyCustomCompressionStrategy
     typealias ProcessedInput = String
     val strategy = strategy<String, String>("strategy_name") {
     -->
@@ -953,7 +1013,7 @@ Then you can use it as follows:
         strategy = MyCustomCompressionStrategy()
     )
     ```
-    <!--- KNIT example-history-compression-13.kt -->
+    <!--- KNIT example-history-compression-14.kt -->
 
 * In a custom node:
 
@@ -963,7 +1023,7 @@ Then you can use it as follows:
     import ai.koog.agents.core.dsl.builder.strategy
     import ai.koog.agents.core.dsl.builder.node
     import ai.koog.agents.core.dsl.builder.subgraph
-    import ai.koog.agents.example.exampleHistoryCompression12.MyCustomCompressionStrategy
+    import ai.koog.agents.example.exampleHistoryCompression13.MyCustomCompressionStrategy
     typealias ProcessedInput = String
     val strategy = strategy<String, String>("strategy_name") {
     val node by node<Unit, Unit> {
@@ -977,7 +1037,7 @@ Then you can use it as follows:
         replaceHistoryWithTLDR(strategy = MyCustomCompressionStrategy())
     }
     ```
-    <!--- KNIT example-history-compression-14.kt -->
+    <!--- KNIT example-history-compression-15.kt -->
 
 ## Memory preservation during compression
 
@@ -1013,7 +1073,7 @@ To enable memory preservation:
         preserveMemory = true
     )
     ```
-    <!--- KNIT example-history-compression-15.kt -->
+    <!--- KNIT example-history-compression-16.kt -->
 
 === "Java"
 
@@ -1044,7 +1104,7 @@ To enable memory preservation:
     // Note: This example only shows the node creation.
     // You would need to add edges and other nodes to complete the graph.
     ```
-    <!--- KNIT exampleHistoryCompressionJava11.java -->
+    <!--- KNIT exampleHistoryCompressionJava12.java -->
 
 * In a custom node:
 
@@ -1071,7 +1131,7 @@ To enable memory preservation:
         )
     }
     ```
-    <!--- KNIT example-history-compression-16.kt -->
+    <!--- KNIT example-history-compression-17.kt -->
 
 === "Java"
 
@@ -1106,4 +1166,4 @@ To enable memory preservation:
         return null;
     });
     ```
-    <!--- KNIT exampleHistoryCompressionJava12.java -->
+    <!--- KNIT exampleHistoryCompressionJava13.java -->

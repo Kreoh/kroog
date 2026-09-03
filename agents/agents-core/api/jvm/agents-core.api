@@ -2105,6 +2105,7 @@ public abstract class ai/koog/agents/core/dsl/extension/HistoryCompressionStrate
 	public static final fun FactRetrieval ([Lai/koog/agents/core/dsl/extension/Concept;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FromLastNMessages (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FromTimestamp (Lkotlin/time/Instant;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Tiered (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	protected final fun composeMessageHistory (Ljava/util/List;Ljava/util/List;Ljava/util/List;)Ljava/util/List;
 	public abstract fun compress (Lai/koog/agents/core/agent/session/AIAgentLLMWriteSession;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	protected final fun compressPromptIntoTLDR (Lai/koog/agents/core/agent/session/AIAgentLLMWriteSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -2117,6 +2118,7 @@ public final class ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy$
 	public final fun FactRetrieval ([Lai/koog/agents/core/dsl/extension/Concept;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FromLastNMessages (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FromTimestamp (Lkotlin/time/Instant;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Tiered (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 }
 
 public final class ai/koog/agents/core/dsl/extension/ModeratedMessage {
@@ -2235,6 +2237,18 @@ public final synthetic class ai/koog/agents/core/dsl/extension/SingleFact$$seria
 
 public final class ai/koog/agents/core/dsl/extension/SingleFact$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategy : ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public fun compress (Lai/koog/agents/core/agent/session/AIAgentLLMWriteSession;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun copy (I)Lai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategy;
+	public static synthetic fun copy$default (Lai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategy;IILjava/lang/Object;)Lai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategy;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPreserveRecentTurns ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class ai/koog/agents/core/dsl/extension/ToolCalls {

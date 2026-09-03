@@ -16,6 +16,7 @@ import kotlin.time.Instant
  *
  * Example implementations:
  * - [HistoryCompressionStrategy.WholeHistory]
+ * - [HistoryCompressionStrategy.Tiered]
  * - [HistoryCompressionStrategy.FromLastNMessages]
  * - [HistoryCompressionStrategy.FromTimestamp]
  * - [HistoryCompressionStrategy.Chunked]
@@ -164,6 +165,21 @@ public abstract class HistoryCompressionStrategy {
          */
         @JvmField
         public val WholeHistory: HistoryCompressionStrategy = WholeHistoryCompressionStrategy
+
+        /**
+         * Creates a two-tier history strategy that summarises older user-led turns and retains the newest
+         * [preserveRecentTurns] turns.
+         *
+         * Both tiers omit provider-specific replay state. Ordinary text, user attachments, and complete custom-tool
+         * exchanges retain their typed representation, so the compressed history can be reused when a later request
+         * selects a different provider.
+         *
+         * @param preserveRecentTurns Minimum number of newest user-led turns to retain. Must be positive.
+         */
+        @JvmStatic
+        @KtLintIgnoreNaming
+        public fun Tiered(preserveRecentTurns: Int): HistoryCompressionStrategy =
+            TieredHistoryCompressionStrategy(preserveRecentTurns)
 
         /**
          * [WholeHistoryMultipleSystemMessages] is a concrete implementation of the [HistoryCompressionStrategy]
