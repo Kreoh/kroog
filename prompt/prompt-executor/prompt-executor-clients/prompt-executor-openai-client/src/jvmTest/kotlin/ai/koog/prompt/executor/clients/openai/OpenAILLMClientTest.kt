@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
+import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
 import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.params.LLMParams
@@ -22,9 +23,183 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.Stream
 import kotlin.reflect.KClass
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OpenAILLMClientTest {
+
+    @Test
+    fun testAstraDefaultsToResponsesAndHonoursExplicitChat() {
+        val model = OpenAIModels.Chat.GPT6Astra
+        assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
+        assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
+        assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model.copy(id = "astra-deployment")))
+    }
+
+    @Test
+    fun testAstraPreservesSupportedReasoningAndOmitsSamplingOnBothEndpoints() {
+        val efforts = listOf(
+            null,
+            ReasoningEffort.LOW,
+            ReasoningEffort.MEDIUM,
+            ReasoningEffort.HIGH,
+            ReasoningEffort.XHIGH,
+            ReasoningEffort.MAX
+        )
+        val additional = mapOf(
+            "temperature" to JsonPrimitive(0.5),
+            "top_p" to JsonPrimitive(0.9),
+            "top_logprobs" to JsonPrimitive(5),
+            "logprobs" to JsonPrimitive(true),
+            "custom_option" to JsonPrimitive("preserved"),
+        )
+        listOf(OpenAIModels.Chat.GPT6Astra, OpenAIModels.Chat.GPT6Astra.copy(id = "astra-deployment"))
+            .forEach { model ->
+                efforts.forEach { effort ->
+                    val chat = chatRequest(
+                        model,
+                        OpenAIChatParams(
+                            reasoningEffort = effort,
+                            temperature = 0.4,
+                            topLogprobs = 5,
+                            logprobs = true,
+                            additionalProperties = additional,
+                        )
+                    )
+                    val responses = responsesRequest(
+                        model,
+                        OpenAIResponsesParams(
+                            reasoning = effort?.let { ReasoningConfig(effort = it) },
+                            temperature = 0.4,
+                            topLogprobs = 5,
+                            logprobs = true,
+                            include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL),
+                            stateless = true,
+                            additionalProperties = additional,
+                        )
+                    )
+                    listOf(chat, responses).forEach { request ->
+                        request["model"]?.jsonPrimitive?.content shouldBe model.id
+                        listOf("temperature", "top_p", "top_logprobs", "logprobs").forEach {
+                            request.containsKey(it) shouldBe false
+                        }
+                        request["custom_option"]?.jsonPrimitive?.content shouldBe "preserved"
+                    }
+                    chat["reasoning_effort"]?.jsonPrimitive?.content shouldBe effort?.name?.lowercase()
+                    responses["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content shouldBe
+                        effort?.name?.lowercase()
+                    responses["include"]?.jsonArray?.map { it.jsonPrimitive.content } shouldBe
+                        listOf("message.input_image.image_url", "reasoning.encrypted_content")
+                    chatRequest(model, OpenAIChatParams(topP = 0.9)).containsKey("top_p") shouldBe false
+                    responsesRequest(model, OpenAIResponsesParams(topP = 0.9)).containsKey("top_p") shouldBe false
+                }
+            }
+    }
+
+    @Test
+    fun testAstraRejectsUnsupportedReasoningEfforts() {
+        listOf(ReasoningEffort.NONE, ReasoningEffort.MINIMAL).forEach { effort ->
+            val chatFailure = assertFailsWith<IllegalArgumentException> {
+                chatRequest(OpenAIModels.Chat.GPT6Astra, OpenAIChatParams(reasoningEffort = effort))
+            }
+            val responsesFailure = assertFailsWith<IllegalArgumentException> {
+                responsesRequest(
+                    OpenAIModels.Chat.GPT6Astra,
+                    OpenAIResponsesParams(
+                        reasoning = ReasoningConfig(effort = effort),
+                    )
+                )
+            }
+            chatFailure.message shouldBe responsesFailure.message
+            chatFailure.message?.contains("Use low instead of none or minimal") shouldBe true
+        }
+    }
+
+    @Test
+    fun testAstraRawPropertiesCannotBypassReasoningToolsOrIncludeRestrictions() {
+        val model = OpenAIModels.Chat.GPT6Astra
+        listOf("none", "minimal", "ultra").forEach { effort ->
+            assertFailsWith<IllegalArgumentException> {
+                chatRequest(
+                    model,
+                    OpenAIChatParams(
+                        additionalProperties = mapOf(
+                            "reasoning_effort" to JsonPrimitive(effort),
+                        )
+                    )
+                )
+            }
+            assertFailsWith<IllegalArgumentException> {
+                responsesRequest(
+                    model,
+                    OpenAIResponsesParams(
+                        additionalProperties = mapOf(
+                            "reasoning" to buildJsonObject { put("effort", JsonPrimitive(effort)) },
+                        )
+                    )
+                )
+            }
+        }
+        listOf(
+            "tools" to Json.parseToJsonElement("""[{"type":"function","function":{"name":"lookup"}}]"""),
+            "tool_choice" to JsonPrimitive("auto"),
+            "parallel_tool_calls" to JsonPrimitive(false),
+        ).forEach { property ->
+            assertFailsWith<IllegalArgumentException> {
+                chatRequest(model, OpenAIChatParams(additionalProperties = mapOf(property)))
+            }
+        }
+        val include = mapOf(
+            "include" to buildJsonArray {
+                add(JsonPrimitive("message.output_text.logprobs"))
+                add(JsonPrimitive("message.input_image.image_url"))
+            }
+        )
+        responsesRequest(model, OpenAIResponsesParams(additionalProperties = include))
+            .get("include")?.jsonArray?.map { it.jsonPrimitive.content } shouldBe listOf("message.input_image.image_url")
+        responsesRequest(OpenAIModels.Chat.GPT4o, OpenAIResponsesParams(additionalProperties = include))
+            .get("include") shouldBe include["include"]
+        chatRequest(
+            OpenAIModels.Chat.GPT4o,
+            OpenAIChatParams(
+                additionalProperties = mapOf(
+                    "reasoning_effort" to JsonPrimitive("none"),
+                )
+            )
+        )["reasoning_effort"]?.jsonPrimitive?.content shouldBe "none"
+    }
+
+    @Test
+    fun testOlderModelsRetainSamplingAndLogprobControls() {
+        val chat = chatRequest(
+            OpenAIModels.Chat.GPT4o,
+            OpenAIChatParams(
+                temperature = 0.4,
+                topLogprobs = 5,
+                logprobs = true,
+            )
+        )
+        val responses = responsesRequest(
+            OpenAIModels.Chat.GPT4o,
+            OpenAIResponsesParams(
+                temperature = 0.4,
+                topLogprobs = 5,
+                logprobs = true,
+                include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS),
+            )
+        )
+        listOf(chat, responses).forEach { request ->
+            request["temperature"]?.jsonPrimitive?.double shouldBe 0.4
+            request["top_logprobs"]?.jsonPrimitive?.content shouldBe "5"
+        }
+        chat["logprobs"]?.jsonPrimitive?.content shouldBe "true"
+        responses["include"]?.jsonArray?.single()?.jsonPrimitive?.content shouldBe "message.output_text.logprobs"
+        chatRequest(OpenAIModels.Chat.GPT4o, OpenAIChatParams(topP = 0.9))
+            .get("top_p")?.jsonPrimitive?.double shouldBe 0.9
+        responsesRequest(OpenAIModels.Chat.GPT4o, OpenAIResponsesParams(topP = 0.9))
+            .get("top_p")?.jsonPrimitive?.double shouldBe 0.9
+    }
 
     fun openAiClientTestCases(): Stream<Arguments> =
         Stream.of(

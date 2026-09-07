@@ -201,6 +201,20 @@ public object ModelCatalogue {
             input = 922_000,
             providerApis = openAiAzureCodex,
         ),
+        // Added after the frozen KreLLM baseline. OpenAI documentation:
+        // https://developers.openai.com/api/docs/models/gpt-6-astra
+        // https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra
+        openAiReasoning(
+            id = "gpt-6-astra",
+            efforts = frontierReasoning - "none",
+            temperature = TemperatureSupport(
+                1.0,
+                1.0,
+                omittedProviderApis = setOf(ProviderApi.OPENAI_RESPONSES),
+            ),
+            input = 922_000,
+            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+        ),
         realtime(
             id = "gpt-realtime",
             input = 27_904,

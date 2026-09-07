@@ -949,6 +949,35 @@ public object OpenAIModels : LLModelDefinitions {
             maxOutputTokens = 128_000,
         )
 
+        /**
+         * GPT-6 Astra accepts text and images, with a 1,050,000-token context window,
+         * up to 922,000 input tokens and 128,000 output tokens.
+         *
+         * The client defaults to Responses, which is required for tools. Explicit Chat Completions
+         * requests support text generation. Reasoning efforts are `low`, `medium`, `high`, `xhigh`
+         * and `max`; sampling parameters and log probabilities are unsupported.
+         *
+         * @see <a href="https://developers.openai.com/api/docs/models/gpt-6-astra">Model page</a>
+         * @see <a href="https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra">Migration guide</a>
+         */
+        @JvmField
+        public val GPT6Astra: LLModel = LLModel(
+            provider = LLMProvider.OpenAI,
+            id = "gpt-6-astra",
+            capabilities = listOf(
+                LLMCapability.Completion,
+                LLMCapability.Tools,
+                LLMCapability.ToolChoice,
+                LLMCapability.Vision.Image,
+                LLMCapability.OpenAIEndpoint.Completions,
+                LLMCapability.OpenAIEndpoint.Responses,
+                LLMCapability.Schema.JSON.Basic,
+                LLMCapability.Schema.JSON.Standard,
+            ) + reasoningCapabilities,
+            contextLength = 1_050_000,
+            maxOutputTokens = 128_000,
+        )
+
         private val gpt5_6Capabilities: List<LLMCapability> = listOf(
             LLMCapability.Completion,
             LLMCapability.Speculation,
@@ -1009,7 +1038,6 @@ public object OpenAIModels : LLModelDefinitions {
             contextLength = 1_050_000,
             maxOutputTokens = 128_000,
         )
-
     }
 
     /**
@@ -1239,6 +1267,7 @@ public object OpenAIModels : LLModelDefinitions {
             Chat.GPT5_6Sol,
             Chat.GPT5_6Terra,
             Chat.GPT5_6Luna,
+            Chat.GPT6Astra,
             Chat.GPT5Mini,
 
             // Audio Models

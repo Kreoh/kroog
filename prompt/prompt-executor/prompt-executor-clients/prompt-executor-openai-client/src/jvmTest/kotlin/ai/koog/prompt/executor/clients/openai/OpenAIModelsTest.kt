@@ -13,6 +13,26 @@ import kotlin.test.assertNotNull
 class OpenAIModelsTest {
 
     @Test
+    fun testAstraMetadataAndVerifiedCapabilities() {
+        val model = OpenAIModels.Chat.GPT6Astra
+        model.id shouldBe "gpt-6-astra"
+        model.contextLength shouldBe 1_050_000
+        model.maxOutputTokens shouldBe 128_000
+        model.capabilities shouldContainExactly listOf(
+            LLMCapability.Completion,
+            LLMCapability.Tools,
+            LLMCapability.ToolChoice,
+            LLMCapability.Vision.Image,
+            LLMCapability.OpenAIEndpoint.Completions,
+            LLMCapability.OpenAIEndpoint.Responses,
+            LLMCapability.Schema.JSON.Basic,
+            LLMCapability.Schema.JSON.Standard,
+            LLMCapability.Thinking,
+        )
+        OpenAIModels.models.count { it.id == model.id } shouldBe 1
+    }
+
+    @Test
     fun `OpenAI models should have OpenAI provider`() {
         val models = OpenAIModels.list()
 

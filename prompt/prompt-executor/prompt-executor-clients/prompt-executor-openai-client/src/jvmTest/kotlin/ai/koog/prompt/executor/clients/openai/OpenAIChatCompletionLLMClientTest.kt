@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
@@ -8,6 +9,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.params.LLMParams
 import ai.koog.utils.time.KoogClock
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
@@ -18,6 +20,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -30,11 +33,90 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class OpenAIChatCompletionLLMClientTest {
+
+    @Test
+    fun testAstraExplicitChatPreservesMaxAndUsesChatEndpoint() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/v1/chat/completions", request.url.encodedPath)
+            val body = Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+            assertEquals("gpt-6-astra", body.getValue("model").jsonPrimitive.content)
+            assertEquals("max", body.getValue("reasoning_effort").jsonPrimitive.content)
+            assertTrue("temperature" !in body)
+            respond(plainResponseBody, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = OpenAILLMClient(
+            apiKey = key,
+            httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine)),
+        )
+        val prompt = Prompt.build(
+            "astra-chat",
+            params = OpenAIChatParams(
+                temperature = 0.4,
+                reasoningEffort = ReasoningEffort.MAX,
+            )
+        ) { user("Hello") }
+        assertEquals(1, client.execute(prompt, OpenAIModels.Chat.GPT6Astra).parts.size)
+    }
+
+    @Test
+    fun testAstraExplicitChatRejectsToolsBeforeNetworkOnEveryEntryPoint() = runTest {
+        var requests = 0
+        val engine = MockEngine {
+            requests++
+            error("No request should reach the transport")
+        }
+        val client = OpenAILLMClient(
+            apiKey = key,
+            httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine)),
+        )
+        val plain = Prompt.build("astra-chat-tools", params = OpenAIChatParams()) { user("Look this up") }
+        val cases = listOf(
+            plain to listOf(ToolDescriptor("lookup", "Look up the answer")),
+            plain.withParams(OpenAIChatParams(toolChoice = LLMParams.ToolChoice.Auto)) to emptyList(),
+            plain.withParams(OpenAIChatParams(parallelToolCalls = false)) to emptyList(),
+            Prompt(
+                messages = listOf(
+                    Message.Assistant(
+                        parts = listOf(MessagePart.Tool.Call(id = "call_1", tool = "lookup", args = "{}")),
+                        metaInfo = ResponseMetaInfo.Empty,
+                    )
+                ),
+                id = "astra-call-history",
+                params = OpenAIChatParams(),
+            ) to emptyList(),
+            Prompt(
+                messages = listOf(
+                    Message.User(
+                        parts = listOf(MessagePart.Tool.Result(id = "call_1", tool = "lookup", output = "found")),
+                        metaInfo = RequestMetaInfo.Empty,
+                    )
+                ),
+                id = "astra-result-history",
+                params = OpenAIChatParams(),
+            ) to emptyList(),
+        )
+        cases.forEach { (prompt, tools) ->
+            val failures = listOf(
+                assertFailsWith<IllegalArgumentException> { client.execute(prompt, OpenAIModels.Chat.GPT6Astra, tools) },
+                assertFailsWith<IllegalArgumentException> {
+                    client.executeStreaming(prompt, OpenAIModels.Chat.GPT6Astra, tools).toList()
+                },
+            )
+            failures.forEach { assertTrue(it.message.orEmpty().contains("Use OpenAIResponsesParams")) }
+            val multipleChoicesFailure = assertFailsWith<IllegalArgumentException> {
+                client.executeMultipleChoices(prompt, OpenAIModels.Chat.GPT6Astra, tools)
+            }
+            assertTrue(multipleChoicesFailure.message.orEmpty().contains("multiple"))
+        }
+        assertEquals(0, requests)
+    }
 
     object FixedClock : KoogClock {
         override fun now(): Instant = Instant.fromEpochMilliseconds(0)

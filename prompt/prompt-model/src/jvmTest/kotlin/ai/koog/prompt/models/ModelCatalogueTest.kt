@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 
 class ModelCatalogueTest {
     @Test
-    fun testCatalogueMatchesNormalisedKreLLMGolden() {
+    fun testCatalogueMatchesNormalisedBaselineAndProviderVerifiedGolden() {
         val expected = assertNotNull(
             javaClass.getResourceAsStream("/model-catalogue/krellm-model-catalogue.txt")
         ).bufferedReader().use { it.readText().trimEnd() }
@@ -18,10 +18,30 @@ class ModelCatalogueTest {
     }
 
     @Test
-    fun testCatalogueContainsEveryCurrentKreLLMSemanticId() {
+    fun testCatalogueContainsEveryExpectedSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(37, ModelCatalogue.entries.size)
+        assertEquals(38, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
+    }
+
+    @Test
+    fun testAstraDeclaresVerifiedOpenAIResponsesCapabilities() {
+        val astra = assertNotNull(ModelCatalogue.find("gpt-6-astra"))
+        assertEquals(ModelPublisher.OPENAI, astra.publisher)
+        assertEquals(ModelKind.TEXT, astra.kind)
+        assertEquals(922_000, astra.maxInputTokens)
+        assertEquals(128_000, astra.maxOutputTokens)
+        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES), astra.providerApis)
+        assertEquals(
+            mapOf("low" to 0.2, "medium" to 0.4, "high" to 0.6, "xhigh" to 0.8, "max" to 1.0),
+            (astra.reasoning as ReasoningSupport.Supported).efforts,
+        )
+        assertEquals(astra.providerApis, astra.temperature.omittedProviderApis)
+        assertEquals(setOf("text/plain", "image/jpeg", "image/png", "image/gif", "image/webp"), astra.supportedMimeTypes)
+        assertTrue(astra.structuredOutput)
+        assertTrue(astra.hostedExecution)
+        assertEquals(ModelProviderApiCompatibility.Undeclared, astra.compatibility(ProviderApi.AZURE_RESPONSES))
+        assertEquals(ModelProviderApiCompatibility.Undeclared, astra.compatibility(ProviderApi.CODEX_RESPONSES))
     }
 
     @Test
@@ -322,6 +342,7 @@ class ModelCatalogueTest {
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
+            "gpt-6-astra",
             "gpt-5-mini",
             "gpt-5-nano",
             "claude-4.5-haiku",

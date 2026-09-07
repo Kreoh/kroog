@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
@@ -16,6 +17,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +36,85 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class OpenAIResponsesParityTest {
+    @Test
+    fun testAstraDefaultResponsesToolCallsAndStreamingAgree() = runTest {
+        val toolCall = Item.FunctionToolCall(
+            arguments = "{}",
+            callId = "call_lookup",
+            name = "lookup",
+            id = "function_provider",
+            status = OpenAIInputStatus.COMPLETED,
+        )
+        val output = response(listOf(toolCall))
+        val transport = ScriptedResponsesTransport(
+            postResponses = ArrayDeque(listOf(output)),
+            streamAttempts = ArrayDeque(
+                listOf(
+                    listOf(
+                        OpenAIStreamEvent.ResponseOutputItemDone(item = toolCall, outputIndex = 0, sequenceNumber = 1),
+                        OpenAIStreamEvent.ResponseCompleted(response = output, sequenceNumber = 2),
+                    )
+                )
+            ),
+        )
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val prompt = Prompt.build("astra-tools", params = LLMParams(temperature = 0.4)) { user("Look this up") }
+        val tools = listOf(ToolDescriptor("lookup", "Look up the answer"))
+        val nonStream = client.execute(prompt, OpenAIModels.Chat.GPT6Astra, tools)
+        val streamed = client.executeStreaming(prompt, OpenAIModels.Chat.GPT6Astra, tools).toList().toMessageResponse()
+        assertEquals(nonStream.parts, streamed.parts)
+        val call = assertIs<MessagePart.Tool.Call>(nonStream.parts.single())
+        assertEquals("lookup", call.tool)
+        assertEquals("call_lookup", call.id)
+        assertEquals(listOf("v1/responses", "v1/responses"), transport.paths)
+        transport.requests.forEach { payload ->
+            val request = Json.parseToJsonElement(payload).jsonObject
+            assertEquals("gpt-6-astra", request.getValue("model").jsonPrimitive.content)
+            assertTrue("temperature" !in request)
+            val tool = request.getValue("tools").jsonArray.single().jsonObject
+            assertEquals("function", tool.getValue("type").jsonPrimitive.content)
+            assertEquals("lookup", tool.getValue("name").jsonPrimitive.content)
+        }
+    }
+
+    @Test
+    fun testAstraReplaysToolResultsAndEncryptedReasoning() = runTest {
+        val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(listOf(response())))
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val prompt = Prompt(
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.Reasoning(content = emptyList(), encrypted = "opaque", providerItemId = "reason_1"),
+                        MessagePart.Tool.Call("call_1", "lookup", "{}", providerItemId = "function_1"),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                ),
+                Message.User(
+                    parts = listOf(MessagePart.Tool.Result("call_1", "lookup", "found")),
+                    metaInfo = RequestMetaInfo.Empty,
+                ),
+            ),
+            id = "astra-tool-result",
+            params = OpenAIResponsesParams(stateless = true, include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS)),
+        )
+        val result = client.execute(prompt, OpenAIModels.Chat.GPT6Astra)
+        assertEquals("ok", assertIs<MessagePart.Text>(result.parts.single()).text)
+        val request = Json.parseToJsonElement(transport.requests.single()).jsonObject
+        assertEquals(
+            listOf("reasoning.encrypted_content"),
+            request.getValue("include").jsonArray.map {
+                it.jsonPrimitive.content
+            }
+        )
+        val input = request.getValue("input").jsonArray.map { it.jsonObject }
+        assertEquals("opaque", input[0].getValue("encrypted_content").jsonPrimitive.content)
+        assertEquals("function_call", input[1].getValue("type").jsonPrimitive.content)
+        assertEquals("function_call_output", input[2].getValue("type").jsonPrimitive.content)
+        assertEquals("call_1", input[2].getValue("call_id").jsonPrimitive.content)
+        assertEquals("found", input[2].getValue("output").jsonPrimitive.content)
+    }
+
     @Test
     fun testStatelessRequestReplaysCompleteTypedHistoryWithProviderIdentities() = runTest {
         val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(listOf(response())))
@@ -132,8 +213,11 @@ class OpenAIResponsesParityTest {
         assertEquals("call_function", input[2].getValue("call_id").jsonPrimitive.content)
         assertEquals("call_function", input[7].getValue("call_id").jsonPrimitive.content)
         assertEquals("opaque+bytes==", input[1].getValue("encrypted_content").jsonPrimitive.content)
-        assertEquals("container_active", request.getValue("tools").jsonArray.single().jsonObject
-            .getValue("container").jsonPrimitive.content)
+        assertEquals(
+            "container_active",
+            request.getValue("tools").jsonArray.single().jsonObject
+                .getValue("container").jsonPrimitive.content
+        )
     }
 
     @Test
@@ -634,6 +718,7 @@ class OpenAIResponsesParityTest {
     ) : KoogHttpClient {
         override val clientName: String = "ScriptedResponsesTransport"
         val requests: MutableList<String> = mutableListOf()
+        val paths: MutableList<String> = mutableListOf()
 
         override suspend fun <R : Any> get(
             path: String,
@@ -651,6 +736,7 @@ class OpenAIResponsesParityTest {
             headers: Map<String, String>,
         ): R {
             requests += requestBody.toString()
+            paths += path
             return when (val next = postResponses.removeFirst()) {
                 is Throwable -> throw next
                 else -> next as R
@@ -668,6 +754,7 @@ class OpenAIResponsesParityTest {
             headers: Map<String, String>,
         ): Flow<O> {
             requests += requestBody.toString()
+            paths += path
             val attempt = streamAttempts.removeFirst()
             return flow {
                 attempt.forEach { next ->

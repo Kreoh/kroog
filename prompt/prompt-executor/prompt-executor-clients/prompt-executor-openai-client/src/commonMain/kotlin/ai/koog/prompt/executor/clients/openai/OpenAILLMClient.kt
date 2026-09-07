@@ -83,6 +83,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -398,7 +399,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 ?.minus(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY),
         )
 
-        return json.encodeToString(OpenAIChatCompletionRequestSerializer, request)
+        return normaliseAstraRequest(json.encodeToString(OpenAIChatCompletionRequestSerializer, request), model, false)
     }
 
     internal fun serializeResponsesAPIRequest(
@@ -469,7 +470,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             additionalProperties = params.additionalProperties.withoutReservedPromptCacheKey(),
         )
 
-        return json.encodeToString(OpenAIResponsesAPIRequestSerializer, request)
+        return normaliseAstraRequest(json.encodeToString(OpenAIResponsesAPIRequestSerializer, request), model, true)
     }
 
     private fun List<OpenAIInclude>?.withEncryptedReasoningForStateless(stateless: Boolean): List<OpenAIInclude>? {
@@ -485,6 +486,48 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         effort: ReasoningEffort?,
     ): Double? = temperature.takeUnless { isGpt56() && effort != null && effort != ReasoningEffort.NONE }
 
+    // Validate after flattening additional properties so raw options obey the same model restrictions.
+    private fun normaliseAstraRequest(payload: String, model: LLModel, responses: Boolean): String {
+        if (!model.isGpt6Astra()) return payload
+        val request = json.parseToJsonElement(payload).jsonObject
+        val effort = if (responses) {
+            request["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.contentOrNull
+        } else {
+            request["reasoning_effort"]?.jsonPrimitive?.contentOrNull
+        }
+        require(effort == null || effort in setOf("low", "medium", "high", "xhigh", "max")) {
+            "GPT-6 Astra supports low, medium, high, xhigh and max reasoning. Use low instead of none or minimal."
+        }
+        if (!responses) {
+            require(
+                request["tools"]?.jsonArray.isNullOrEmpty() &&
+                    "tool_choice" !in request &&
+                    "parallel_tool_calls" !in request &&
+                    request["messages"]?.jsonArray.orEmpty().none { item ->
+                        val message = item.jsonObject
+                        message["role"]?.jsonPrimitive?.content == "tool" ||
+                            !message["tool_calls"]?.jsonArray.isNullOrEmpty()
+                    }
+            ) { "GPT-6 Astra tool calling requires Responses. Use OpenAIResponsesParams." }
+        }
+        val compatible = request.toMutableMap()
+        setOf("temperature", "top_p", "top_logprobs", "logprobs").forEach { compatible.remove(it) }
+        if (responses) {
+            request["include"]?.jsonArray?.let { includes ->
+                compatible["include"] = buildJsonArray {
+                    includes.filterNot { it.jsonPrimitive.content == "message.output_text.logprobs" }.forEach { add(it) }
+                }
+            }
+        }
+        return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
+    }
+
+    private fun LLModel.isGpt6Astra(): Boolean =
+        id == OpenAIModels.Chat.GPT6Astra.id ||
+            contextLength == OpenAIModels.Chat.GPT6Astra.contextLength &&
+            maxOutputTokens == OpenAIModels.Chat.GPT6Astra.maxOutputTokens &&
+            capabilities == OpenAIModels.Chat.GPT6Astra.capabilities
+
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
         val validated = OpenAICodeInterpreterConfig(fileIds = fileIds.toList(), containerId = containerId)
         val container = when {
@@ -496,7 +539,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     private fun LLModel.isGpt56(): Boolean =
-        contextLength == 1_050_000L &&
+        !isGpt6Astra() &&
+            contextLength == 1_050_000L &&
             maxOutputTokens == 128_000L &&
             capabilities == OpenAIModels.Chat.GPT5_6Sol.capabilities
 
@@ -1838,6 +1882,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             params
         }
 
+        model.isGpt6Astra() -> {
+            settings.requireResponsesCapability()
+            model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
+            params.toOpenAIResponsesParams()
+        }
         model.supports(LLMCapability.OpenAIEndpoint.Completions) -> params.toOpenAIChatParams()
         model.supports(LLMCapability.OpenAIEndpoint.Responses) -> {
             settings.requireResponsesCapability()
