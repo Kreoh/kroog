@@ -7,6 +7,10 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.testing.tools.MockEnvironment
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
+import ai.koog.prompt.executor.clients.google.GoogleParams
+import ai.koog.prompt.executor.clients.openai.OpenAICodeInterpreterConfig
+import ai.koog.prompt.executor.clients.openai.OpenAIPromptCacheIdentity
+import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParams
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -14,9 +18,11 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.utils.time.KoogClock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -25,7 +31,9 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -119,8 +127,10 @@ class TieredHistoryCompressionStrategyTest {
     fun testDoesNothingWhenThereIsNoOlderCompleteTurn() = runTest {
         val messages = listOf(system("System", 0), user("Only turn", 1), assistant("Answer", 2))
 
-        val result = compress(messages, preserveRecentTurns = 1)
+        val params = responsesParamsWithSavedContainer()
+        val result = compress(messages, preserveRecentTurns = 1, params = params)
 
+        assertSame(params, result.prompt.params)
         assertEquals(0, result.executorRequests)
         assertEquals(messages, result.messages)
     }
@@ -326,7 +336,8 @@ class TieredHistoryCompressionStrategyTest {
             )
         val executor = executorReturning(summaryResponse)
         val original = listOf(system("System", 0), user("Old", 1), assistant("Old answer", 2), user("New", 3))
-        val context = context(original, defaultModel, executor)
+        val context = context(original, defaultModel, executor, responsesParamsWithSavedContainer())
+        val originalPrompt = context.readSession { prompt }
 
         assertFailsWith<IllegalStateException> {
             context.writeSession {
@@ -334,8 +345,124 @@ class TieredHistoryCompressionStrategyTest {
             }
         }
 
-        assertEquals(original, context.readSession { prompt.messages })
+        assertSame(originalPrompt, context.readSession { prompt })
     }
+
+    @Test
+    fun testRemovesSavedContainerFromSummaryRequestAndPreservesExecutionSettings() = runTest {
+        val params = responsesParamsWithSavedContainer()
+        val result = compress(twoTurnMessages(), preserveRecentTurns = 1, params = params)
+
+        assertEquals(1, result.executorRequests)
+        assertPortableExecutionParams(params, assertNotNull(result.requestPrompt).params)
+        assertEquals("saved-container", params.codeInterpreter?.containerId)
+    }
+
+    @Test
+    fun testRemovesSavedContainerFromFinalPromptAndPreservesExecutionSettings() = runTest {
+        val params = responsesParamsWithSavedContainer().copy(temperature = null, topP = 0.8)
+        val result = compress(twoTurnMessages(), preserveRecentTurns = 1, params = params)
+
+        assertEquals(listOf("System", "TLDR", "New"), result.messages.map(Message::textContent))
+        assertPortableExecutionParams(params, result.prompt.params)
+        assertEquals("saved-container", params.codeInterpreter?.containerId)
+    }
+
+    @Test
+    fun testKeepsCodeInterpreterDisabledDuringCompression() = runTest {
+        val params = OpenAIResponsesParams(temperature = 0.3, maxTokens = 400, stateless = true)
+        val result = compress(twoTurnMessages(), preserveRecentTurns = 1, params = params)
+
+        for (prompt in listOf(assertNotNull(result.requestPrompt), result.prompt)) {
+            val actual = assertIs<OpenAIResponsesParams>(prompt.params)
+            assertNull(actual.codeInterpreter)
+            assertEquals(params, actual)
+        }
+    }
+
+    @Test
+    fun testPreservesNonOpenAIParameterTypeAndValuesDuringCompression() = runTest {
+        val params = GoogleParams(temperature = 0.4, maxTokens = 500, topP = 0.8, topK = 12)
+        val result = compress(
+            twoTurnMessages(),
+            preserveRecentTurns = 1,
+            model = LLModel(LLMProvider.Google, "test-google"),
+            params = params,
+        )
+
+        for (prompt in listOf(assertNotNull(result.requestPrompt), result.prompt)) {
+            val actual = assertIs<GoogleParams>(prompt.params)
+            assertEquals(params, actual)
+            assertEquals(0.4, actual.temperature)
+            assertEquals(500, actual.maxTokens)
+            assertEquals(0.8, actual.topP)
+            assertEquals(12, actual.topK)
+        }
+    }
+
+    @Test
+    fun testRestoresOriginalPromptAndContainerWhenSummaryFails() = runTest {
+        val failure = IllegalStateException("Summary failed")
+        val executor = RecordingPromptExecutor { throw failure }
+        val context = context(twoTurnMessages(), defaultModel, executor, responsesParamsWithSavedContainer())
+        val originalPrompt = context.readSession { prompt }
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            context.writeSession {
+                HistoryCompressionStrategy.Tiered(1).compress(this, memoryMessages = emptyList())
+            }
+        }
+
+        assertSame(failure, thrown)
+        assertSame(originalPrompt, context.readSession { prompt })
+    }
+
+    @Test
+    fun testRestoresOriginalPromptAndContainerWhenSummaryIsCancelled() = runTest {
+        val cancellation = CancellationException("Summary cancelled")
+        val executor = RecordingPromptExecutor { throw cancellation }
+        val context = context(twoTurnMessages(), defaultModel, executor, responsesParamsWithSavedContainer())
+        val originalPrompt = context.readSession { prompt }
+
+        val thrown = assertFailsWith<CancellationException> {
+            context.writeSession {
+                HistoryCompressionStrategy.Tiered(1).compress(this, memoryMessages = emptyList())
+            }
+        }
+
+        assertSame(cancellation, thrown)
+        assertSame(originalPrompt, context.readSession { prompt })
+    }
+
+    private fun responsesParamsWithSavedContainer(): OpenAIResponsesParams =
+        OpenAIResponsesParams(
+            temperature = 0.3,
+            maxTokens = 400,
+            parallelToolCalls = false,
+            store = false,
+            stateless = true,
+            codeInterpreter = OpenAICodeInterpreterConfig(
+                fileIds = listOf("file-input"),
+                containerId = "saved-container",
+            ),
+        ).withPromptCacheIdentity(OpenAIPromptCacheIdentity("test-user", "test-chat"))
+
+    private fun assertPortableExecutionParams(original: OpenAIResponsesParams, actual: LLMParams) {
+        val responses = assertIs<OpenAIResponsesParams>(actual)
+        val codeInterpreter = assertNotNull(responses.codeInterpreter)
+        assertNull(codeInterpreter.containerId)
+        assertEquals(listOf("file-input"), codeInterpreter.fileIds)
+        assertTrue(responses.stateless)
+        assertEquals(false, responses.store)
+        assertEquals(original.promptCacheIdentity, responses.promptCacheIdentity)
+        assertEquals(original.temperature, responses.temperature)
+        assertEquals(original.maxTokens, responses.maxTokens)
+        assertEquals(original.topP, responses.topP)
+        assertEquals(original.parallelToolCalls, responses.parallelToolCalls)
+    }
+
+    private fun twoTurnMessages(): List<Message> =
+        listOf(system("System", 0), user("Old", 1), assistant("Old answer", 2), user("New", 3))
 
     @Test
     fun testRejectsNonPositiveRecentTurnCount() {
@@ -349,22 +476,25 @@ class TieredHistoryCompressionStrategyTest {
         model: LLModel = defaultModel,
         memoryMessages: List<Message> = emptyList(),
         summaryText: String = "TLDR",
+        params: LLMParams = LLMParams(),
     ): CompressionResult {
         var executorRequests = 0
-        var requestMessages = emptyList<Message>()
+        var requestPrompt: Prompt? = null
         val executor = RecordingPromptExecutor { prompt ->
             executorRequests += 1
-            requestMessages = prompt.messages
+            requestPrompt = prompt
             assistant(summaryText, 10)
         }
-        val context = context(messages, model, executor)
+        val context = context(messages, model, executor, params)
         context.writeSession {
             HistoryCompressionStrategy.Tiered(preserveRecentTurns).compress(this, memoryMessages)
         }
         return CompressionResult(
             messages = context.readSession { prompt.messages },
             executorRequests = executorRequests,
-            requestMessages = requestMessages,
+            requestMessages = requestPrompt?.messages.orEmpty(),
+            prompt = context.readSession { prompt },
+            requestPrompt = requestPrompt,
         )
     }
 
@@ -372,10 +502,11 @@ class TieredHistoryCompressionStrategyTest {
         messages: List<Message>,
         model: LLModel,
         executor: PromptExecutor,
+        params: LLMParams = LLMParams(),
     ): AIAgentLLMContext =
         AIAgentLLMContext(
             tools = emptyList(),
-            prompt = Prompt.build("tiered-compression-test") { messages.forEach { message(it) } },
+            prompt = Prompt.build("tiered-compression-test", params = params) { messages.forEach { message(it) } },
             model = model,
             responseProcessor = null,
             promptExecutor = executor,
@@ -417,6 +548,8 @@ class TieredHistoryCompressionStrategyTest {
         val messages: List<Message>,
         val executorRequests: Int,
         val requestMessages: List<Message>,
+        val prompt: Prompt,
+        val requestPrompt: Prompt?,
     )
 
     private class RecordingPromptExecutor(

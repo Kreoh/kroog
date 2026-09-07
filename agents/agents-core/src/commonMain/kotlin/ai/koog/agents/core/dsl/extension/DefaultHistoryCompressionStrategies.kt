@@ -1,6 +1,7 @@
 package ai.koog.agents.core.dsl.extension
 
 import ai.koog.agents.core.agent.session.AIAgentLLMWriteSession
+import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParams
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import kotlin.collections.chunked
@@ -88,7 +89,12 @@ public data class TieredHistoryCompressionStrategy(
             memoryMessages.filter { it in olderMessages }.mapNotNull(Message::toPortableHistoryMessage)
 
         try {
-            llmSession.prompt = initialPrompt.withMessages { portableOlderMessages }
+            val portableParams = when (val params = initialPrompt.params) {
+                is OpenAIResponsesParams ->
+                    params.withCodeInterpreter(params.codeInterpreter?.copy(containerId = null))
+                else -> params
+            }
+            llmSession.prompt = initialPrompt.copy(params = portableParams, messages = portableOlderMessages)
             val portableSummaries =
                 compressPromptIntoTLDR(llmSession).map { summary ->
                     val text = summary.textContent()
@@ -102,7 +108,10 @@ public data class TieredHistoryCompressionStrategy(
             val compressedOlderMessages =
                 (portableOlderMessages.filterIsInstance<Message.System>() + portableOlderMemoryMessages)
                     .sortedBy { it.metaInfo.timestamp } + portableSummaries
-            llmSession.prompt = initialPrompt.withMessages { compressedOlderMessages + portableRetainedMessages }
+            llmSession.prompt = initialPrompt.copy(
+                params = portableParams,
+                messages = compressedOlderMessages + portableRetainedMessages,
+            )
         } catch (cause: Throwable) {
             llmSession.prompt = initialPrompt
             throw cause
