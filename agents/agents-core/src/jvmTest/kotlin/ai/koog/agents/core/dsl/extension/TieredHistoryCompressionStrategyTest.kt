@@ -54,7 +54,7 @@ class TieredHistoryCompressionStrategyTest {
 
         assertEquals(1, result.executorRequests)
         assertEquals(
-            listOf("System", "User 1", "TLDR", "User 2", "Assistant 2", "User 3", "Assistant 3"),
+            listOf("System", "TLDR", "User 2", "Assistant 2", "User 3", "Assistant 3"),
             result.messages.map(Message::textContent),
         )
         assertEquals(messages.drop(6), result.messages.takeLast(4))
@@ -64,6 +64,37 @@ class TieredHistoryCompressionStrategyTest {
             }
         )
         assertTrue(result.messages.none { message -> message.parts.any { it is MessagePart.Tool } })
+    }
+
+    @Test
+    fun testPreservesExactlyEightRecentUserLedTurnsIncludingToolResults() = runTest {
+        val olderTurns =
+            listOf(user("User 1", 1), assistant("Answer 1", 2), user("User 2", 3), assistant("Answer 2", 4))
+        val recentTurns =
+            listOf(
+                user("User 3", 5),
+                toolCall("retained-call", 6),
+                toolResult("retained-call", 7),
+                assistant("Answer 3", 8),
+            ) + (4..10).flatMap { turn ->
+                listOf(user("User $turn", turn * 3), assistant("Answer $turn", turn * 3 + 1))
+            }
+        val systemMessage = system("System", 0)
+
+        val result = compress(listOf(systemMessage) + olderTurns + recentTurns, preserveRecentTurns = 8)
+
+        assertEquals(1, result.executorRequests)
+        assertEquals(
+            (3..10).map { "User $it" },
+            result.messages.filterIsInstance<Message.User>()
+                .filter { message -> message.parts.none { it is MessagePart.Tool.Result } }
+                .map(Message::textContent),
+        )
+        assertEquals(recentTurns, result.messages.drop(2))
+        assertEquals(systemMessage, result.messages.first())
+        assertEquals("TLDR", assertIs<Message.Assistant>(result.messages[1]).textContent())
+        assertTrue(olderTurns.all { it in result.requestMessages })
+        assertTrue(recentTurns.none { it in result.requestMessages })
     }
 
     @Test
@@ -96,23 +127,37 @@ class TieredHistoryCompressionStrategyTest {
 
     @Test
     fun testFoldsPreviousSummaryIntoReplacementSummary() = runTest {
-        val messages =
-            listOf(
-                system("System", 0),
-                user("Initial request", 1),
-                assistant("Previous portable summary", 2),
-                user("Retained turn", 3),
-                assistant("Retained answer", 4),
-                user("Newest turn", 5),
-                assistant("Newest answer", 6),
-            )
+        val systemMessage = system("System", 0)
+        val firstRecentTurns =
+            (2..9).flatMap { turn ->
+                listOf(user("User $turn", turn * 2), assistant("Answer $turn", turn * 2 + 1))
+            }
+        val first = compress(
+            messages = listOf(systemMessage, user("User 1", 1), assistant("Answer 1", 2)) + firstRecentTurns,
+            preserveRecentTurns = 8,
+            summaryText = "First portable summary",
+        )
+        val newestTurn = listOf(user("User 10", 20), assistant("Answer 10", 21))
+        val expectedTail = firstRecentTurns.drop(2) + newestTurn
 
-        val result = compress(messages, preserveRecentTurns = 1)
+        val second = compress(
+            messages = first.messages + newestTurn,
+            preserveRecentTurns = 8,
+            summaryText = "Replacement portable summary",
+        )
 
-        assertTrue(result.requestMessages.any { it.textContent() == "Previous portable summary" })
-        assertEquals(1, result.messages.count { it.textContent() == "TLDR" })
-        assertTrue(result.messages.none { it.textContent() == "Previous portable summary" })
-        assertEquals(messages.takeLast(2), result.messages.takeLast(2))
+        assertEquals(1, first.executorRequests)
+        assertEquals(1, second.executorRequests)
+        assertEquals(1, second.requestMessages.count { it.textContent() == "First portable summary" })
+        assertTrue(firstRecentTurns.take(2).all { it in second.requestMessages })
+        assertTrue(expectedTail.none { it in second.requestMessages })
+        assertEquals(
+            listOf("System", "Replacement portable summary") + expectedTail.map(Message::textContent),
+            second.messages.map(Message::textContent),
+        )
+        assertEquals(systemMessage, second.messages.first())
+        assertEquals(expectedTail, second.messages.drop(2))
+        assertEquals(8, second.messages.filterIsInstance<Message.User>().size)
     }
 
     @Test
@@ -129,8 +174,10 @@ class TieredHistoryCompressionStrategyTest {
 
         val result = compress(messages, preserveRecentTurns = 1, memoryMessages = listOf(memory))
 
-        assertEquals(1, result.messages.count { it == memory })
-        assertEquals(messages.last(), result.messages.last())
+        assertEquals(
+            listOf(messages.first(), memory, assistant("TLDR", 10), messages.last()),
+            result.messages,
+        )
     }
 
     @Test
@@ -181,18 +228,18 @@ class TieredHistoryCompressionStrategyTest {
         val olderResponse =
             Message.Assistant(
                 parts =
-                    listOf(
-                        MessagePart.Reasoning(
-                            content = "older private reasoning",
-                            encrypted = "older-provider-signature",
-                            providerItemId = "older-reasoning-item",
-                        ),
-                        MessagePart.Text("Older answer", providerItemId = "older-text-item"),
-                        MessagePart.HostedExecution.Progress(
-                            message = "older provider progress",
-                            providerItemId = "older-execution-item",
-                        ),
+                listOf(
+                    MessagePart.Reasoning(
+                        content = "older private reasoning",
+                        encrypted = "older-provider-signature",
+                        providerItemId = "older-reasoning-item",
                     ),
+                    MessagePart.Text("Older answer", providerItemId = "older-text-item"),
+                    MessagePart.HostedExecution.Progress(
+                        message = "older provider progress",
+                        providerItemId = "older-execution-item",
+                    ),
+                ),
                 metaInfo = responseMeta(2),
                 rawResponse = JsonObject(emptyMap()),
                 id = "older-provider-message",
@@ -200,23 +247,23 @@ class TieredHistoryCompressionStrategyTest {
         val retainedResponse =
             Message.Assistant(
                 parts =
-                    listOf(
-                        MessagePart.Reasoning(
-                            content = "recent private reasoning",
-                            replay =
-                                listOf(
-                                    MessagePart.ReasoningReplay.Signed(
-                                        text = "recent private reasoning",
-                                        signature = "recent-provider-signature",
-                                    )
-                                ),
-                        ),
-                        MessagePart.Text("Recent answer", providerItemId = "recent-text-item"),
-                        MessagePart.HostedExecution.Progress(
-                            message = "recent provider progress",
-                            providerItemId = "recent-execution-item",
+                listOf(
+                    MessagePart.Reasoning(
+                        content = "recent private reasoning",
+                        replay =
+                        listOf(
+                            MessagePart.ReasoningReplay.Signed(
+                                text = "recent private reasoning",
+                                signature = "recent-provider-signature",
+                            )
                         ),
                     ),
+                    MessagePart.Text("Recent answer", providerItemId = "recent-text-item"),
+                    MessagePart.HostedExecution.Progress(
+                        message = "recent provider progress",
+                        providerItemId = "recent-execution-item",
+                    ),
+                ),
                 metaInfo = responseMeta(4),
                 rawResponse = JsonObject(emptyMap()),
                 id = "recent-provider-message",
@@ -242,14 +289,14 @@ class TieredHistoryCompressionStrategyTest {
         val summaryResponse =
             Message.Assistant(
                 parts =
-                    listOf(
-                        MessagePart.Reasoning(
-                            content = "private reasoning",
-                            encrypted = "provider-encrypted",
-                            providerItemId = "reasoning-item",
-                        ),
-                        MessagePart.Text("Portable summary", providerItemId = "text-item"),
+                listOf(
+                    MessagePart.Reasoning(
+                        content = "private reasoning",
+                        encrypted = "provider-encrypted",
+                        providerItemId = "reasoning-item",
                     ),
+                    MessagePart.Text("Portable summary", providerItemId = "text-item"),
+                ),
                 metaInfo = responseMeta(10),
                 finishReason = "stop",
                 id = "provider-message",
@@ -301,13 +348,14 @@ class TieredHistoryCompressionStrategyTest {
         preserveRecentTurns: Int,
         model: LLModel = defaultModel,
         memoryMessages: List<Message> = emptyList(),
+        summaryText: String = "TLDR",
     ): CompressionResult {
         var executorRequests = 0
         var requestMessages = emptyList<Message>()
         val executor = RecordingPromptExecutor { prompt ->
             executorRequests += 1
             requestMessages = prompt.messages
-            assistant("TLDR", 10)
+            assistant(summaryText, 10)
         }
         val context = context(messages, model, executor)
         context.writeSession {

@@ -168,13 +168,14 @@ public abstract class HistoryCompressionStrategy {
 
         /**
          * Creates a two-tier history strategy that summarises older user-led turns and retains the newest
-         * [preserveRecentTurns] turns.
+         * [preserveRecentTurns] turns, alongside system messages and explicitly preserved memory.
          *
          * Both tiers omit provider-specific replay state. Ordinary text, user attachments, and complete custom-tool
          * exchanges retain their typed representation, so the compressed history can be reused when a later request
          * selects a different provider.
          *
-         * @param preserveRecentTurns Minimum number of newest user-led turns to retain. Must be positive.
+         * @param preserveRecentTurns Exact number of newest user-led turns to retain when compressing, in addition to
+         * explicitly preserved memory. Must be positive.
          */
         @JvmStatic
         @KtLintIgnoreNaming

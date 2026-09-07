@@ -49,8 +49,8 @@ public object WholeHistoryCompressionStrategy : HistoryCompressionStrategy() {
  *
  * The resulting history has two tiers: a compact summary of older turns followed by a recent tail. A user turn starts
  * with a user message that does not contain tool results, so custom tool calls and their results remain together in the
- * retained tail. System messages and the first textual user message from the compressed prefix are preserved through
- * the existing history-composition machinery.
+ * retained tail. System messages and explicitly preserved memory messages from the compressed prefix precede the
+ * summary. Older user messages are retained only when explicitly preserved as memory.
  *
  * Reapplying this strategy is incremental. A summary produced by an earlier compression is included in the next older
  * prefix and folded into the replacement summary. Both tiers discard provider response identifiers, reasoning replay
@@ -60,7 +60,8 @@ public object WholeHistoryCompressionStrategy : HistoryCompressionStrategy() {
  *
  * When the history contains at most [preserveRecentTurns] user-led turns, compression is a no-op.
  *
- * @property preserveRecentTurns Minimum number of newest user-led turns to retain. Must be positive.
+ * @property preserveRecentTurns Exact number of newest user-led turns to retain when compressing, in addition to
+ * explicitly preserved memory. Must be positive.
  */
 public data class TieredHistoryCompressionStrategy(
     public val preserveRecentTurns: Int,
@@ -99,11 +100,8 @@ public data class TieredHistoryCompressionStrategy(
                     )
                 }
             val compressedOlderMessages =
-                composeMessageHistory(
-                    originalMessages = portableOlderMessages,
-                    tldrMessages = portableSummaries,
-                    memoryMessages = portableOlderMemoryMessages,
-                )
+                (portableOlderMessages.filterIsInstance<Message.System>() + portableOlderMemoryMessages)
+                    .sortedBy { it.metaInfo.timestamp } + portableSummaries
             llmSession.prompt = initialPrompt.withMessages { compressedOlderMessages + portableRetainedMessages }
         } catch (cause: Throwable) {
             llmSession.prompt = initialPrompt
