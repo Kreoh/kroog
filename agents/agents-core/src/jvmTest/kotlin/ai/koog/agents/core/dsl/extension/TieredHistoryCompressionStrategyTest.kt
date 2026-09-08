@@ -11,6 +11,8 @@ import ai.koog.prompt.executor.clients.google.GoogleParams
 import ai.koog.prompt.executor.clients.openai.OpenAICodeInterpreterConfig
 import ai.koog.prompt.executor.clients.openai.OpenAIPromptCacheIdentity
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParams
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
+import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -20,16 +22,21 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.prompt.tokenizer.PromptTokenizer
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -39,6 +46,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class TieredHistoryCompressionStrategyTest {
+    private val handoverPrefix = "[Kroog conversation handover]\n"
     private val serializer = KotlinxSerializer()
     private val clock = KoogClock { Instant.parse("2026-01-01T00:00:00Z") }
     private val defaultModel = LLModel(LLMProvider.OpenAI, "test-openai")
@@ -62,7 +70,7 @@ class TieredHistoryCompressionStrategyTest {
 
         assertEquals(1, result.executorRequests)
         assertEquals(
-            listOf("System", "TLDR", "User 2", "Assistant 2", "User 3", "Assistant 3"),
+            listOf("System", assertHandover(result.messages[1], "TLDR"), "User 2", "Assistant 2", "User 3", "Assistant 3"),
             result.messages.map(Message::textContent),
         )
         assertEquals(messages.drop(6), result.messages.takeLast(4))
@@ -100,7 +108,7 @@ class TieredHistoryCompressionStrategyTest {
         )
         assertEquals(recentTurns, result.messages.drop(2))
         assertEquals(systemMessage, result.messages.first())
-        assertEquals("TLDR", assertIs<Message.Assistant>(result.messages[1]).textContent())
+        assertHandover(result.messages[1], "TLDR")
         assertTrue(olderTurns.all { it in result.requestMessages })
         assertTrue(recentTurns.none { it in result.requestMessages })
     }
@@ -158,11 +166,11 @@ class TieredHistoryCompressionStrategyTest {
 
         assertEquals(1, first.executorRequests)
         assertEquals(1, second.executorRequests)
-        assertEquals(1, second.requestMessages.count { it.textContent() == "First portable summary" })
+        assertEquals(1, second.requestMessages.joinToString("\n", transform = Message::textContent).split("First portable summary").size - 1)
         assertTrue(firstRecentTurns.take(2).all { it in second.requestMessages })
         assertTrue(expectedTail.none { it in second.requestMessages })
         assertEquals(
-            listOf("System", "Replacement portable summary") + expectedTail.map(Message::textContent),
+            listOf("System", assertHandover(second.messages[1], "Replacement portable summary")) + expectedTail.map(Message::textContent),
             second.messages.map(Message::textContent),
         )
         assertEquals(systemMessage, second.messages.first())
@@ -183,9 +191,10 @@ class TieredHistoryCompressionStrategyTest {
             )
 
         val result = compress(messages, preserveRecentTurns = 1, memoryMessages = listOf(memory))
+        assertHandover(result.messages[2], "TLDR")
 
         assertEquals(
-            listOf(messages.first(), memory, assistant("TLDR", 10), messages.last()),
+            listOf(messages.first(), memory, result.messages[2], messages.last()),
             result.messages,
         )
     }
@@ -320,7 +329,7 @@ class TieredHistoryCompressionStrategyTest {
         }
 
         val summary = context.readSession { prompt.messages.filterIsInstance<Message.Assistant>().single() }
-        assertEquals("Portable summary", summary.textContent())
+        assertHandover(summary, "Portable summary")
         assertEquals(1, summary.parts.size)
         assertNull(assertIs<MessagePart.Text>(summary.parts.single()).providerItemId)
         assertNull(summary.rawResponse)
@@ -363,7 +372,7 @@ class TieredHistoryCompressionStrategyTest {
         val params = responsesParamsWithSavedContainer().copy(temperature = null, topP = 0.8)
         val result = compress(twoTurnMessages(), preserveRecentTurns = 1, params = params)
 
-        assertEquals(listOf("System", "TLDR", "New"), result.messages.map(Message::textContent))
+        assertEquals(listOf("System", assertHandover(result.messages[1], "TLDR"), "New"), result.messages.map(Message::textContent))
         assertPortableExecutionParams(params, result.prompt.params)
         assertEquals("saved-container", params.codeInterpreter?.containerId)
     }
@@ -434,7 +443,297 @@ class TieredHistoryCompressionStrategyTest {
         assertSame(originalPrompt, context.readSession { prompt })
     }
 
+    @Test
+    fun testRequestsAConciseContinuationWithAttributedFactsAndUnfinishedWork() = runTest {
+        val covered = listOf(
+            user("Deliver the postcode report; retain exact file names and do not publish", 1),
+            assistant("I propose checking report-final.csv before delivery", 2),
+            toolCall("check-report", 3),
+            toolResult("check-report", 4),
+            assistant("The check completed; delivery is still pending", 5),
+        )
+        val result = compress(listOf(system("System", 0)) + covered + user("Continue", 6), 1)
+
+        val requestedCovered = result.requestMessages.drop(1).dropLast(1)
+        assertEquals(covered.size, requestedCovered.size)
+        assertEquals(covered.take(2), requestedCovered.take(2))
+        assertHistoricalToolExchange(requestedCovered.subList(2, 4), "check-report")
+        assertEquals(covered.last(), requestedCovered.last())
+        val instruction = result.requestMessages.last().textContent().lowercase()
+        for (purpose in listOf("continu", "concise")) {
+            assertTrue(purpose in instruction, "Missing continuation purpose: $purpose")
+        }
+        assertTrue(Regex("pending|unfinished|open work|remaining").containsMatchIn(instruction))
+        assertTrue(Regex("completed|done").containsMatchIn(instruction))
+        assertTrue(Regex("proposed|proposal|planned").containsMatchIn(instruction))
+        assertFalse("format your summary with clear sections" in instruction)
+        assertFalse("only context available" in instruction)
+        assertFalse("create a comprehensive summary" in instruction)
+    }
+
+    @Test
+    fun testRuntimeFrameExplainsHistoricalContextWithoutPromotingItToSystemAuthority() = runTest {
+        val body = "User requested report.csv. Assistant proposed lookup. Tool returned a draft; review remains open."
+        val result = compress(twoTurnMessages(), 1, summaryText = body)
+        val frame = assertHandover(result.messages[1], body).removeSuffix(body).lowercase()
+
+        assertEquals(listOf(twoTurnMessages().first()), result.messages.filterIsInstance<Message.System>())
+        assertTrue("histor" in frame)
+        assertTrue("recent" in frame)
+        assertTrue("tool" in frame)
+        assertTrue(Regex("capabilit|available").containsMatchIn(frame))
+        assertTrue(Regex("instruction|authorit").containsMatchIn(frame))
+        assertTrue(listOf("user", "assistant", "tool").all { it in frame })
+        assertEquals(twoTurnMessages().last(), result.messages.last())
+    }
+
+    @Test
+    fun testUpdatesReconstructedHandoverSeparatelyFromNewTypedMessages() = runTest {
+        val first = compress(twoTurnMessages(), 1, summaryText = "Keep file report.csv; postcode D02; review remains open")
+        val reconstructed = first.messages.map { message ->
+            when (message) {
+                is Message.System -> system(message.textContent(), 0)
+                is Message.User -> user(message.textContent(), 1)
+                is Message.Assistant -> assistant(message.textContent(), 2)
+            }
+        }
+        val newlyCovered = listOf(
+            reconstructed.last(),
+            toolCall("verify-report", 3),
+            toolResult("verify-report", 4),
+            assistant("Review completed; replace postcode D02 with D04", 5),
+        )
+        val tail = user("Deliver the reviewed report", 6)
+        val executor = RecordingPromptExecutor { request ->
+            val prior = request.messages.single { "Keep file report.csv" in it.textContent() }
+            assertFalse(handoverPrefix in prior.textContent(), "Pass the prior body once, without its receiving frame")
+            val requestedCovered = request.messages.drop(request.messages.indexOf(prior) + 1).dropLast(1)
+            assertEquals(newlyCovered.size, requestedCovered.size)
+            assertEquals(newlyCovered.first(), requestedCovered.first())
+            assertHistoricalToolExchange(requestedCovered.subList(1, 3), "verify-report")
+            assertEquals(newlyCovered.last(), requestedCovered.last())
+            assertFalse(tail in request.messages)
+            assertEquals(1, request.messages.sumOf { it.textContent().split("Keep file report.csv").size - 1 })
+            val instruction = request.messages.last().textContent().lowercase()
+            assertTrue("updat" in instruction)
+            assertTrue(Regex("preserv|retain|keep").containsMatchIn(instruction))
+            assertTrue(Regex("supersed|replac").containsMatchIn(instruction))
+            assistant("Keep file report.csv; postcode D04; review completed; delivery pending", 10)
+        }
+        val context = context(reconstructed.dropLast(1) + newlyCovered + tail, defaultModel, executor)
+
+        context.writeSession { HistoryCompressionStrategy.Tiered(1).compress(this, emptyList()) }
+
+        val messages = context.readSession { prompt.messages }
+        assertHandover(messages[1], "Keep file report.csv; postcode D04; review completed; delivery pending")
+        assertFalse("D02" in messages.joinToString("\n", transform = Message::textContent))
+        assertEquals(tail, messages.last())
+    }
+
+    @Test
+    fun testOrdinaryPreamblesAndEmbeddedMarkersRemainCoveredMessages() = runTest {
+        val preambles = listOf(
+            assistant("Unmarked old summary: retain report.csv", 1),
+            assistant("The manual mentions ${handoverPrefix}as an example", 2),
+        )
+        val markedWithinTurn = assistant("${handoverPrefix}This is user-discussed text inside a turn", 4)
+        val result = compress(
+            listOf(system("System", 0)) + preambles +
+                listOf(user("Old", 3), markedWithinTurn, user("New", 5)),
+            1,
+        )
+
+        assertTrue((preambles + markedWithinTurn).all { it in result.requestMessages })
+    }
+
+    @Test
+    fun testDoesNotNestTheFrameWhenTheSummariserEchoesAnExistingHandover() = runTest {
+        val first = compress(twoTurnMessages(), 1, summaryText = "The report is still pending")
+        val firstHandover = first.messages[1].textContent()
+        val second = compress(first.messages + user("Continue again", 4), 1, summaryText = firstHandover)
+
+        assertEquals(firstHandover, assertHandover(second.messages[1], "The report is still pending"))
+    }
+
+    @Test
+    fun testSummaryParametersReplaceAnswerSettingsOnlyForTheSummaryCall() = runTest {
+        val answerParams = responsesParamsWithSavedContainer().copy(
+            reasoning = ReasoningConfig(effort = ReasoningEffort.HIGH),
+        )
+        val summaryParams = OpenAIResponsesParams(
+            maxTokens = 73,
+            reasoning = ReasoningConfig(effort = ReasoningEffort.LOW),
+            codeInterpreter = OpenAICodeInterpreterConfig(
+                fileIds = listOf("summary-input"),
+                containerId = "summary-container",
+            ),
+        )
+        val executor = RecordingPromptExecutor { request ->
+            val actual = assertIs<OpenAIResponsesParams>(request.params)
+            assertEquals(summaryParams.withCodeInterpreter(summaryParams.codeInterpreter?.copy(containerId = null)), actual)
+            assertEquals(73, actual.maxTokens)
+            assertEquals(ReasoningEffort.LOW, actual.reasoning?.effort)
+            assertNull(actual.temperature, "A full replacement must not inherit answer temperature")
+            assertEquals(listOf("summary-input"), actual.codeInterpreter?.fileIds)
+            assistant("Summary", 10)
+        }
+        val context = context(twoTurnMessages(), defaultModel, executor, answerParams)
+
+        context.writeSession { HistoryCompressionStrategy.Tiered(1, summaryParams).compress(this, emptyList()) }
+
+        val finalParams = context.readSession { prompt.params }
+        assertPortableExecutionParams(answerParams, finalParams)
+        assertEquals(ReasoningEffort.HIGH, assertIs<OpenAIResponsesParams>(finalParams).reasoning?.effort)
+        assertEquals(listOf(defaultModel), executor.models)
+        assertEquals("summary-container", summaryParams.codeInterpreter?.containerId)
+        assertEquals("saved-container", answerParams.codeInterpreter?.containerId)
+    }
+
+    @Test
+    fun testNullSummaryParametersInheritTypedSettingsWithoutInventingReasoningDefaults() = runTest {
+        val params = responsesParamsWithSavedContainer()
+        val executor = RecordingPromptExecutor { request ->
+            assertPortableExecutionParams(params, request.params)
+            assertNull(assertIs<OpenAIResponsesParams>(request.params).reasoning)
+            assistant("Summary", 10)
+        }
+        val context = context(twoTurnMessages(), defaultModel, executor, params)
+
+        context.writeSession { HistoryCompressionStrategy.Tiered(1, null).compress(this, emptyList()) }
+
+        assertPortableExecutionParams(params, context.readSession { prompt.params })
+    }
+
+    @Test
+    fun testTokenMetricsUseTheExactOriginalAndFinalPromptsEvenWhenCompressionGrows() = runTest {
+        val privateAnswer = Message.Assistant(
+            parts = listOf(MessagePart.Text("Old answer"), MessagePart.Reasoning("private", encrypted = "signature")),
+            metaInfo = responseMeta(2),
+            id = "provider-id",
+        )
+        val context = context(
+            listOf(system("System", 0), user("Old", 1), privateAnswer, user("New", 3)),
+            defaultModel,
+            executorReturning(assistant("A longer handover", 10)),
+            responsesParamsWithSavedContainer(),
+        )
+        val original = context.readSession { prompt }
+        val tokenizer = RecordingTokenizer { if (it === original) 11 else 29 }
+        val metrics = mutableListOf<Pair<Int, Int>>()
+        val strategy = HistoryCompressionStrategy.Tiered(1, null, tokenizer) { before, after -> metrics += before to after }
+
+        context.writeSession { strategy.compress(this, emptyList()) }
+
+        val finalPrompt = context.readSession { prompt }
+        assertEquals(2, tokenizer.prompts.size)
+        assertSame(original, tokenizer.prompts[0])
+        assertSame(finalPrompt, tokenizer.prompts[1])
+        assertEquals(listOf(11 to 29), metrics)
+        assertHandover(finalPrompt.messages[1], "A longer handover")
+        assertNull(assertIs<OpenAIResponsesParams>(finalPrompt.params).codeInterpreter?.containerId)
+        assertTrue(finalPrompt.messages.flatMap(Message::parts).none { it is MessagePart.Reasoning })
+    }
+
+    @Test
+    fun testNoOpSkipsSummaryTokenizerAndCallback() = runTest {
+        val executor = RecordingPromptExecutor { error("A no-op must not request a summary") }
+        val context = context(listOf(user("Only turn", 1)), defaultModel, executor, responsesParamsWithSavedContainer())
+        val original = context.readSession { prompt }
+        val tokenizer = RecordingTokenizer { error("A no-op must not count tokens") }
+        val strategy = HistoryCompressionStrategy.Tiered(1, null, tokenizer) { _, _ -> error("A no-op must not report metrics") }
+
+        context.writeSession { strategy.compress(this, emptyList()) }
+
+        assertSame(original, context.readSession { prompt })
+        assertTrue(tokenizer.prompts.isEmpty())
+    }
+
+    @Test
+    fun testTokenizerFailureAtEitherCountRestoresExactOriginalPrompt() = runTest {
+        for (failingCall in 1..2) {
+            val failure = IllegalStateException("Tokenizer failed on call $failingCall")
+            var calls = 0
+            var callbacks = 0
+            val tokenizer = RecordingTokenizer {
+                calls += 1
+                if (calls == failingCall) throw failure
+                100
+            }
+            val context = context(
+                twoTurnMessages(),
+                defaultModel,
+                executorReturning(assistant("Summary", 10)),
+                responsesParamsWithSavedContainer(),
+            )
+            val original = context.readSession { prompt }
+            val strategy = HistoryCompressionStrategy.Tiered(1, null, tokenizer) { _, _ -> callbacks += 1 }
+
+            val thrown = assertFailsWith<IllegalStateException> {
+                context.writeSession { strategy.compress(this, emptyList()) }
+            }
+
+            assertSame(failure, thrown)
+            assertSame(original, context.readSession { prompt })
+            assertEquals(failingCall, calls)
+            assertEquals(0, callbacks)
+        }
+    }
+
+    @Test
+    fun testCallbackFailureRestoresExactOriginalPromptAndPropagatesTheSameException() = runTest {
+        val failure = IllegalStateException("Metrics callback failed")
+        var callbacks = 0
+        val tokenizer = RecordingTokenizer { 100 }
+        val context = context(
+            twoTurnMessages(),
+            defaultModel,
+            executorReturning(assistant("Summary", 10)),
+            responsesParamsWithSavedContainer(),
+        )
+        val original = context.readSession { prompt }
+        val strategy = HistoryCompressionStrategy.Tiered(1, null, tokenizer) { _, _ ->
+            callbacks += 1
+            throw failure
+        }
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            context.writeSession { strategy.compress(this, emptyList()) }
+        }
+
+        assertSame(failure, thrown)
+        assertSame(original, context.readSession { prompt })
+        assertEquals(1, callbacks)
+        assertEquals(2, tokenizer.prompts.size)
+    }
+
+    @Test
+    fun testSummaryFailureDoesNotReportCompressionMetrics() = runTest {
+        val failure = IllegalStateException("Summary failed")
+        var callbacks = 0
+        val context = context(twoTurnMessages(), defaultModel, RecordingPromptExecutor { throw failure })
+        val original = context.readSession { prompt }
+        val strategy = HistoryCompressionStrategy.Tiered(1, null, RecordingTokenizer { 100 }) { _, _ -> callbacks += 1 }
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            context.writeSession { strategy.compress(this, emptyList()) }
+        }
+
+        assertSame(failure, thrown)
+        assertSame(original, context.readSession { prompt })
+        assertEquals(0, callbacks)
+    }
+
+    @Test
+    fun testConfiguredFactoryRejectsNonPositiveTurnsAndCallbackWithoutTokenizer() {
+        assertFailsWith<IllegalArgumentException> { HistoryCompressionStrategy.Tiered(0, null) }
+        assertFailsWith<IllegalArgumentException> { HistoryCompressionStrategy.Tiered(-1, LLMParams()) }
+        assertFailsWith<IllegalArgumentException> {
+            HistoryCompressionStrategy.Tiered(1, null, onCompression = { _, _ -> })
+        }
+    }
+
     private fun responsesParamsWithSavedContainer(): OpenAIResponsesParams =
+
         OpenAIResponsesParams(
             temperature = 0.3,
             maxTokens = 400,
@@ -552,14 +851,56 @@ class TieredHistoryCompressionStrategyTest {
         val requestPrompt: Prompt?,
     )
 
+    private fun assertHistoricalToolExchange(messages: List<Message>, callId: String) {
+        assertEquals(2, messages.size)
+        val call = assertIs<Message.Assistant>(messages[0])
+        val result = assertIs<Message.User>(messages[1])
+        val callDetails = Json.parseToJsonElement(assertIs<MessagePart.Text>(call.parts.single()).text).jsonObject
+        val resultDetails = Json.parseToJsonElement(assertIs<MessagePart.Text>(result.parts.single()).text).jsonObject
+        for (details in listOf(callDetails, resultDetails)) {
+            assertEquals(callId, details.getValue("tool_call_id").jsonPrimitive.content)
+            assertEquals("lookup", details.getValue("tool_name").jsonPrimitive.content)
+        }
+        assertEquals(JsonObject(emptyMap()), callDetails.getValue("tool_args"))
+        assertEquals("result", resultDetails.getValue("tool_result").jsonPrimitive.content)
+    }
+
+    private fun assertHandover(message: Message, body: String): String {
+        val text = assertIs<Message.Assistant>(message).textContent()
+        assertTrue(text.startsWith(handoverPrefix), "The runtime must frame the summary as a handover")
+        assertTrue(text.endsWith(body), "The generated summary body must survive verbatim")
+        assertEquals(1, text.split(handoverPrefix).size - 1)
+        assertTrue(message.parts.all { it is MessagePart.Text })
+        return text
+    }
+
+    private class RecordingTokenizer(
+        private val count: (Prompt) -> Int,
+    ) : PromptTokenizer {
+        val prompts = mutableListOf<Prompt>()
+
+        override fun tokenCountFor(message: Message): Int = error("Count the complete prompt")
+
+        override fun tokenCountFor(prompt: Prompt): Int {
+            prompts += prompt
+            return count(prompt)
+        }
+    }
+
     private class RecordingPromptExecutor(
+
         private val response: (Prompt) -> Message.Assistant,
     ) : PromptExecutor() {
+        val models = mutableListOf<LLModel>()
+
         override suspend fun execute(
             prompt: Prompt,
             model: LLModel,
             tools: List<ToolDescriptor>,
-        ): Message.Assistant = response(prompt)
+        ): Message.Assistant {
+            models += model
+            return response(prompt)
+        }
 
         override fun executeStreaming(
             prompt: Prompt,

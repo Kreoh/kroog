@@ -5,6 +5,8 @@ import ai.koog.agents.core.agent.session.AIAgentLLMWriteSession
 import ai.koog.agents.core.prompt.Prompts.summarizeInTLDR
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.params.LLMParams
+import ai.koog.prompt.tokenizer.PromptTokenizer
 import kotlin.jvm.JvmField
 import kotlin.jvm.JvmOverloads
 import kotlin.jvm.JvmStatic
@@ -181,6 +183,30 @@ public abstract class HistoryCompressionStrategy {
         @KtLintIgnoreNaming
         public fun Tiered(preserveRecentTurns: Int): HistoryCompressionStrategy =
             TieredHistoryCompressionStrategy(preserveRecentTurns)
+
+        /**
+         * Creates a tiered continuation strategy with optional summary settings and token metrics.
+         *
+         * @param preserveRecentTurns Number of newest user-led turns to retain. Must be positive.
+         * @param summaryParams Full typed replacement for the temporary summary request parameters. Null inherits the
+         * current parameters. The model stays unchanged; answer parameters are restored after compression, apart from
+         * clearing saved OpenAI code-interpreter container identifiers in both requests independently.
+         * @param tokenizer Optional estimator for the exact original and final prompts, including the handover frame and
+         * retained turns. No token counts are requested when compression is a no-op.
+         * @param onCompression Optional callback invoked once after successful compression and both token counts.
+         * Requires [tokenizer]. Counts may show expansion. Estimator or callback failures restore the original prompt
+         * and propagate the same exception; external callback side effects cannot be rolled back.
+         */
+        @JvmStatic
+        @JvmOverloads
+        @KtLintIgnoreNaming
+        public fun Tiered(
+            preserveRecentTurns: Int,
+            summaryParams: LLMParams?,
+            tokenizer: PromptTokenizer? = null,
+            onCompression: ((beforeTokens: Int, afterTokens: Int) -> Unit)? = null,
+        ): HistoryCompressionStrategy =
+            ConfiguredTieredHistoryCompressionStrategy(preserveRecentTurns, summaryParams, tokenizer, onCompression)
 
         /**
          * [WholeHistoryMultipleSystemMessages] is a concrete implementation of the [HistoryCompressionStrategy]

@@ -433,10 +433,42 @@ Both tiers use Koog's provider-neutral message representation. The strategy remo
 encrypted reasoning, reasoning replay data, raw responses, cache directives, and provider-hosted execution items before
 requesting or storing the summary. Ordinary text, user attachments, and complete custom-tool exchanges keep their typed
 representation. The resulting history can be sent through any Koog provider without replaying another provider's
-private state.
+private state. The session's configured missing-tool conversion still applies when sending the summary request;
+by default, the request without tools describes historical tool calls and results as attributed JSON text.
 
-When compression runs again, the previous summary is included in the older tier and folded into its replacement. If
-there are no older turns to summarise, the strategy leaves the history unchanged.
+The continuation prompt asks for concise context: the objective, constraints, decisions, exact facts and identifiers,
+unfinished work, and attribution to the user, assistant and tools. It distinguishes completed actions from proposals,
+omits empty or repeated sections, and excludes summarisation directions and runtime commentary from the user's task.
+
+The runtime prefixes the text-only assistant summary with `[Kroog conversation handover]` followed by a newline and a
+receiving frame. The frame identifies historical context followed by recent turns. It preserves source attribution,
+distinguishes completed work from proposals, and explains that historical tool use does not establish current tool
+capabilities. The summary remains an assistant message and gains no system instruction authority.
+
+On later compression, a text-only assistant message with that exact prefix before the first user message is recognised
+as a previous handover, including after a plain-text round trip. Its body is supplied once, separately labelled from
+newly covered typed messages. The model is asked to retain valid prior state, replace superseded decisions and remove
+resolved work. Unmarked preambles and embedded marker mentions remain ordinary covered messages. The runtime removes
+its exact receiving frame if the model echoes it, so repeated compression does not nest frames.
+
+`HistoryCompressionStrategy.Tiered(preserveRecentTurns, summaryParams, tokenizer, onCompression)` adds optional settings.
+The second argument is required for this overload and may be null; the original one-argument factory and
+`TieredHistoryCompressionStrategy(Int)` remain available. `preserveRecentTurns` must be positive.
+
+- `summaryParams` is a full typed `LLMParams` replacement used only for the summary request. Null inherits the current
+  settings. Use supported provider parameter types to select summary reasoning and `maxTokens`; no reasoning default
+  or model override is introduced. An explicit summary `maxTokens` is described as a ceiling, with shorter output
+  encouraged. Answer parameters are restored after compression. Both inherited and overridden OpenAI Responses
+  parameters independently clear saved code-interpreter container identifiers while preserving execution settings,
+  input files and other parameters.
+- `tokenizer` optionally estimates tokens using `PromptTokenizer.tokenCountFor(Prompt)` on the exact original and final
+  full prompts, including the receiving frame and retained turns.
+- `onCompression` optionally receives `(beforeTokens, afterTokens)` once after successful compression and both counts.
+  It requires a tokenizer. Expansion is reported and accepted; counts do not enforce a budget.
+
+If there are no older turns to summarise, the strategy leaves the prompt unchanged and performs no summary request,
+token counts or callback. Summary failures, blank output, cancellation, estimator errors and callback errors restore
+the exact original prompt and propagate the same exception. External callback side effects cannot be rolled back.
 
 Use the same strategy with a compression node or `replaceHistoryWithTLDR()`:
 

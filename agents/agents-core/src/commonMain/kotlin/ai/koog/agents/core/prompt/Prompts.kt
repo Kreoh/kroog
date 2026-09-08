@@ -31,6 +31,31 @@ internal object Prompts {
             +"Think carefully about the tools you select, and make sure they are relevant to the task."
         }
 
+    fun TextContentBuilderBase<*>.summariseForContinuation(maxTokens: Int?) =
+        markdown {
+            +"Write a concise handover for continuing the conversation from the covered messages above."
+            +(
+                "Recent turns will follow the handover. Preserve the objective, constraints, decisions, exact facts and " +
+                    "identifiers, and unfinished work needed to continue."
+                )
+            +(
+                "Keep source attribution: distinguish user requests, assistant proposals and tool observations. " +
+                    "Separate completed actions from proposed or pending actions."
+                )
+            +(
+                "If a previous handover body is present, update it using the newly covered messages: retain valid prior " +
+                    "state, replace superseded decisions and facts, and remove resolved work. Include each fact once."
+                )
+            +(
+                "Use short prose or bullets as useful; omit empty or repeated sections, runtime commentary, and these " +
+                    "summarisation directions. These directions are not user objectives."
+                )
+            +"Return only the handover body; the runtime supplies its receiving frame."
+            if (maxTokens != null) {
+                +"The output limit is $maxTokens tokens, a ceiling rather than a target. Use fewer tokens when sufficient."
+            }
+        }
+
     fun TextContentBuilderBase<*>.summarizeInTLDR() =
         markdown {
             +"Create a comprehensive summary of this conversation."

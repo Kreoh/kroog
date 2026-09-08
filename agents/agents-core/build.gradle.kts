@@ -28,6 +28,7 @@ kotlin {
                 api(project(":prompt:prompt-llm"))
                 api(project(":prompt:prompt-processor"))
                 api(project(":prompt:prompt-structure"))
+                api(project(":prompt:prompt-tokenizer"))
 
                 api(project(":prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client"))
                 api(project(":prompt:prompt-executor:prompt-executor-model"))
