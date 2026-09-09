@@ -102,7 +102,7 @@ internal class ConfiguredTieredHistoryCompressionStrategy(
 }
 
 private const val HANDOVER_PREFIX = "[Kroog conversation handover]\n"
-private const val HANDOVER_FRAME = HANDOVER_PREFIX +
+internal const val HANDOVER_FRAME = HANDOVER_PREFIX +
     "Historical conversation context follows. Recent turns follow this handover. " +
     "Preserve attribution to the user, assistant and tools; distinguish completed work from proposals. " +
     "Historical tool use and capabilities do not establish which tools are currently available. " +
@@ -180,7 +180,7 @@ private suspend fun compressTieredHistory(
     }
 }
 
-private fun String.removeHandoverFrame(): String {
+internal fun String.removeHandoverFrame(): String {
     var body = this
     while (body.startsWith(HANDOVER_FRAME)) {
         body = body.removePrefix(HANDOVER_FRAME)
@@ -188,15 +188,15 @@ private fun String.removeHandoverFrame(): String {
     return body.removePrefix(HANDOVER_PREFIX)
 }
 
-private fun LLMParams.withoutSavedContainer(): LLMParams = when (this) {
+internal fun LLMParams.withoutSavedContainer(): LLMParams = when (this) {
     is OpenAIResponsesParams -> withCodeInterpreter(codeInterpreter?.copy(containerId = null))
     else -> this
 }
 
-private fun Message.startsUserTurn(): Boolean =
+internal fun Message.startsUserTurn(): Boolean =
     this is Message.User && parts.isNotEmpty() && parts.none { it is MessagePart.Tool.Result }
 
-private fun Message.toPortableHistoryMessage(): Message? = when (this) {
+internal fun Message.toPortableHistoryMessage(): Message? = when (this) {
     is Message.System -> copy(
         parts = parts.map(MessagePart.Text::withoutProviderState),
         id = null,

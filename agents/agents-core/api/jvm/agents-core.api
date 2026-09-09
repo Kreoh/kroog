@@ -1990,7 +1990,9 @@ public final class ai/koog/agents/core/dsl/extension/AIAgentNodesKt {
 	public static final fun nodeLLMSendToolResultsOnlyCallingTools (Ljava/lang/String;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 	public static synthetic fun nodeLLMSendToolResultsOnlyCallingTools$default (Ljava/lang/String;ILjava/lang/Object;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 	public static final fun nodeLLMSendToolResultsStreaming (Ljava/lang/String;Lai/koog/prompt/structure/StructureDefinition;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
+	public static final fun nodeLLMSendToolResultsStreaming (Ljava/lang/String;Lai/koog/prompt/structure/StructureDefinition;Lkotlin/jvm/functions/Function2;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 	public static synthetic fun nodeLLMSendToolResultsStreaming$default (Ljava/lang/String;Lai/koog/prompt/structure/StructureDefinition;ILjava/lang/Object;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
+	public static synthetic fun nodeLLMSendToolResultsStreaming$default (Ljava/lang/String;Lai/koog/prompt/structure/StructureDefinition;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 	public static final fun nodeLLMSendToolResultsWithoutTools (Ljava/lang/String;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 	public static synthetic fun nodeLLMSendToolResultsWithoutTools$default (Ljava/lang/String;ILjava/lang/Object;)Lai/koog/agents/core/dsl/builder/AIAgentNodeDelegate;
 }
@@ -2100,12 +2102,18 @@ public abstract class ai/koog/agents/core/dsl/extension/HistoryCompressionStrate
 	public static final field WholeHistory Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final field WholeHistoryMultipleSystemMessages Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public fun <init> ()V
+	public static final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;Lai/koog/prompt/params/LLMParams;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;Lai/koog/prompt/params/LLMParams;Lkotlin/jvm/functions/Function3;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun Chunked (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FactRetrieval (Ljava/util/List;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FactRetrieval ([Lai/koog/agents/core/dsl/extension/Concept;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FromLastNMessages (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun FromTimestamp (Lkotlin/time/Instant;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public static final fun Tiered (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Tiered (ILai/koog/prompt/params/LLMParams;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Tiered (ILai/koog/prompt/params/LLMParams;Lai/koog/prompt/tokenizer/PromptTokenizer;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static final fun Tiered (ILai/koog/prompt/params/LLMParams;Lai/koog/prompt/tokenizer/PromptTokenizer;Lkotlin/jvm/functions/Function2;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	protected final fun composeMessageHistory (Ljava/util/List;Ljava/util/List;Ljava/util/List;)Ljava/util/List;
 	public abstract fun compress (Lai/koog/agents/core/agent/session/AIAgentLLMWriteSession;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	protected final fun compressPromptIntoTLDR (Lai/koog/agents/core/agent/session/AIAgentLLMWriteSession;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -2113,12 +2121,20 @@ public abstract class ai/koog/agents/core/dsl/extension/HistoryCompressionStrate
 }
 
 public final class ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy$Companion {
+	public final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;Lai/koog/prompt/params/LLMParams;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Budgeted (IILai/koog/prompt/tokenizer/PromptTokenizer;Lai/koog/prompt/params/LLMParams;Lkotlin/jvm/functions/Function3;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static synthetic fun Budgeted$default (Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy$Companion;IILai/koog/prompt/tokenizer/PromptTokenizer;Lai/koog/prompt/params/LLMParams;Lkotlin/jvm/functions/Function3;ILjava/lang/Object;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun Chunked (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FactRetrieval (Ljava/util/List;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FactRetrieval ([Lai/koog/agents/core/dsl/extension/Concept;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FromLastNMessages (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun FromTimestamp (Lkotlin/time/Instant;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 	public final fun Tiered (I)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Tiered (ILai/koog/prompt/params/LLMParams;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Tiered (ILai/koog/prompt/params/LLMParams;Lai/koog/prompt/tokenizer/PromptTokenizer;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public final fun Tiered (ILai/koog/prompt/params/LLMParams;Lai/koog/prompt/tokenizer/PromptTokenizer;Lkotlin/jvm/functions/Function2;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
+	public static synthetic fun Tiered$default (Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy$Companion;ILai/koog/prompt/params/LLMParams;Lai/koog/prompt/tokenizer/PromptTokenizer;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lai/koog/agents/core/dsl/extension/HistoryCompressionStrategy;
 }
 
 public final class ai/koog/agents/core/dsl/extension/ModeratedMessage {

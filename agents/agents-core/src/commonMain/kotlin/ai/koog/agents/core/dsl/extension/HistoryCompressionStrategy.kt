@@ -209,6 +209,28 @@ public abstract class HistoryCompressionStrategy {
             ConfiguredTieredHistoryCompressionStrategy(preserveRecentTurns, summaryParams, tokenizer, onCompression)
 
         /**
+         * Summarises history within [maxInputTokens], retaining up to [preserveRecentTurns] newest turns.
+         * Retention shrinks to zero when necessary. Oversized summary inputs are processed in bounded pieces.
+         * Tool exchanges retained verbatim stay paired; compressed exchanges become attributed historical text.
+         * [tokenizer] measures every summary request and the final prompt. Provider-specific state is removed.
+         * [summaryParams] overrides temporary summary parameters; output is capped to a quarter of the input budget.
+         * [onCompression] receives before tokens, after tokens and the actual retained turn count after success.
+         * Failures, cancellation and callback errors restore the original prompt. Impossible system or summary
+         * budgets fail explicitly rather than sending an oversized request. Retention may be zero.
+         */
+        @JvmStatic
+        @JvmOverloads
+        @KtLintIgnoreNaming
+        public fun Budgeted(
+            preserveRecentTurns: Int,
+            maxInputTokens: Int,
+            tokenizer: PromptTokenizer,
+            summaryParams: LLMParams? = null,
+            onCompression: ((Int, Int, Int) -> Unit)? = null,
+        ): HistoryCompressionStrategy =
+            BudgetedHistoryCompressionStrategy(preserveRecentTurns, maxInputTokens, tokenizer, summaryParams, onCompression)
+
+        /**
          * [WholeHistoryMultipleSystemMessages] is a concrete implementation of the [HistoryCompressionStrategy]
          * that handles scenarios where the conversation history contains multiple system messages.
          *

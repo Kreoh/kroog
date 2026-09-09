@@ -1,7 +1,12 @@
 package ai.koog.agents.core.dsl.extension
 
+import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.agent.context.AIAgentLLMContext
+import ai.koog.agents.core.dsl.builder.node
+import ai.koog.agents.core.dsl.builder.strategy
+import ai.koog.agents.core.environment.ReceivedToolResult
+import ai.koog.agents.core.environment.ToolResultKind
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.testing.tools.MockEnvironment
@@ -28,6 +33,7 @@ import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -769,6 +775,248 @@ class TieredHistoryCompressionStrategyTest {
         assertFailsWith<IllegalArgumentException> { HistoryCompressionStrategy.Tiered(-1) }
     }
 
+    @Test
+    fun testBudgetedRetentionShrinksToFitIncludingSummaryOnly() = runTest {
+        for (expected in 0..3) {
+            val size = when (expected) {
+                3 -> 500
+                2 -> 1000
+                1 -> 1800
+                else -> 4000
+            }
+            val messages = listOf(system("System", 0)) + (1..5).map { user("turn$it " + "x".repeat(size), it) }
+            val requests = mutableListOf<Prompt>()
+            val executor = RecordingPromptExecutor {
+                requests += it
+                assistant("Summary", 10)
+            }
+            val context = context(messages, defaultModel, executor)
+            var retained = -1
+            context.writeSession {
+                HistoryCompressionStrategy.Budgeted(3, 3000, characterTokenizer(), onCompression = { _, after, turns ->
+                    assertTrue(after <= 3000)
+                    retained = turns
+                }).compress(this, emptyList())
+            }
+            assertEquals(expected, retained)
+            val result = context.readSession { prompt }
+            assertEquals(messages.takeLast(expected), result.messages.drop(2))
+            assertHandover(result.messages[1], "Summary")
+            assertTrue(requests.all { characterTokenizer().tokenCountFor(it) <= 3000 })
+            assertTrue(requests.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun testBudgetedCompressionSplitsHugeSingleToolTurnAndPreservesAllText() = runTest {
+        val toolText = (1..6000).joinToString(" ") { "observation$it" }
+        val messages = listOf(
+            system("System", 0),
+            user("Read file", 1),
+            toolCall("call-1", 2),
+            Message.User(MessagePart.Tool.Result("call-1", "lookup", toolText), requestMeta(3))
+        )
+        val requests = mutableListOf<Prompt>()
+        val context = context(
+            messages,
+            defaultModel,
+            RecordingPromptExecutor {
+                requests += it
+                assistant("Summary", 10)
+            }
+        )
+        context.writeSession { HistoryCompressionStrategy.Budgeted(3, 3000, characterTokenizer()).compress(this, emptyList()) }
+        assertTrue(requests.size > 2)
+        assertTrue(requests.all { characterTokenizer().tokenCountFor(it) <= 3000 })
+        assertTrue(requests.all { request -> request.messages.none { message -> message.parts.any { it is MessagePart.Tool } } })
+        val historicalText = requests.flatMap { it.messages }.filterIsInstance<Message.User>()
+            .filterNot { it.textContent().contains("Write a concise handover") }.joinToString("") { it.textContent().substringAfter("\n") }
+        assertTrue(historicalText.contains(toolText))
+        assertEquals(2, context.readSession { prompt.messages.size })
+    }
+
+    @Test
+    fun testBudgetedFailureAndCancellationRestoreOriginalPrompt() = runTest {
+        for (cancel in listOf(false, true)) {
+            var requests = 0
+            val context = context(
+                listOf(system("System", 0), user("x".repeat(8000), 1)),
+                defaultModel,
+                RecordingPromptExecutor {
+                    requests += 1
+                    if (requests > 1 && cancel) throw CancellationException("cancel")
+                    assistant(if (requests > 1) "" else "Summary", 10).copy(finishReason = "content_filtered")
+                }
+            )
+            val original = context.readSession { prompt }
+            if (cancel) {
+                assertFailsWith<CancellationException> {
+                    context.writeSession { HistoryCompressionStrategy.Budgeted(3, 3000, characterTokenizer()).compress(this, emptyList()) }
+                }
+            } else {
+                val failure = assertFailsWith<IllegalStateException> {
+                    context.writeSession { HistoryCompressionStrategy.Budgeted(3, 3000, characterTokenizer()).compress(this, emptyList()) }
+                }
+                assertTrue(failure.message.orEmpty().contains("finishReason=content_filtered"))
+            }
+            assertEquals(original, context.readSession { prompt })
+        }
+    }
+
+    @Test
+    fun testBudgetedRejectsUnavoidableOversizedSystemWithoutCallingProvider() = runTest {
+        var calls = 0
+        val context = context(
+            listOf(system("x".repeat(4000), 0), user("question", 1)),
+            defaultModel,
+            RecordingPromptExecutor {
+                calls += 1
+                assistant("Summary", 10)
+            }
+        )
+        assertFailsWith<IllegalStateException> {
+            context.writeSession { HistoryCompressionStrategy.Budgeted(0, 3000, characterTokenizer()).compress(this, emptyList()) }
+        }
+        assertEquals(0, calls)
+    }
+
+    @Test
+    fun testStreamingPreparationSeesToolResultsAndCanStopTheRequest() = runTest {
+        for (fail in listOf(false, true)) {
+            var preparationCalls = 0
+            val executor = RecordingPromptExecutor { assistant("unused", 10) }
+            val graph = strategy<String, String>("prepare-stream") {
+                val results by node<String, ReceivedToolResults> {
+                    llm.writeSession { appendPrompt { message(toolCall("call-1", 2)) } }
+                    ReceivedToolResults(
+                        listOf(
+                            ReceivedToolResult(
+                                id = "call-1",
+                                tool = "lookup",
+                                toolArgs = ai.koog.serialization.JSONObject(emptyMap()),
+                                toolDescription = null,
+                                output = "large tool result",
+                                resultKind = ToolResultKind.Success,
+                                result = null,
+                            )
+                        )
+                    )
+                }
+                val sendResults by nodeLLMSendToolResultsStreaming(beforeRequest = {
+                    preparationCalls += 1
+                    assertEquals("large tool result", prompt.messages.last().parts.filterIsInstance<MessagePart.Tool.Result>().single().output)
+                    if (fail) error("Preparation failed")
+                    prompt = prompt.copy(messages = listOf(system("System", 0), user("Prepared", 1)))
+                })
+                val collect by node<Flow<StreamFrame>, String> {
+                    it.toList()
+                    "done"
+                }
+                edge(nodeStart forwardTo results)
+                edge(results forwardTo sendResults)
+                edge(sendResults forwardTo collect)
+                edge(collect forwardTo nodeFinish)
+            }
+            val agent = AIAgent(promptExecutor = executor, strategy = graph, llmModel = defaultModel, systemPrompt = "System")
+            if (fail) {
+                assertFailsWith<IllegalStateException> { agent.run("Question") }
+            } else {
+                assertEquals("done", agent.run("Question"))
+            }
+            assertEquals(1, preparationCalls)
+            assertEquals(if (fail) 0 else 1, executor.streamingPrompts.size)
+            if (!fail) assertEquals("Prepared", executor.streamingPrompts.single().messages.last().textContent())
+            agent.close()
+        }
+    }
+
+    @Test
+    fun testBudgetedFragmentsKeepTheirSourceAndToolFailureStatus() = runTest {
+        for (source in listOf("user", "assistant", "failed", "succeeded")) {
+            val content = "observation ".repeat(1200)
+            val record = when (source) {
+                "user" -> user(content, 1)
+                "assistant" -> assistant(content, 2)
+                else -> Message.User(
+                    MessagePart.Tool.Result(
+                        "read-7",
+                        "read_file",
+                        content,
+                        isError = source == "failed",
+                    ),
+                    requestMeta(3)
+                )
+            }
+            val requests = mutableListOf<Prompt>()
+            val context = context(
+                listOf(system("System", 0), record),
+                defaultModel,
+                RecordingPromptExecutor {
+                    requests += it
+                    assistant("Summary", 10)
+                }
+            )
+            context.writeSession { HistoryCompressionStrategy.Budgeted(0, 3000, characterTokenizer()).compress(this, emptyList()) }
+            assertTrue(requests.size > 2)
+            val fragments = requests.flatMap { it.messages }.filterIsInstance<Message.User>()
+                .filterNot { it.textContent().contains("Write a concise handover") }
+            assertEquals(content, fragments.joinToString("") { it.textContent().substringAfter("\n") })
+            fragments.forEach {
+                val header = it.textContent().substringBefore("\n")
+                if (source in listOf("failed", "succeeded")) {
+                    assertTrue(header.contains("tool result read_file (read-7), status=$source"))
+                } else {
+                    assertTrue(header.lowercase().contains("historical $source text"))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testBudgetedMemoryAppearsOnceAndRetainedMemoryKeepsItsPosition() = runTest {
+        val oldMemory = assistant("Keep this old fact", 1)
+        val recent = user("Keep this recent request", 4)
+        val messages = listOf(
+            system("System", 0),
+            oldMemory,
+            user("Older request", 2),
+            assistant("Older answer", 3),
+            recent,
+            assistant("Recent answer", 5)
+        )
+        val context = context(messages, defaultModel, executorReturning(assistant("Summary", 10)))
+        context.writeSession {
+            HistoryCompressionStrategy.Budgeted(1, 3000, characterTokenizer()).compress(this, listOf(oldMemory, recent, oldMemory))
+        }
+        val result = context.readSession { prompt.messages }
+        assertEquals(1, result.count { it == oldMemory })
+        assertEquals(1, result.count { it == recent })
+        assertEquals(messages.takeLast(2), result.takeLast(2))
+        assertEquals(oldMemory, result[1])
+    }
+
+    @Test
+    fun testBudgetedMemoryOnlyPrefixNeedsNoRedundantSummary() = runTest {
+        val memory = user("Preserved request", 1)
+        val messages = listOf(system("System", 0), memory, user("New request", 2))
+        var calls = 0
+        val context = context(
+            messages,
+            defaultModel,
+            RecordingPromptExecutor {
+                calls++
+                assistant("Unused", 10)
+            }
+        )
+        context.writeSession { HistoryCompressionStrategy.Budgeted(1, 3000, characterTokenizer()).compress(this, listOf(memory)) }
+        assertEquals(messages, context.readSession { prompt.messages })
+        assertEquals(0, calls)
+    }
+
+    private fun characterTokenizer(): PromptTokenizer = RecordingTokenizer { prompt ->
+        prompt.messages.sumOf { it.textContent().length }
+    }
+
     private suspend fun compress(
         messages: List<Message>,
         preserveRecentTurns: Int,
@@ -892,6 +1140,7 @@ class TieredHistoryCompressionStrategyTest {
         private val response: (Prompt) -> Message.Assistant,
     ) : PromptExecutor() {
         val models = mutableListOf<LLModel>()
+        val streamingPrompts = mutableListOf<Prompt>()
 
         override suspend fun execute(
             prompt: Prompt,
@@ -906,7 +1155,10 @@ class TieredHistoryCompressionStrategyTest {
             prompt: Prompt,
             model: LLModel,
             tools: List<ToolDescriptor>,
-        ): Flow<StreamFrame> = emptyFlow()
+        ): Flow<StreamFrame> {
+            streamingPrompts += prompt
+            return emptyFlow()
+        }
 
         override suspend fun moderate(prompt: Prompt, model: LLModel): ModerationResult =
             throw UnsupportedOperationException("Moderation is not needed for this test")

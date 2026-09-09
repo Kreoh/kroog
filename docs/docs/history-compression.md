@@ -1199,3 +1199,32 @@ To enable memory preservation:
     });
     ```
     <!--- KNIT exampleHistoryCompressionJava13.java -->
+
+## Compression within an input budget
+
+`HistoryCompressionStrategy.Budgeted(preserveRecentTurns, maxInputTokens, tokenizer, summaryParams, onCompression)`
+retains up to the requested number of newest user-led turns. If their combined size and the generated handover exceed
+`maxInputTokens`, it folds older retained turns into the handover until the prompt fits. Retention can reach zero.
+System instructions and explicit memory remain present. Retained custom tool calls and results stay paired.
+
+The strategy also bounds each summary request. It processes long histories in pieces and splits individual oversized
+text messages, carrying the accumulated summary into the next piece. Compressed tool exchanges become attributed
+historical content. A message that cannot be split, unavoidable system content or a generated summary that cannot fit
+causes an explicit failure. Failure and cancellation restore the original prompt. Bounds use the supplied tokenizer's
+estimates, so their coverage depends on that tokenizer, including its treatment of binary attachments.
+
+Call compression before the initial model request and again after tools return. The
+`nodeLLMSendToolResultsStreaming(beforeRequest = { ... })` overload invokes its callback after appending all tool
+results and before requesting a stream. A callback failure prevents that model request. The original overload retains
+its existing behaviour. The compression callback reports before tokens, after tokens and the actual retained turn count.
+
+Every text fragment repeats its original speaker or tool identity. Tool-result fragments also carry success or failure
+status, including when one result spans several summary requests. Explicit memory is deduplicated; memory already in
+the retained tail keeps its position there. A prefix containing only explicit memory needs no extra summary request.
+
+Callers should distinguish the trigger from the desired size after compression. Passing a target below the trigger
+leaves room for subsequent messages and tool output. For example, a 180,000-token trigger and a 162,000-token target
+avoid accepting a 195,000-token retained tail merely because the overall input allowance is 200,000.
+
+An empty summary fails compression and restores the original prompt. The error includes the provider finish reason
+and reported output-token count to distinguish a filtered response from output exhaustion.

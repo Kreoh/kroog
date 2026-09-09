@@ -588,6 +588,18 @@ public fun nodeLLMSendToolResultsStreaming(
     name: String? = null,
     structureDefinition: StructureDefinition? = null,
 ): AIAgentNodeDelegate<ReceivedToolResults, Flow<StreamFrame>> =
+    nodeLLMSendToolResultsStreaming(name, structureDefinition) {}
+
+/**
+ * Appends complete tool results, then runs [beforeRequest] in the write session before requesting a stream.
+ * This allows native history compression to account for newly returned tool output.
+ * [name] and [structureDefinition] have the same meaning as in the overload without a callback.
+ */
+public fun nodeLLMSendToolResultsStreaming(
+    name: String? = null,
+    structureDefinition: StructureDefinition? = null,
+    beforeRequest: suspend ai.koog.agents.core.agent.session.AIAgentLLMWriteSession.() -> Unit,
+): AIAgentNodeDelegate<ReceivedToolResults, Flow<StreamFrame>> =
     node(name) { toolResults ->
         llm.writeSession {
             appendPrompt {
@@ -595,6 +607,7 @@ public fun nodeLLMSendToolResultsStreaming(
                     toolResults.toolResults.forEach { toolResult -> toolResult(toolResult.toMessagePart()) }
                 }
             }
+            beforeRequest()
             requestStreaming(structureDefinition, { it })
         }
     }
