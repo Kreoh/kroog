@@ -20,6 +20,7 @@ import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
@@ -691,6 +692,277 @@ class OpenAIResponsesParityTest {
         assertEquals(3, transport.requests.size)
         assertLocalRecoveryProgressOmittedFromReplay(transport.requests.last())
     }
+
+    @Test
+    fun testUnavailableContainerReprojectsHistoryBeforeRetry() = runTest {
+        for (streaming in listOf(false, true)) {
+            for (expired in listOf(false, true)) {
+                val failure = if (expired) expiredContainerError() else KoogHttpClientException("fixture", 404, staleContainerError())
+                val transport = ScriptedResponsesTransport(
+                    postResponses = ArrayDeque(listOf(failure, response())),
+                    streamAttempts = ArrayDeque(listOf(listOf(failure), listOf(OpenAIStreamEvent.ResponseCompleted(response(), 1)))),
+                )
+                val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+                var recoveries = 0
+                val params = OpenAIResponsesParams(
+                    stateless = true,
+                    codeInterpreter = OpenAICodeInterpreterConfig(listOf("file_1"), "stale_container"),
+                ).withContainerRecovery { retryPrompt, unavailable ->
+                    recoveries++
+                    assertEquals(1, transport.requests.size)
+                    assertEquals("stale_container", unavailable.containerId)
+                    assertEquals(
+                        if (expired) OpenAIContainerUnavailableReason.Expired else OpenAIContainerUnavailableReason.Missing,
+                        unavailable.reason,
+                    )
+                    val retryParams = assertIs<OpenAIResponsesParams>(retryPrompt.params)
+                    assertEquals(OpenAICodeInterpreterConfig(listOf("file_1")), retryParams.codeInterpreter)
+                    retryPrompt.withMessages { messages ->
+                        messages.map { message ->
+                            if (message is Message.Assistant) Message.Assistant("Historical code: print(1). Old workspace unavailable.", message.metaInfo) else message
+                        }
+                    }.copy(params = OpenAIResponsesParams())
+                }
+                val original = Prompt.build("history", params = params) {
+                    user("Earlier question")
+                    message(
+                        Message.Assistant(
+                            parts = listOf(
+                                MessagePart.CodeExecution(
+                                    id = "old_execution",
+                                    providerItemId = "code_provider",
+                                    code = "print(1)",
+                                    containerId = "stale_container",
+                                )
+                            ),
+                            metaInfo = ResponseMetaInfo.Empty,
+                        )
+                    )
+                    user("Continue")
+                }
+                if (streaming) {
+                    client.executeStreaming(original, OpenAIModels.Chat.GPT4o).toList()
+                } else {
+                    client.execute(original, OpenAIModels.Chat.GPT4o)
+                }
+                assertEquals(1, recoveries)
+                assertEquals(2, transport.requests.size)
+                assertTrue(transport.requests.first().contains("code_interpreter_call"))
+                val retry = Json.parseToJsonElement(transport.requests.last()).jsonObject
+                assertTrue(retry.getValue("input").toString().contains("Historical code:"))
+                assertTrue(!retry.getValue("input").toString().contains("code_interpreter_call"))
+                val container = retry.getValue("tools").jsonArray.single().jsonObject.getValue("container").jsonObject
+                assertEquals("auto", container.getValue("type").jsonPrimitive.content)
+                assertEquals("file_1", container.getValue("file_ids").jsonArray.single().jsonPrimitive.content)
+                assertIs<MessagePart.CodeExecution>(assertIs<Message.Assistant>(original.messages[1]).parts.single())
+                assertEquals("stale_container", params.codeInterpreter?.containerId)
+            }
+        }
+    }
+
+    @Test
+    fun testContainerRecoveryCallbackFailureAndCancellationAbortRetry() = runTest {
+        for (streaming in listOf(false, true)) {
+            for (callbackFailure in listOf(IllegalStateException("projection failed"), CancellationException("cancelled"))) {
+                val transport = ScriptedResponsesTransport(
+                    postResponses = ArrayDeque(listOf(expiredContainerError())),
+                    streamAttempts = ArrayDeque(listOf(listOf(expiredContainerError()))),
+                )
+                val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+                val params = recoveryParams().withContainerRecovery { _, _ -> throw callbackFailure }
+                val actual = assertFailsWith<Exception> {
+                    if (streaming) {
+                        client.executeStreaming(prompt(params), OpenAIModels.Chat.GPT4o).toList()
+                    } else {
+                        client.execute(prompt(params), OpenAIModels.Chat.GPT4o)
+                    }
+                }
+                assertTrue(actual === callbackFailure)
+                assertEquals(1, transport.requests.size)
+            }
+        }
+    }
+
+    @Test
+    fun testContainerRecoveryDoesNotRetrySecondFailure() = runTest {
+        for (streaming in listOf(false, true)) {
+            val transport = ScriptedResponsesTransport(
+                postResponses = ArrayDeque(listOf(expiredContainerError(), expiredContainerError())),
+                streamAttempts = ArrayDeque(listOf(listOf(expiredContainerError()), listOf(expiredContainerError()))),
+            )
+            val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+            var recoveries = 0
+            val params = recoveryParams().withContainerRecovery { retry, _ ->
+                recoveries++
+                retry
+            }
+            val failure = assertFailsWith<Exception> {
+                if (streaming) {
+                    client.executeStreaming(prompt(params), OpenAIModels.Chat.GPT4o).toList()
+                } else {
+                    client.execute(prompt(params), OpenAIModels.Chat.GPT4o)
+                }
+            }
+            assertIs<OpenAIContainerUnavailableException>(if (streaming) failure.cause else failure)
+            assertEquals(1, recoveries)
+            assertEquals(2, transport.requests.size)
+        }
+    }
+
+    @Test
+    fun testExpiryAfterProviderEventIsTypedWithoutRecovery() = runTest {
+        val transport = ScriptedResponsesTransport(
+            streamAttempts = ArrayDeque(
+                listOf(
+                    listOf(
+                        OpenAIStreamEvent.ResponseOutputTextDelta("message", 0, 0, "partial", sequenceNumber = 1),
+                        expiredContainerError(),
+                    )
+                )
+            )
+        )
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val params = recoveryParams().withContainerRecovery { _, _ -> error("Must not recover") }
+        val frames = mutableListOf<StreamFrame>()
+        val failure = assertFailsWith<LLMClientException> {
+            client.executeStreaming(prompt(params), OpenAIModels.Chat.GPT4o).collect { frames += it }
+        }
+        assertEquals(OpenAIContainerUnavailableReason.Expired, assertIs<OpenAIContainerUnavailableException>(failure.cause).reason)
+        assertTrue(frames.isNotEmpty())
+        assertEquals(1, transport.requests.size)
+    }
+
+    @Test
+    fun testUnrecognisedContainerErrorsAndCancellationNeverRecover() = runTest {
+        val bodies = listOf(
+            "not json",
+            "[]",
+            """{"error":{"message":{"text":"Container is expired."}}}""",
+            """{"error":{"message":"Container is expired.","param":"route"}}""",
+            """{"error":{"message":"File is expired.","param":"file"}}""",
+            """{"error":{"code":"invalid_container","param":"not_a_container"}}""",
+        )
+        val failures = bodies.map { KoogHttpClientException("fixture", 400, it) } +
+            KoogHttpClientException("fixture", 500, """{"error":{"message":"Container is expired."}}""") +
+            CancellationException("cancelled")
+        for (streaming in listOf(false, true)) {
+            for (failure in failures) {
+                val transport = ScriptedResponsesTransport(
+                    postResponses = ArrayDeque(listOf(failure)),
+                    streamAttempts = ArrayDeque(listOf(listOf(failure))),
+                )
+                val params = recoveryParams().withContainerRecovery { _, _ -> error("Must not recover") }
+                val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+                val actual = assertFailsWith<Exception> {
+                    if (streaming) {
+                        client.executeStreaming(prompt(params), OpenAIModels.Chat.GPT4o).toList()
+                    } else {
+                        client.execute(prompt(params), OpenAIModels.Chat.GPT4o)
+                    }
+                }
+                assertTrue(actual !is OpenAIContainerUnavailableException)
+                assertTrue(actual.cause !is OpenAIContainerUnavailableException)
+                assertEquals(1, transport.requests.size)
+            }
+        }
+    }
+
+    @Test
+    fun testStatefulExpiryIsTypedWithoutRecovery() = runTest {
+        val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(listOf(expiredContainerError())))
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val params = OpenAIResponsesParams(codeInterpreter = OpenAICodeInterpreterConfig(containerId = "stale_container"))
+            .withContainerRecovery { _, _ -> error("Must not recover") }
+        val failure = assertFailsWith<OpenAIContainerUnavailableException> {
+            client.execute(prompt(params), OpenAIModels.Chat.GPT4o)
+        }
+        assertEquals("stale_container", failure.containerId)
+        assertEquals(OpenAIContainerUnavailableReason.Expired, failure.reason)
+        assertEquals(1, transport.requests.size)
+    }
+
+    @Test
+    fun testProviderKeepalivePreventsRecoveryBeforeVisibleOutput() = runTest {
+        val transport = ScriptedResponsesTransport(
+            streamAttempts = ArrayDeque(
+                listOf(
+                    listOf(
+                        OpenAIStreamEvent.ResponseKeepalive(1),
+                        expiredContainerError(),
+                    )
+                )
+            )
+        )
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val params = recoveryParams().withContainerRecovery { _, _ -> error("Must not recover") }
+        val frames = mutableListOf<StreamFrame>()
+        assertFailsWith<LLMClientException> {
+            client.executeStreaming(prompt(params), OpenAIModels.Chat.GPT4o).collect { frames += it }
+        }
+        assertTrue(frames.isEmpty())
+        assertEquals(1, transport.requests.size)
+    }
+
+    @Test
+    fun testTypedContainerErrorCodes() = runTest {
+        for ((code, reason) in listOf(
+            "container_expired" to OpenAIContainerUnavailableReason.Expired,
+            "container_not_found" to OpenAIContainerUnavailableReason.Missing,
+            "invalid_container" to OpenAIContainerUnavailableReason.Missing,
+        )) {
+            val transport = ScriptedResponsesTransport(
+                postResponses = ArrayDeque(
+                    listOf(
+                        LLMClientException(
+                            "fixture",
+                            cause = KoogHttpClientException(
+                                "fixture",
+                                400,
+                                """{"code":"$code","param":"container"}""",
+                            )
+                        ),
+                    )
+                )
+            )
+            val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+            val params = OpenAIResponsesParams(codeInterpreter = OpenAICodeInterpreterConfig(containerId = "stale_container"))
+            val failure = assertFailsWith<OpenAIContainerUnavailableException> {
+                client.execute(prompt(params), OpenAIModels.Chat.GPT4o)
+            }
+            assertEquals(reason, failure.reason)
+            assertEquals("stale_container", failure.containerId)
+            assertIs<KoogHttpClientException>(assertIs<LLMClientException>(failure.cause).cause)
+            assertEquals(1, transport.requests.size)
+        }
+    }
+
+    @Test
+    fun testRecoveryCallbackSurvivesParameterCopies() {
+        val source = recoveryParams().withContainerRecovery { retry, _ -> retry }
+        val copies = listOf(
+            source.copy(),
+            (source as LLMParams).copy(maxTokens = 123),
+            source.withCodeInterpreter(null),
+            source.withPromptCacheIdentity(OpenAIPromptCacheIdentity("user", "chat")),
+            source.asStateless(),
+        )
+        copies.forEach { assertTrue(assertIs<OpenAIResponsesParams>(it).containerRecovery === source.containerRecovery) }
+        assertEquals(source, source.copy())
+        assertEquals(source.hashCode(), source.copy().hashCode())
+        assertTrue(source != source.withContainerRecovery(null))
+        assertEquals(null, source.withContainerRecovery(null).containerRecovery)
+    }
+
+    private fun recoveryParams(): OpenAIResponsesParams = OpenAIResponsesParams(
+        stateless = true,
+        codeInterpreter = OpenAICodeInterpreterConfig(containerId = "stale_container"),
+    )
+
+    private fun expiredContainerError(): KoogHttpClientException = KoogHttpClientException(
+        "fixture",
+        400,
+        """{"error":{"message":"Container is expired.","type":"invalid_request_error","param":null,"code":null}}""",
+    )
 
     private fun prompt(params: OpenAIResponsesParams = OpenAIResponsesParams(store = false, stateless = true)): Prompt =
         Prompt(

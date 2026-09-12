@@ -69,6 +69,20 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterC
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableException : java/lang/Exception {
+	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;Ljava/lang/Throwable;)V
+	public final fun getContainerId ()Ljava/lang/String;
+	public final fun getReason ()Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason : java/lang/Enum {
+	public static final field Expired Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;
+	public static final field Missing Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAICredentialMechanism : java/lang/Enum {
 	public static final field ApiKey Lai/koog/prompt/executor/clients/openai/OpenAICredentialMechanism;
 	public static final field Bearer Lai/koog/prompt/executor/clients/openai/OpenAICredentialMechanism;
@@ -231,6 +245,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBackground ()Ljava/lang/Boolean;
 	public final fun getCodeInterpreter ()Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;
+	public final fun getContainerRecovery ()Lkotlin/jvm/functions/Function3;
 	public final fun getInclude ()Ljava/util/List;
 	public final fun getLogprobs ()Ljava/lang/Boolean;
 	public final fun getMaxToolCalls ()Ljava/lang/Integer;
@@ -248,6 +263,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 	public final fun withCodeInterpreter (Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
+	public final fun withContainerRecovery (Lkotlin/jvm/functions/Function3;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public final fun withPromptCacheIdentity (Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 }
 

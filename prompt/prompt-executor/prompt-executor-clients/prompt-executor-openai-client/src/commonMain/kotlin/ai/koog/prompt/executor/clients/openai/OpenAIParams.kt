@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIAudioConfig
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIWebSearchOptions
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
@@ -442,6 +443,25 @@ public class OpenAIResponsesParams(
     public var promptCacheIdentity: OpenAIPromptCacheIdentity? = null
         private set
 
+    /** Request-local history projection invoked before a bounded container recovery attempt. */
+    public var containerRecovery: (suspend (Prompt, OpenAIContainerUnavailableException) -> Prompt)? = null
+        private set
+
+    /**
+     * Returns a copy with a recovery projection, or removes it when [recover] is null.
+     *
+     * For a recognised unavailable reused container on a stateless request, Kroog calls [recover]
+     * once before retrying and before any provider event. The supplied prompt has automatic-container
+     * parameters, preserving configured file IDs. Return a prompt with portable execution history.
+     * Kroog retains the supplied parameters, ignoring parameter changes in the returned prompt.
+     * Persist [OpenAIContainerUnavailableException.containerId] as unavailable here, even if the retry
+     * subsequently fails or produces no execution. Exceptions and cancellation abort the retry.
+     * This callback is retained by parameter copies and is never serialised to the provider.
+     */
+    public fun withContainerRecovery(
+        recover: (suspend (Prompt, OpenAIContainerUnavailableException) -> Prompt)?,
+    ): OpenAIResponsesParams = copy().also { it.containerRecovery = recover }
+
     /**
      * Preserves the JVM constructor layout published before [codeInterpreter] was added.
      */
@@ -667,6 +687,7 @@ public class OpenAIResponsesParams(
         stateless = this.stateless,
     ).also {
         it.promptCacheIdentity = this.promptCacheIdentity
+        it.containerRecovery = this.containerRecovery
     }
 
     /**
@@ -697,7 +718,10 @@ public class OpenAIResponsesParams(
             topP = topP,
             codeInterpreter = codeInterpreter,
             stateless = stateless,
-        ).also { it.promptCacheIdentity = promptCacheIdentity }
+        ).also {
+            it.promptCacheIdentity = promptCacheIdentity
+            it.containerRecovery = containerRecovery
+        }
 
     /** Returns a copy carrying raw identity for Kroog's request-time cache-key digest. */
     public fun withPromptCacheIdentity(identity: OpenAIPromptCacheIdentity?): OpenAIResponsesParams =
@@ -727,6 +751,7 @@ public class OpenAIResponsesParams(
             stateless = stateless,
         ).also {
             it.promptCacheIdentity = identity
+            it.containerRecovery = containerRecovery
         }
 
     /** Returns an ASK-compatible stateless copy that never permits provider-side response storage. */
@@ -754,7 +779,10 @@ public class OpenAIResponsesParams(
         topP = topP,
         codeInterpreter = codeInterpreter,
         stateless = true,
-    ).also { it.promptCacheIdentity = promptCacheIdentity }
+    ).also {
+        it.promptCacheIdentity = promptCacheIdentity
+        it.containerRecovery = containerRecovery
+    }
 
     override fun equals(other: Any?): Boolean = when {
         this === other -> true
@@ -783,7 +811,8 @@ public class OpenAIResponsesParams(
                 topP == other.topP &&
                 codeInterpreter == other.codeInterpreter &&
                 stateless == other.stateless &&
-                promptCacheIdentity == other.promptCacheIdentity
+                promptCacheIdentity == other.promptCacheIdentity &&
+                containerRecovery == other.containerRecovery
     }
 
     override fun hashCode(): Int = listOf(
@@ -796,6 +825,7 @@ public class OpenAIResponsesParams(
         codeInterpreter,
         stateless,
         promptCacheIdentity,
+        containerRecovery,
     ).fold(0) { acc, element ->
         31 * acc + (element?.hashCode() ?: 0)
     }
