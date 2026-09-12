@@ -601,7 +601,22 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 choice.finishReason?.let { finishReason = it }
             }
 
-            chunk.usage?.let { metaInfo = createMetaInfo(it) }
+            chunk.usage?.let {
+                val update = createMetaInfo(it)
+                val countsChanged =
+                    (update.inputTokensCount != null && update.inputTokensCount != metaInfo?.inputTokensCount) ||
+                        (update.outputTokensCount != null && update.outputTokensCount != metaInfo?.outputTokensCount)
+                val input = update.inputTokensCount ?: metaInfo?.inputTokensCount
+                val output = update.outputTokensCount ?: metaInfo?.outputTokensCount
+                metaInfo = update.copy(
+                    inputTokensCount = input,
+                    outputTokensCount = output,
+                    totalTokensCount = input?.let { i -> output?.let { o -> i + o } }
+                        ?: update.totalTokensCount ?: metaInfo?.totalTokensCount.takeUnless { countsChanged },
+                    cacheReadTokensCount = update.cacheReadTokensCount ?: metaInfo?.cacheReadTokensCount,
+                    reasoningTokensCount = update.reasoningTokensCount ?: metaInfo?.reasoningTokensCount,
+                )
+            }
         }
 
         emitEnd(finishReason, metaInfo)
@@ -886,25 +901,23 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             }
                         }
 
-                        is OpenAIStreamEvent.ResponseCompleted -> {
+                        is OpenAIStreamEvent.ResponseCompleted,
+                        is OpenAIStreamEvent.ResponseIncomplete -> {
+                            val terminalResponse = when (event) {
+                                is OpenAIStreamEvent.ResponseCompleted -> event.response
+                                is OpenAIStreamEvent.ResponseIncomplete -> event.response
+                                else -> error("Unexpected terminal event")
+                            }
                             orderedFrames.requireResolved()
                             add(
                                 StreamFrame.End(
                                     finishReason = null,
-                                    metaInfo = event.response.usage.let { usage ->
-                                        ResponseMetaInfo.create(
-                                            clock = clock,
-                                            totalTokensCount = usage?.totalTokens,
-                                            inputTokensCount = usage?.inputTokens,
-                                            outputTokensCount = usage?.outputTokens,
-                                        )
-                                    },
+                                    metaInfo = createResponsesMetaInfo(terminalResponse.usage),
                                 )
                             )
                         }
 
-                        is OpenAIStreamEvent.ResponseFailed,
-                        is OpenAIStreamEvent.ResponseIncomplete -> orderedFrames.requireResolved()
+                        is OpenAIStreamEvent.ResponseFailed -> orderedFrames.requireResolved()
 
                         else -> Unit
                     }
@@ -1521,18 +1534,24 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
     }
 
+    private fun createResponsesMetaInfo(usage: OpenAIResponsesAPIResponse.Usage?): ResponseMetaInfo =
+        ResponseMetaInfo.create(
+            clock = clock,
+            inputTokensCount = usage?.inputTokens,
+            outputTokensCount = usage?.outputTokens,
+            totalTokensCount = usage?.inputTokens?.let { input -> usage.outputTokens?.let { input + it } }
+                ?: usage?.totalTokens,
+            cacheReadTokensCount = usage?.inputTokensDetails?.cachedTokens,
+            reasoningTokensCount = usage?.outputTokensDetails?.reasoningTokens,
+        )
+
     private fun processResponsesAPIResponse(
         response: OpenAIResponsesAPIResponse,
         recoveredContainerId: String? = null,
     ): Message.Assistant {
         require(response.output.isNotEmpty()) { "Empty output in response" }
 
-        val metaInfo = ResponseMetaInfo.create(
-            clock,
-            totalTokensCount = response.usage?.totalTokens,
-            inputTokensCount = response.usage?.inputTokens,
-            outputTokensCount = response.usage?.outputTokens
-        )
+        val metaInfo = createResponsesMetaInfo(response.usage)
 
         var finishReason: String? = null
 

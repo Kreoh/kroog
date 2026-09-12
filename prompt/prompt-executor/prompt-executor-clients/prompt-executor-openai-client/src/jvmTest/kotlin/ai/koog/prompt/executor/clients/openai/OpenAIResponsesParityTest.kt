@@ -37,6 +37,44 @@ import kotlin.test.assertTrue
 
 class OpenAIResponsesParityTest {
     @Test
+    fun testUsageSurvivesCompleteAndIncompleteResponses() = runTest {
+        listOf(null, 0, 12).forEach { breakdown ->
+            val usage = OpenAIResponsesAPIResponse.Usage(
+                inputTokens = 100,
+                outputTokens = 40,
+                totalTokens = 140,
+                inputTokensDetails = breakdown?.let { OpenAIResponsesAPIResponse.Usage.InputTokensDetails(it) },
+                outputTokensDetails = breakdown?.let { OpenAIResponsesAPIResponse.Usage.OutputTokensDetails(it) },
+            )
+            val output = response(usage = usage)
+            val transport = ScriptedResponsesTransport(
+                postResponses = ArrayDeque(listOf(output)),
+                streamAttempts = ArrayDeque(
+                    listOf(
+                        listOf(OpenAIStreamEvent.ResponseCompleted(output, 1)),
+                        listOf(OpenAIStreamEvent.ResponseIncomplete(output, 1)),
+                    )
+                ),
+            )
+            val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+            val prompt = Prompt.build("usage", params = OpenAIResponsesParams()) { user("Hello") }
+            val metadata = listOf(
+                client.execute(prompt, OpenAIModels.Chat.GPT4o).metaInfo,
+                client.executeStreaming(prompt, OpenAIModels.Chat.GPT4o).toList().filterIsInstance<StreamFrame.End>().single().metaInfo!!,
+                client.executeStreaming(prompt, OpenAIModels.Chat.GPT4o).toList().filterIsInstance<StreamFrame.End>().single().metaInfo!!,
+            )
+            metadata.forEach { meta ->
+                assertEquals(100, meta.inputTokensCount)
+                assertEquals(40, meta.outputTokensCount)
+                assertEquals(140, meta.totalTokensCount)
+                assertEquals(breakdown, meta.cacheReadTokensCount)
+                assertEquals(breakdown, meta.reasoningTokensCount)
+                assertEquals(null, meta.cacheWriteTokensCount)
+            }
+        }
+    }
+
+    @Test
     fun testAstraDefaultResponsesToolCallsAndStreamingAgree() = runTest {
         val toolCall = Item.FunctionToolCall(
             arguments = "{}",
@@ -702,7 +740,9 @@ class OpenAIResponsesParityTest {
                 status = OpenAIInputStatus.COMPLETED,
             )
         ),
+        usage: OpenAIResponsesAPIResponse.Usage? = null,
     ): OpenAIResponsesAPIResponse = OpenAIResponsesAPIResponse(
+        usage = usage,
         created = 1,
         id = "response_1",
         model = "gpt-4o",

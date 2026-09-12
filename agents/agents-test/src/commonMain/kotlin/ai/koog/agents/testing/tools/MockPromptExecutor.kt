@@ -8,7 +8,6 @@ import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
-import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toStreamFrames
 import ai.koog.prompt.tokenizer.Tokenizer
@@ -223,8 +222,8 @@ public class MockPromptExecutor internal constructor(
             }
         }
         val outputTokenCount = tokenizer.countTokens(outputContent)
-        val updatedMetaInfo = ResponseMetaInfo.create(
-            clock = clock,
+        val updatedMetaInfo = response.metaInfo.copy(
+            timestamp = clock.now(),
             inputTokensCount = inputTokenCount,
             outputTokensCount = outputTokenCount,
             totalTokensCount = inputTokenCount + outputTokenCount

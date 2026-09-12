@@ -59,6 +59,7 @@ import aws.sdk.kotlin.services.bedrockruntime.model.ReasoningTextBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.S3Location
 import aws.sdk.kotlin.services.bedrockruntime.model.SpecificToolChoice
 import aws.sdk.kotlin.services.bedrockruntime.model.SystemContentBlock
+import aws.sdk.kotlin.services.bedrockruntime.model.TokenUsage
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolConfiguration
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolInputSchema
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultBlock
@@ -489,6 +490,19 @@ internal object BedrockConverseConverters {
         }
     }
 
+    private fun TokenUsage?.toMetaInfo(clock: KoogClock): ResponseMetaInfo {
+        val input = this?.let { it.inputTokens + (it.cacheReadInputTokens ?: 0) + (it.cacheWriteInputTokens ?: 0) }
+        val output = this?.outputTokens
+        return ResponseMetaInfo.create(
+            clock = clock,
+            inputTokensCount = input,
+            outputTokensCount = output,
+            totalTokensCount = input?.let { i -> output?.let { o -> i + o } },
+            cacheReadTokensCount = this?.cacheReadInputTokens,
+            cacheWriteTokensCount = this?.cacheWriteInputTokens,
+        )
+    }
+
     /**
      * Converts [ConverseRequest] response.
      */
@@ -496,23 +510,7 @@ internal object BedrockConverseConverters {
         response: ConverseResponse,
         clock: KoogClock,
     ): Message.Assistant {
-        // Extract token count from the response
-        val inputTokensCount = response.usage?.inputTokens
-        val outputTokensCount = response.usage?.outputTokens
-        val totalTokensCount = response.usage?.totalTokens
-        val cacheReadInputTokens = response.usage?.cacheReadInputTokens
-        val cacheWriteInputTokens = response.usage?.cacheWriteInputTokens
-        val cacheMetadata = buildJsonObject {
-            cacheReadInputTokens?.let { put("cacheReadInputTokens", it) }
-            cacheWriteInputTokens?.let { put("cacheWriteInputTokens", it) }
-        }.takeIf { it.isNotEmpty() }
-        val metaInfo = ResponseMetaInfo.create(
-            clock,
-            totalTokensCount = totalTokensCount,
-            inputTokensCount = inputTokensCount,
-            outputTokensCount = outputTokensCount,
-            metadata = cacheMetadata,
-        )
+        val metaInfo = response.usage.toMetaInfo(clock)
 
         val content = response.output?.asMessageOrNull()?.content.orEmpty()
         // Convert content blocks to messages
@@ -569,13 +567,7 @@ internal object BedrockConverseConverters {
         return Message.Assistant(
             parts = parts,
             finishReason = response.stopReason.value,
-            metaInfo = ResponseMetaInfo.create(
-                clock,
-                totalTokensCount = totalTokensCount,
-                inputTokensCount = inputTokensCount,
-                outputTokensCount = outputTokensCount,
-                metadata = cacheMetadata,
-            )
+            metaInfo = metaInfo
         )
     }
 
@@ -587,6 +579,8 @@ internal object BedrockConverseConverters {
         clock: KoogClock = KoogClock.System,
     ) = buildStreamFrameFlow {
         var finishReason: String? = null
+        var latestUsage: TokenUsage? = null
+        var receivedMetadata = false
         val reasoningBlockTypes = mutableMapOf<Int, String>()
         val reasoningTextByIndex = mutableMapOf<Int, String>()
         val reasoningSignatureByIndex = mutableMapOf<Int, String>()
@@ -718,27 +712,22 @@ internal object BedrockConverseConverters {
                 }
 
                 is ConverseStreamOutput.Metadata -> {
-                    val usage = chunk.value.usage
-
-                    emitEnd(
-                        finishReason = finishReason,
-                        metaInfo = ResponseMetaInfo.create(
-                            clock = clock,
-                            totalTokensCount = usage?.totalTokens,
-                            inputTokensCount = usage?.inputTokens,
-                            outputTokensCount = usage?.outputTokens,
-                            metadata = buildJsonObject {
-                                usage?.cacheReadInputTokens?.let { put("cacheReadInputTokens", it) }
-                                usage?.cacheWriteInputTokens?.let { put("cacheWriteInputTokens", it) }
-                            }.takeIf { it.isNotEmpty() },
-                        )
-                    )
+                    chunk.value.usage?.let { update ->
+                        latestUsage = update.copy {
+                            cacheReadInputTokens = update.cacheReadInputTokens ?: latestUsage?.cacheReadInputTokens
+                            cacheWriteInputTokens = update.cacheWriteInputTokens ?: latestUsage?.cacheWriteInputTokens
+                        }
+                    }
+                    receivedMetadata = true
                 }
 
                 ConverseStreamOutput.SdkUnknown -> {
                     logger.warn { "Unknown Converse chunk type: ${chunk::class.simpleName}" }
                 }
             }
+        }
+        if (receivedMetadata) {
+            emitEnd(finishReason = finishReason, metaInfo = latestUsage.toMetaInfo(clock))
         }
     }
 

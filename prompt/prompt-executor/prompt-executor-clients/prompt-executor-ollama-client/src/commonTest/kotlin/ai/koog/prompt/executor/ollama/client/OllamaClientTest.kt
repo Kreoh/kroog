@@ -23,6 +23,29 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class OllamaClientTest {
+    @Test
+    fun testTotalRequiresBothTokenCounts() = runTest {
+        for ((input, output) in listOf(5 to 3, 0 to 0, 5 to null, null to 3, null to null)) {
+            val server = MockOllamaChatServer { request ->
+                OllamaChatResponseDTO(
+                    model = request.model,
+                    message = OllamaChatMessageDTO(role = "assistant", content = "Hello"),
+                    done = true,
+                    promptEvalCount = input,
+                    evalCount = output,
+                )
+            }
+            val client = OllamaClient(httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(server.mockEngine)))
+            try {
+                val result = client.execute(prompt("usage") { }, OllamaModels.Meta.LLAMA_3_2)
+                assertEquals(input, result.metaInfo.inputTokensCount)
+                assertEquals(output, result.metaInfo.outputTokensCount)
+                assertEquals(if (input != null && output != null) input + output else null, result.metaInfo.totalTokensCount)
+            } finally {
+                client.close()
+            }
+        }
+    }
 
     @Test
     fun testExecuteWithContentAndToolCalls() = runTest {

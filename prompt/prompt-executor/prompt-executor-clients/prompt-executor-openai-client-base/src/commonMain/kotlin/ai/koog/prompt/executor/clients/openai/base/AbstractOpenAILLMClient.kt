@@ -525,9 +525,12 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
      */
     protected fun createMetaInfo(usage: OpenAIUsage?): ResponseMetaInfo = ResponseMetaInfo.create(
         clock,
-        totalTokensCount = usage?.totalTokens,
+        totalTokensCount = usage?.promptTokens?.let { input -> usage.completionTokens?.let { input + it } }
+            ?: usage?.totalTokens,
         inputTokensCount = usage?.promptTokens,
-        outputTokensCount = usage?.completionTokens
+        outputTokensCount = usage?.completionTokens,
+        cacheReadTokensCount = usage?.promptTokensDetails?.cachedTokens,
+        reasoningTokensCount = usage?.completionTokensDetails?.reasoningTokens
     )
 
     protected open fun createResponseFormat(schema: LLMParams.Schema?, model: LLModel): OpenAIResponseFormat? {

@@ -1490,17 +1490,17 @@ internal class OpenAIResponsesAPIResponse(
      */
     @Serializable
     internal class Usage(
-        val inputTokens: Int,
-        val inputTokensDetails: InputTokensDetails,
-        val outputTokens: Int,
-        val outputTokensDetails: OutputTokensDetails,
-        val totalTokens: Int
+        val inputTokens: Int? = null,
+        val inputTokensDetails: InputTokensDetails? = null,
+        val outputTokens: Int? = null,
+        val outputTokensDetails: OutputTokensDetails? = null,
+        val totalTokens: Int? = null
     ) {
         @Serializable
-        class InputTokensDetails(val cachedTokens: Int)
+        class InputTokensDetails(val cachedTokens: Int? = null)
 
         @Serializable
-        class OutputTokensDetails(val reasoningTokens: Int)
+        class OutputTokensDetails(val reasoningTokens: Int? = null)
     }
 }
 

@@ -26,6 +26,9 @@ public class ResponseMetaInfoBuilder {
     private var totalTokensCount: Int? = null
     private var inputTokensCount: Int? = null
     private var outputTokensCount: Int? = null
+    private var cacheReadTokensCount: Int? = null
+    private var cacheWriteTokensCount: Int? = null
+    private var reasoningTokensCount: Int? = null
     private var metadata: JsonObject? = null
 
     /**
@@ -63,6 +66,21 @@ public class ResponseMetaInfoBuilder {
         this.outputTokensCount = count
     }
 
+    /** Sets the cache-read input subset, already included in the corresponding total. */
+    public fun cacheReadTokensCount(count: Int): ResponseMetaInfoBuilder = apply {
+        this.cacheReadTokensCount = count
+    }
+
+    /** Sets the cache-write input subset, already included in the corresponding total. */
+    public fun cacheWriteTokensCount(count: Int): ResponseMetaInfoBuilder = apply {
+        this.cacheWriteTokensCount = count
+    }
+
+    /** Sets the reasoning output subset, already included in the corresponding total. */
+    public fun reasoningTokensCount(count: Int): ResponseMetaInfoBuilder = apply {
+        this.reasoningTokensCount = count
+    }
+
     /**
      * Sets the metadata.
      */
@@ -79,7 +97,10 @@ public class ResponseMetaInfoBuilder {
         totalTokensCount = totalTokensCount,
         inputTokensCount = inputTokensCount,
         outputTokensCount = outputTokensCount,
-        metadata = metadata
+        metadata = metadata,
+        cacheReadTokensCount = cacheReadTokensCount,
+        cacheWriteTokensCount = cacheWriteTokensCount,
+        reasoningTokensCount = reasoningTokensCount,
     )
 }
 
@@ -93,16 +114,23 @@ public fun ResponseMetaInfo.Companion.builder(): ResponseMetaInfoBuilder = Respo
  * Creates a [ResponseMetaInfo] with a [java.time.Instant] timestamp.
  */
 @JavaAPI
+@JvmOverloads
 public fun ResponseMetaInfo.Companion.fromJavaInstant(
     timestamp: JavaInstant,
     totalTokensCount: Int? = null,
     inputTokensCount: Int? = null,
     outputTokensCount: Int? = null,
-    metadata: JsonObject? = null
+    metadata: JsonObject? = null,
+    cacheReadTokensCount: Int? = null,
+    cacheWriteTokensCount: Int? = null,
+    reasoningTokensCount: Int? = null,
 ): ResponseMetaInfo = ResponseMetaInfo(
     timestamp = timestamp.toKotlinInstant(),
     totalTokensCount = totalTokensCount,
     inputTokensCount = inputTokensCount,
     outputTokensCount = outputTokensCount,
-    metadata = metadata
+    metadata = metadata,
+    cacheReadTokensCount = cacheReadTokensCount,
+    cacheWriteTokensCount = cacheWriteTokensCount,
+    reasoningTokensCount = reasoningTokensCount,
 )

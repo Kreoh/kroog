@@ -884,7 +884,7 @@ class GoogleLLMClientTest {
     }
 }
 
-private fun googleStreamingTransport(
+internal fun googleStreamingTransport(
     modelId: String,
     chunks: List<String>,
 ): KoogHttpClient = object : KoogHttpClient {

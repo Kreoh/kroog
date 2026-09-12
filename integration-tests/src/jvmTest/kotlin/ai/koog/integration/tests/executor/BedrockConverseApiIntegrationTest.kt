@@ -28,6 +28,7 @@ import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import aws.sdk.kotlin.runtime.auth.credentials.StaticCredentialsProvider
 import io.kotest.assertions.withClue
@@ -35,10 +36,7 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Disabled
@@ -120,10 +118,10 @@ class BedrockConverseApiIntegrationTest : ExecutorIntegrationTestBase() {
 
     private val executor: MultiLLMPromptExecutor = MultiLLMPromptExecutor(client)
 
-    private fun JsonObject.validateRequestWasCachedCorrectly() {
+    private fun ResponseMetaInfo.validateRequestWasCachedCorrectly() {
         this.shouldNotBeNull()
-        val cacheRead = this["cacheReadInputTokens"]?.jsonPrimitive?.intOrNull ?: 0
-        val cacheWrite = this["cacheWriteInputTokens"]?.jsonPrimitive?.intOrNull ?: 0
+        val cacheRead = cacheReadTokensCount ?: 0
+        val cacheWrite = cacheWriteTokensCount ?: 0
         withClue("Cache read or cache write should be greater than 0 if the cache point was added correctly") {
             (cacheRead > 0 || cacheWrite > 0).shouldBeTrue()
         }
@@ -367,7 +365,7 @@ class BedrockConverseApiIntegrationTest : ExecutorIntegrationTestBase() {
             result.parts.filterIsInstance<MessagePart.Text>().firstOrNull().shouldNotBeNull {
                 text.lowercase().shouldContain("paris")
             }
-            result.metaInfo.metadata.shouldNotBeNull().validateRequestWasCachedCorrectly()
+            result.metaInfo.validateRequestWasCachedCorrectly()
         }
     }
 
@@ -388,7 +386,7 @@ class BedrockConverseApiIntegrationTest : ExecutorIntegrationTestBase() {
             result.parts.filterIsInstance<MessagePart.Text>().firstOrNull().shouldNotBeNull {
                 text.lowercase().shouldContain("paris")
             }
-            result.metaInfo.metadata.shouldNotBeNull().validateRequestWasCachedCorrectly()
+            result.metaInfo.validateRequestWasCachedCorrectly()
         }
     }
 
@@ -411,7 +409,7 @@ class BedrockConverseApiIntegrationTest : ExecutorIntegrationTestBase() {
         withRetry(times = 3, testName = "integration_testCacheControlOnToolDefinition[${model.id}]") {
             val result = getExecutor(model).execute(prompt, model, listOf(cachedDescriptor))
             result.shouldNotBeNull()
-            result.metaInfo.metadata.shouldNotBeNull().validateRequestWasCachedCorrectly()
+            result.metaInfo.validateRequestWasCachedCorrectly()
         }
     }
 }
