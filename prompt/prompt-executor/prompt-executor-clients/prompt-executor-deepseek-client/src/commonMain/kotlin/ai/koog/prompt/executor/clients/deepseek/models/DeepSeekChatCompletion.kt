@@ -15,6 +15,10 @@ import ai.koog.prompt.executor.clients.serialization.AdditionalPropertiesFlatten
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonTransformingSerializer
+import kotlinx.serialization.json.jsonObject
 
 /**
  * DeepSeek Chat Completions API Request
@@ -95,6 +99,7 @@ public class DeepSeekChatCompletionResponse(
     public val systemFingerprint: String,
     @SerialName("object")
     public val objectType: String = "chat.completion",
+    @Serializable(with = DeepSeekUsageSerializer::class)
     public val usage: OpenAIUsage? = null,
 ) : OpenAIBaseLLMResponse
 
@@ -110,8 +115,25 @@ public class DeepSeekChatCompletionStreamResponse(
     public val systemFingerprint: String,
     @SerialName("object")
     public val objectType: String = "chat.completion.chunk",
+    @Serializable(with = DeepSeekUsageSerializer::class)
     public val usage: OpenAIUsage? = null,
 ) : OpenAIBaseLLMStreamResponse
 
 internal object DeepSeekChatCompletionRequestSerializer :
     AdditionalPropertiesFlatteningSerializer<DeepSeekChatCompletionRequest>(DeepSeekChatCompletionRequest.serializer())
+
+/** Maps DeepSeek's cache-read subset onto the shared usage representation without changing inclusive counts. */
+internal object DeepSeekUsageSerializer : JsonTransformingSerializer<OpenAIUsage>(OpenAIUsage.serializer()) {
+    override fun transformDeserialize(element: JsonElement): JsonElement {
+        val usage = element.jsonObject
+        val cacheHits = usage["prompt_cache_hit_tokens"]?.takeUnless { it == JsonNull } ?: return element
+        val promptDetails = usage["prompt_tokens_details"] as? JsonObject
+        return JsonObject(
+            usage + (
+                "prompt_tokens_details" to JsonObject(
+                    promptDetails.orEmpty() + ("cached_tokens" to cacheHits)
+                )
+                )
+        )
+    }
+}

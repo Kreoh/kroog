@@ -48,6 +48,37 @@ import kotlinx.serialization.json.Json as KotlinxJson
 
 class DeepSeekLLMClientTest {
 
+    @Test
+    fun testNativeCacheUsagePreservesInclusiveCounts() = runTest {
+        for (cache in listOf(3, 0, null)) {
+            val usage = buildJsonObject {
+                put("prompt_tokens", JsonPrimitive(5))
+                put("completion_tokens", JsonPrimitive(5))
+                put("total_tokens", JsonPrimitive(10))
+                if (cache != null) put("prompt_cache_hit_tokens", JsonPrimitive(cache))
+                put("completion_tokens_details", buildJsonObject { put("reasoning_tokens", JsonPrimitive(2)) })
+            }
+            val responseBody = JsonObject(KotlinxJson.parseToJsonElement(body).jsonObject + ("usage" to usage)).toString()
+            val mockHttp = HttpClient(
+                MockEngine {
+                    respond(responseBody, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+            )
+            val client = DeepSeekLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(mockHttp), apiKey = key)
+            try {
+                val response = client.execute(Prompt.build("usage") { user("Hello") }, DeepSeekModels.DeepSeekV4Flash)
+                assertEquals(5, response.metaInfo.inputTokensCount)
+                assertEquals(5, response.metaInfo.outputTokensCount)
+                assertEquals(10, response.metaInfo.totalTokensCount)
+                assertEquals(cache, response.metaInfo.cacheReadTokensCount)
+                assertEquals(2, response.metaInfo.reasoningTokensCount)
+                assertNull(response.metaInfo.cacheWriteTokensCount)
+            } finally {
+                client.close()
+            }
+        }
+    }
+
     object FixedClock : KoogClock {
         override fun now(): Instant = Instant.fromEpochMilliseconds(0)
     }
@@ -300,7 +331,7 @@ class DeepSeekLLMClientTest {
             """{"id":"c","object":"chat.completion.chunk","created":0,"system_fingerprint":"fp","model":"deepseek-reasoner","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"$reasoning"}}]}"""
         //language=json
         val answerChunk =
-            """{"id":"c","object":"chat.completion.chunk","created":0,"system_fingerprint":"fp","model":"deepseek-reasoner","choices":[{"index":0,"delta":{"content":"$answer"},"finish_reason":"stop"}]}"""
+            """{"id":"c","object":"chat.completion.chunk","created":0,"system_fingerprint":"fp","model":"deepseek-reasoner","choices":[{"index":0,"delta":{"content":"$answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":5,"prompt_cache_hit_tokens":3}}"""
 
         var capturedBody: String? = null
 
@@ -364,6 +395,9 @@ class DeepSeekLLMClientTest {
             Prompt.build(id = "p-stream", clock = FixedClock) { user("What's the weather in Boston?") },
             DeepSeekModels.DeepSeekV4Flash,
         ).toList()
+        val usageEnd = frames.filterIsInstance<StreamFrame.End>().single()
+        assertEquals(3, usageEnd.metaInfo.cacheReadTokensCount)
+        assertEquals(10, usageEnd.metaInfo.totalTokensCount)
 
         assertTrue(
             frames.any { it is StreamFrame.ReasoningDelta && it.text == reasoning },
