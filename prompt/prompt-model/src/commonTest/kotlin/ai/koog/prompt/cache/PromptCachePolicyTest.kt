@@ -12,8 +12,6 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -31,17 +29,16 @@ internal class PromptCachePolicyTest {
     fun testNonNullCacheMetadataRoundTripsThroughResponseMetaInfoJson() {
         val original = ResponseMetaInfo(
             timestamp = ResponseMetaInfo.Empty.timestamp,
-            metadata = buildJsonObject {
-                put("cacheCreationInputTokens", 123)
-                put("cacheReadInputTokens", 456)
-            },
+            cacheWriteTokensCount = 123,
+            cacheReadTokensCount = 456,
         )
 
         val encoded = json.encodeToString(original)
         val decoded = json.decodeFromString<ResponseMetaInfo>(encoded)
 
         assertEquals(original, decoded)
-        assertEquals(original.metadata, decoded.metadata)
+        assertEquals(123, decoded.cacheWriteTokensCount)
+        assertEquals(456, decoded.cacheReadTokensCount)
     }
 
     @Test

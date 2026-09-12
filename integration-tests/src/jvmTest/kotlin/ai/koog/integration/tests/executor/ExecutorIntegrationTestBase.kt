@@ -1459,6 +1459,7 @@ private suspend fun PromptExecutor.executeStreamAndCollect(
                     is StreamFrame.TextDelta -> textDeltaFrames.add(delta)
                     is StreamFrame.ToolCallDelta -> toolDeltaFrames.add(delta)
                     is StreamFrame.ReasoningDelta -> reasoningDeltaFrames.add(delta)
+                    else -> error("Unexpected delta frame in text, tool and reasoning test: ${delta::class.simpleName}")
                 }
             }
 
@@ -1467,12 +1468,15 @@ private suspend fun PromptExecutor.executeStreamAndCollect(
                     is StreamFrame.TextComplete -> textCompleteFrames.add(complete)
                     is StreamFrame.ToolCallComplete -> toolCompleteFrames.add(complete)
                     is StreamFrame.ReasoningComplete -> reasoningCompleteFrames.add(complete)
+                    else -> error("Unexpected complete frame in text, tool and reasoning test: ${complete::class.simpleName}")
                 }
             }
 
             is StreamFrame.End -> {
                 endFrame.add(frame)
             }
+
+            else -> error("Unexpected frame in text, tool and reasoning test: ${frame::class.simpleName}")
         }
     }
 }

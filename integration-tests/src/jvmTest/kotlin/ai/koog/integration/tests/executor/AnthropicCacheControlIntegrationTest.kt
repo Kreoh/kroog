@@ -14,13 +14,10 @@ import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.anthropic.AnthropicParams
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.message.ResponseMetaInfo
 import io.kotest.assertions.withClue
 import io.kotest.matchers.booleans.shouldBeTrue
-import io.kotest.matchers.nulls.shouldNotBeNull
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -45,13 +42,13 @@ class AnthropicCacheControlIntegrationTest {
 
         /**
          * Asserts that the response metadata shows cache was used (write or read).
-         * On the first cached request `cacheCreationInputTokens` > 0.
-         * On a subsequent request hitting the same prefix `cacheReadInputTokens` > 0.
+         * On the first cached request `cacheWriteTokensCount` > 0.
+         * On a subsequent request hitting the same prefix `cacheReadTokensCount` > 0.
          */
-        private fun JsonObject.assertCacheWasUsed() {
-            val cacheWrite = this["cacheCreationInputTokens"]?.jsonPrimitive?.intOrNull ?: 0
-            val cacheRead = this["cacheReadInputTokens"]?.jsonPrimitive?.intOrNull ?: 0
-            withClue("Expected cacheCreationInputTokens or cacheReadInputTokens > 0 in metadata $this") {
+        private fun ResponseMetaInfo.assertCacheWasUsed() {
+            val cacheWrite = cacheWriteTokensCount ?: 0
+            val cacheRead = cacheReadTokensCount ?: 0
+            withClue("Expected cacheWriteTokensCount or cacheReadTokensCount > 0 in metadata $this") {
                 (cacheWrite > 0 || cacheRead > 0).shouldBeTrue()
             }
         }
@@ -64,8 +61,7 @@ class AnthropicCacheControlIntegrationTest {
         ) {
             executor.execute(prompt, model, tools)
                 .let { message ->
-                    message.metaInfo.metadata
-                        .shouldNotBeNull()
+                    message.metaInfo
                         .assertCacheWasUsed()
                 }
         }

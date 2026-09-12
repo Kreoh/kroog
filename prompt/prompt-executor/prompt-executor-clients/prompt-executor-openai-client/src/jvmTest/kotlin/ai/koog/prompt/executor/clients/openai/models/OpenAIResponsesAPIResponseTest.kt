@@ -18,6 +18,23 @@ import kotlin.test.Test
 class OpenAIResponsesAPIResponseTest {
 
     @Test
+    fun testUsageAllowsMissingCountsAndDetails() = runWithBothJsonConfigurations("Optional usage") { json ->
+        val missing = json.decodeFromString<OpenAIResponsesAPIResponse.Usage>("{}")
+        missing.inputTokens shouldBe null
+        missing.outputTokens shouldBe null
+        missing.totalTokens shouldBe null
+        missing.inputTokensDetails shouldBe null
+        missing.outputTokensDetails shouldBe null
+        val zero = json.decodeFromString<OpenAIResponsesAPIResponse.Usage>(
+            """{"inputTokens":0,"outputTokens":0,"inputTokensDetails":{},"outputTokensDetails":{}}"""
+        )
+        zero.inputTokens shouldBe 0
+        zero.outputTokens shouldBe 0
+        zero.inputTokensDetails?.cachedTokens shouldBe null
+        zero.outputTokensDetails?.reasoningTokens shouldBe null
+    }
+
+    @Test
     fun `test OpenAIResponsesAPIResponse minimal serialization`() =
         runWithBothJsonConfigurations("minimal response serialization") { json ->
             val response = OpenAIResponsesAPIResponse(
@@ -286,9 +303,9 @@ class OpenAIResponsesAPIResponseTest {
 
         json.decodeFromString<OpenAIResponsesAPIResponse.Usage>(jsonString).shouldNotBeNull {
             inputTokens shouldBe 150
-            inputTokensDetails.cachedTokens shouldBe 25
+            inputTokensDetails?.cachedTokens shouldBe 25
             outputTokens shouldBe 300
-            outputTokensDetails.reasoningTokens shouldBe 100
+            outputTokensDetails?.reasoningTokens shouldBe 100
             totalTokens shouldBe 450
         }
     }

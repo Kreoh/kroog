@@ -867,15 +867,16 @@ public data class RequestMetaInfo @JvmOverloads constructor(
  * used in the response and the timestamp of when the response was created.
  * It implements the `MessageMetadata` interface, inheriting the timestamp property.
  *
+ * Counts describe one model request, including all input and generated output.
+ * Cache and reasoning breakdowns are subsets of those counts, never additional tokens.
+ * Missing counts remain unknown; an explicitly reported zero remains zero.
  *
- * Example:
- * - Message 1: "Hello" (3 tokens) → tokensCount = 3
- * - Message 2: "How are you?" (4 tokens) → tokensCount = 3 + 4 = 7
- * - Message 3: "I am fine, thank you." (6 tokens) → tokensCount = 7 + 6 = 13
- *
- * @property totalTokensCount The total number of tokens involved in the response, including both input and output tokens, or null if not available.
- * @property inputTokensCount The number of tokens used in the input, or null if not available.
- * @property outputTokensCount The number of tokens generated in the output, or null if not available.
+ * @property totalTokensCount Full input plus full output when both are known, or a reconciled provider total.
+ * @property inputTokensCount Full input, including cache reads and writes, or null if unavailable.
+ * @property outputTokensCount All generated output, including reasoning, or null if unavailable.
+ * @property cacheReadTokensCount Input tokens read from cache, already included in input, or null if unreported.
+ * @property cacheWriteTokensCount Input tokens written to cache, already included in input, or null if unreported.
+ * @property reasoningTokensCount Reasoning tokens, already included in output, or null if unreported.
  * @property metadata Additional metadata as a JSON object.
  *                    This can be used to store custom metadata that doesn't fit into the standard fields.
  * @property timestamp The timestamp indicating when the response was created.
@@ -892,6 +893,9 @@ public data class ResponseMetaInfo @JvmOverloads constructor(
     public val outputTokensCount: Int? = null,
     public val modelId: String? = null,
     override val metadata: JsonObject? = null,
+    public val cacheReadTokensCount: Int? = null,
+    public val cacheWriteTokensCount: Int? = null,
+    public val reasoningTokensCount: Int? = null,
 ) : MessageMetaInfo {
     /**
      * Companion object for the ResponseMetaInfo class.
@@ -907,6 +911,9 @@ public data class ResponseMetaInfo @JvmOverloads constructor(
          * @param outputTokensCount The number of tokens generated in the output.
          * @param modelId The ID of the model used for generating the response, or null if not available.
          * @param metadata Additional metadata as a JSON object.
+         * @param cacheReadTokensCount Reported cache-read subset of input.
+         * @param cacheWriteTokensCount Reported cache-write subset of input.
+         * @param reasoningTokensCount Reported reasoning subset of output.
          * @return A new ResponseMetadata instance with the timestamp from the provided clock.
          */
         @JvmOverloads
@@ -917,13 +924,19 @@ public data class ResponseMetaInfo @JvmOverloads constructor(
             outputTokensCount: Int? = null,
             modelId: String? = null,
             metadata: JsonObject? = null,
+            cacheReadTokensCount: Int? = null,
+            cacheWriteTokensCount: Int? = null,
+            reasoningTokensCount: Int? = null,
         ): ResponseMetaInfo = ResponseMetaInfo(
             clock.now(),
             totalTokensCount,
             inputTokensCount,
             outputTokensCount,
             modelId,
-            metadata
+            metadata,
+            cacheReadTokensCount,
+            cacheWriteTokensCount,
+            reasoningTokensCount,
         )
 
         /**

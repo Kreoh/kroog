@@ -248,23 +248,21 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
         val request = createAnthropicRequest(prompt, tools, model, true)
         return buildStreamFrameFlow {
-            var inputTokens: Int? = null
-            var outputTokens: Int? = null
+            var usage = AnthropicUsage()
+            var finishReason: String? = null
+            var receivedMessageDelta = false
             val activeBlockTypes = mutableMapOf<Int, String>()
             val reasoningTextByIndex = mutableMapOf<Int, String>()
             val reasoningSignatureByIndex = mutableMapOf<Int, String>()
 
-            fun updateUsage(usage: AnthropicUsage) {
-                inputTokens = usage.inputTokens ?: inputTokens
-                outputTokens = usage.outputTokens ?: outputTokens
+            fun updateUsage(update: AnthropicUsage) {
+                usage = AnthropicUsage(
+                    inputTokens = update.inputTokens ?: usage.inputTokens,
+                    outputTokens = update.outputTokens ?: usage.outputTokens,
+                    cacheReadInputTokens = update.cacheReadInputTokens ?: usage.cacheReadInputTokens,
+                    cacheCreationInputTokens = update.cacheCreationInputTokens ?: usage.cacheCreationInputTokens,
+                )
             }
-
-            fun getMetaInfo(): ResponseMetaInfo = ResponseMetaInfo.create(
-                clock = clock,
-                totalTokensCount = inputTokens?.plus(outputTokens ?: 0) ?: outputTokens,
-                inputTokensCount = inputTokens,
-                outputTokensCount = outputTokens,
-            )
 
             try {
                 httpClient.sse(
@@ -412,10 +410,8 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
 
                         AnthropicStreamEventType.MESSAGE_DELTA.value -> {
                             response.usage?.let(::updateUsage)
-                            emitEnd(
-                                finishReason = response.delta?.stopReason,
-                                metaInfo = getMetaInfo()
-                            )
+                            finishReason = response.delta?.stopReason ?: finishReason
+                            receivedMessageDelta = true
                         }
 
                         AnthropicStreamEventType.MESSAGE_STOP.value -> {
@@ -435,6 +431,9 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                             "Unsupported Anthropic stream event type: ${response.type}",
                         )
                     }
+                }
+                if (receivedMessageDelta) {
+                    emitEnd(finishReason = finishReason, metaInfo = usage.toMetaInfo())
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -890,26 +889,20 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         part is MessagePart.Attachment || part is MessagePart.Text && part.text.isNotBlank()
     }
 
-    private fun processAnthropicResponse(response: AnthropicResponse): Message.Assistant {
-        // Extract token count from the response
-        val inputTokensCount = response.usage?.inputTokens
-        val outputTokensCount = response.usage?.outputTokens
-        val totalTokensCount = response.usage?.let { it.inputTokens?.plus(it.outputTokens ?: 0) ?: it.outputTokens }
-        val cacheCreationInputTokens = response.usage?.cacheCreationInputTokens
-        val cacheReadInputTokens = response.usage?.cacheReadInputTokens
-
-        val cacheMetadata = buildJsonObject {
-            cacheCreationInputTokens?.let { put("cacheCreationInputTokens", it) }
-            cacheReadInputTokens?.let { put("cacheReadInputTokens", it) }
-        }.takeIf { it.isNotEmpty() }
-
-        val metaInfo = ResponseMetaInfo.create(
-            clock,
-            totalTokensCount = totalTokensCount,
-            inputTokensCount = inputTokensCount,
-            outputTokensCount = outputTokensCount,
-            metadata = cacheMetadata,
+    private fun AnthropicUsage.toMetaInfo(): ResponseMetaInfo {
+        val fullInput = inputTokens?.let { it + (cacheReadInputTokens ?: 0) + (cacheCreationInputTokens ?: 0) }
+        return ResponseMetaInfo.create(
+            clock = clock,
+            inputTokensCount = fullInput,
+            outputTokensCount = outputTokens,
+            totalTokensCount = fullInput?.let { input -> outputTokens?.let { input + it } },
+            cacheReadTokensCount = cacheReadInputTokens,
+            cacheWriteTokensCount = cacheCreationInputTokens,
         )
+    }
+
+    private fun processAnthropicResponse(response: AnthropicResponse): Message.Assistant {
+        val metaInfo = (response.usage ?: AnthropicUsage()).toMetaInfo()
 
         val parts = response.content.map { content ->
             when (content) {

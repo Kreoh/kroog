@@ -17,7 +17,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,6 +25,55 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class AnthropicReasoningReplayTest {
+    @Test
+    fun testUsageIncludesCacheExactlyOnceInBothTransports() = runTest {
+        val usages = listOf(
+            """{}""" to listOf(null, null, null, null, null),
+            """{"input_tokens":10,"output_tokens":5}""" to listOf(10, 5, 15, null, null),
+            """{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}""" to listOf(0, 0, 0, 0, 0),
+            """{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":30}""" to listOf(40, 5, 45, 30, null),
+            """{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":20}""" to listOf(30, 5, 35, null, 20),
+            """{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":30,"cache_creation_input_tokens":20}""" to listOf(60, 5, 65, 30, 20),
+            """{"output_tokens":5,"cache_read_input_tokens":30}""" to listOf(null, 5, null, 30, null),
+        )
+        usages.forEach { (usage, expected) ->
+            val response = mixedResponse().replace("""{"input_tokens":4,"output_tokens":5}""", usage)
+            val outputOnly = Json.parseToJsonElement(usage).jsonObject["output_tokens"]?.let {
+                """{"output_tokens":$it}"""
+            } ?: "{}"
+            val transport = ReasoningFixtureHttpClient(
+                postResponse = response,
+                streamEvents = listOf(
+                    """{"type":"message_start","message":$response}""",
+                    """{"type":"message_delta","delta":{},"usage":$usage}""",
+                    """{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":$outputOnly}""",
+                    """{"type":"message_stop"}""",
+                ),
+            )
+            val client = AnthropicLLMClient(
+                settings = AnthropicClientSettings(modelVersionsMap = mapOf(reasoningModel to reasoningModel.id)),
+                httpClient = transport,
+            )
+            val nonStream = client.execute(userPrompt("usage"), reasoningModel).metaInfo
+            val streamed = client.executeStreaming(userPrompt("usage"), reasoningModel).toList()
+                .filterIsInstance<ai.koog.prompt.streaming.StreamFrame.End>().last().metaInfo!!
+            listOf(nonStream, streamed).forEach { meta ->
+                assertEquals(
+                    expected,
+                    listOf(
+                        meta.inputTokensCount,
+                        meta.outputTokensCount,
+                        meta.totalTokensCount,
+                        meta.cacheReadTokensCount,
+                        meta.cacheWriteTokensCount
+                    )
+                )
+                assertEquals(null, meta.reasoningTokensCount)
+                assertEquals(null, meta.metadata)
+            }
+        }
+    }
+
     @Test
     fun testNonStreamSignedAndRedactedReasoningRoundTrip() = runTest {
         val transport = ReasoningFixtureHttpClient(postResponse = mixedResponse())

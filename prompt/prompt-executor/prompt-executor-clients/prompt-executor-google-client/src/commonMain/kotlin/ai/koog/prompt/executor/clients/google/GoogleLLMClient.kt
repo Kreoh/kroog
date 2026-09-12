@@ -10,10 +10,10 @@ import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.google.models.FunctionResponseInlineData
+import ai.koog.prompt.executor.clients.google.models.GoogleCandidate
 import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionLanguage
 import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionOutcome
 import ai.koog.prompt.executor.clients.google.models.GoogleCodeExecutionTool
-import ai.koog.prompt.executor.clients.google.models.GoogleCandidate
 import ai.koog.prompt.executor.clients.google.models.GoogleContent
 import ai.koog.prompt.executor.clients.google.models.GoogleData
 import ai.koog.prompt.executor.clients.google.models.GoogleEmbeddingBatchRequest
@@ -30,6 +30,7 @@ import ai.koog.prompt.executor.clients.google.models.GoogleRequest
 import ai.koog.prompt.executor.clients.google.models.GoogleResponse
 import ai.koog.prompt.executor.clients.google.models.GoogleTool
 import ai.koog.prompt.executor.clients.google.models.GoogleToolConfig
+import ai.koog.prompt.executor.clients.google.models.GoogleUsageMetadata
 import ai.koog.prompt.executor.clients.google.structure.GoogleBasicJsonSchemaGenerator
 import ai.koog.prompt.executor.clients.google.structure.GoogleResponseFormat
 import ai.koog.prompt.executor.clients.google.structure.GoogleStandardJsonSchemaGenerator
@@ -182,8 +183,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
-        require(model.supports(LLMCapability.Tools) ||
-            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
+        require(
+            model.supports(LLMCapability.Tools) ||
+                (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)
+        ) {
             "Model ${model.id} does not support tools"
         }
 
@@ -200,8 +203,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
-        require(model.supports(LLMCapability.Tools) ||
-            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
+        require(
+            model.supports(LLMCapability.Tools) ||
+                (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)
+        ) {
             "Model ${model.id} does not support tools"
         }
 
@@ -209,6 +214,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
 
         try {
             var latestMeta: ResponseMetaInfo? = null
+            var latestUsage = GoogleUsageMetadata()
             var finishReason: String? = null
             var nextPartIndex = 0
             var previousChunkParts = emptyMap<Pair<Int, Int>, GoogleStreamingPart>()
@@ -275,14 +281,21 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 parameters = mapOf("alt" to "sse"),
                 processStreamingChunk = { it }
             ).collect { response ->
-                response.usageMetadata?.let {
-                    latestMeta =
-                        ResponseMetaInfo.create(
-                            clock = clock,
-                            totalTokensCount = it.totalTokenCount,
-                            inputTokensCount = it.promptTokenCount,
-                            outputTokensCount = it.candidatesTokenCount,
-                        )
+                response.usageMetadata?.let { update ->
+                    val countsChanged =
+                        (update.promptTokenCount != null && update.promptTokenCount != latestUsage.promptTokenCount) ||
+                            (update.candidatesTokenCount != null && update.candidatesTokenCount != latestUsage.candidatesTokenCount) ||
+                            (update.thoughtsTokenCount != null && update.thoughtsTokenCount != latestUsage.thoughtsTokenCount) ||
+                            (update.toolUsePromptTokenCount != null && update.toolUsePromptTokenCount != latestUsage.toolUsePromptTokenCount)
+                    latestUsage = GoogleUsageMetadata(
+                        promptTokenCount = update.promptTokenCount ?: latestUsage.promptTokenCount,
+                        candidatesTokenCount = update.candidatesTokenCount ?: latestUsage.candidatesTokenCount,
+                        thoughtsTokenCount = update.thoughtsTokenCount ?: latestUsage.thoughtsTokenCount,
+                        cachedContentTokenCount = update.cachedContentTokenCount ?: latestUsage.cachedContentTokenCount,
+                        toolUsePromptTokenCount = update.toolUsePromptTokenCount ?: latestUsage.toolUsePromptTokenCount,
+                        totalTokenCount = update.totalTokenCount ?: latestUsage.totalTokenCount.takeUnless { countsChanged },
+                    )
+                    latestMeta = latestUsage.toMetaInfo()
                 }
                 response.candidates.firstOrNull()?.let { candidate ->
                     candidate.content?.parts?.let { parts ->
@@ -309,7 +322,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                                     nextPartIndex++
                                 }
                             val accumulatedPart = if (previous != null &&
-                                previous.part.canContinueStreamingWith(part) && part.isHostedExecutionPart()) {
+                                previous.part.canContinueStreamingWith(part) &&
+                                part.isHostedExecutionPart()
+                            ) {
                                 previous.part.mergeStreamingPart(part)
                             } else {
                                 part
@@ -453,8 +468,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         require(model.supports(LLMCapability.Completion)) {
             "Model ${model.id} does not support chat completions"
         }
-        require(model.supports(LLMCapability.Tools) ||
-            (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)) {
+        require(
+            model.supports(LLMCapability.Tools) ||
+                (tools.isEmpty() && prompt.params.toGoogleParams().hostedExecution == null)
+        ) {
             "Model ${model.id} does not support tools"
         }
         require(model.supports(LLMCapability.MultipleChoices)) {
@@ -643,7 +660,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         val config = params.toGoogleParams().hostedExecution
             ?: return GoogleHostedExecutionDecision.NotRequested
         return if (hasCustomTools &&
-            config.toolCombination == GoogleHostedExecutionToolCombination.CUSTOM_TOOLS_TAKE_PRECEDENCE) {
+            config.toolCombination == GoogleHostedExecutionToolCombination.CUSTOM_TOOLS_TAKE_PRECEDENCE
+        ) {
             GoogleHostedExecutionDecision.CustomToolsTakePrecedence
         } else {
             GoogleHostedExecutionDecision.Included(combinedWithCustomTools = hasCustomTools)
@@ -1165,6 +1183,25 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         )
     }
 
+    private fun GoogleUsageMetadata.toMetaInfo(): ResponseMetaInfo {
+        // Vertex counts tool results fed back to the model as additional input.
+        val input = promptTokenCount?.let { it + (toolUsePromptTokenCount ?: 0) }
+        val output = candidatesTokenCount?.let { it + (thoughtsTokenCount ?: 0) }
+        val knownTotal = input?.let { i -> output?.let { o -> i + o } }
+        return ResponseMetaInfo.create(
+            clock = clock,
+            inputTokensCount = input,
+            outputTokensCount = output,
+            totalTokensCount = if (knownTotal == null) {
+                totalTokenCount
+            } else {
+                knownTotal.takeIf { totalTokenCount == null || it == totalTokenCount }
+            },
+            cacheReadTokensCount = cachedContentTokenCount,
+            reasoningTokensCount = thoughtsTokenCount,
+        )
+    }
+
     /**
      * Processes the Google AI API response into a list of choices.
      *
@@ -1177,17 +1214,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             throw LLMClientException(clientName, "Empty candidates in Google API response")
         }
 
-        // Extract token count from the response
-        val inputTokensCount = response.usageMetadata?.promptTokenCount
-        val outputTokensCount = response.usageMetadata?.candidatesTokenCount
-        val totalTokensCount = response.usageMetadata?.totalTokenCount
-
-        val metaInfo = ResponseMetaInfo.create(
-            clock,
-            totalTokensCount = totalTokensCount,
-            inputTokensCount = inputTokensCount,
-            outputTokensCount = outputTokensCount
-        )
+        val metaInfo = (response.usageMetadata ?: GoogleUsageMetadata()).toMetaInfo()
 
         return response.candidates.map { candidate ->
             processGoogleCandidate(candidate, metaInfo)
