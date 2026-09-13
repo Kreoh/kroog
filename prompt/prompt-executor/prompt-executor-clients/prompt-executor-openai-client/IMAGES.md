@@ -36,6 +36,8 @@ One to sixteen inputs are accepted. An optional mask applies to the first input 
 
 ## Streaming
 
+Use `KtorKoogHttpClient` or `OkHttpKoogHttpClient` for supported, tested streaming. The current `JavaKoogHttpClient` SSE parser forwards `event:` lines as payloads, causing image JSON decoding to fail on valid provider frames. It is therefore incompatible with image streaming until its shared SSE parser is repaired. Custom transports must deliver decoded SSE data and release the connection when collection is cancelled.
+
 Both `generateStreaming` and `editStreaming` return a cold `Flow<OpenAIImageEvent>`. Every collection starts a separate provider request. Streaming currently requires `n = 1`; non-streaming requests accept one to ten images.
 
 ```kotlin
