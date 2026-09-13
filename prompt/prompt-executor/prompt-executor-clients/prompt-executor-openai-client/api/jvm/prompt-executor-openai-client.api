@@ -91,6 +91,449 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAICredentialMechan
 	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAICredentialMechanism;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage$Companion;
+	public fun <init> (Ljava/lang/String;)V
+	public final fun bytes ()[B
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBase64 ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageBackground : java/lang/Enum {
+	public static final field AUTO Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground$Companion;
+	public static final field OPAQUE Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public static final field TRANSPARENT Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageBackground$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public final fun component5 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+	public final fun component6 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getImages ()Ljava/util/List;
+	public final fun getInputFidelity ()Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+	public final fun getMask ()Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public final fun getModel ()Ljava/lang/String;
+	public final fun getOptions ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public final fun getPrompt ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageError {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageError$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageError;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageError;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageError;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Ljava/lang/String;
+	public final fun getMessage ()Ljava/lang/String;
+	public final fun getParam ()Ljava/lang/String;
+	public final fun getType ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageError$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageError$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageError;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageError;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageError$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/openai/OpenAIImageEvent {
+	public abstract fun getImage ()Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public abstract fun getMetadata ()Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageEvent$Completed : ai/koog/prompt/executor/clients/openai/OpenAIImageEvent {
+	public fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public final fun component2 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public final fun copy (Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$Completed;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$Completed;Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$Completed;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getImage ()Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public fun getMetadata ()Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public final fun getUsage ()Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageEvent$PartialImage : ai/koog/prompt/executor/clients/openai/OpenAIImageEvent {
+	public fun <init> (ILai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;)V
+	public final fun component1 ()I
+	public final fun component2 ()Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public final fun copy (ILai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$PartialImage;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$PartialImage;ILai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEvent$PartialImage;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getImage ()Lai/koog/prompt/executor/clients/openai/OpenAIGeneratedImage;
+	public final fun getIndex ()I
+	public fun getMetadata ()Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata$Companion;
+	public fun <init> (JLai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;)V
+	public final fun component1 ()J
+	public final fun component2 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun component5 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun copy (JLai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;JLai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBackground ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun getCreatedAt ()J
+	public final fun getOutputFormat ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun getQuality ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun getSize ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageEventMetadata$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;)Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getModel ()Ljava/lang/String;
+	public final fun getOptions ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public final fun getPrompt ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageInput {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageInput$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFileId ()Ljava/lang/String;
+	public final fun getImageUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageInput$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageInput$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageInput$Companion {
+	public final fun fromBytes ([BLjava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageInput;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity$Companion;
+	public static final field HIGH Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+	public static final field LOW Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageInputFidelity$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageModeration : java/lang/Enum {
+	public static final field AUTO Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration$Companion;
+	public static final field LOW Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageModeration$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageOptions {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions$Companion;
+	public fun <init> ()V
+	public fun <init> (ILjava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;Ljava/lang/String;)V
+	public synthetic fun <init> (ILjava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun component4 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun component5 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun component6 ()Ljava/lang/Integer;
+	public final fun component7 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun copy (ILjava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;ILjava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;Ljava/lang/String;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBackground ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun getModeration ()Lai/koog/prompt/executor/clients/openai/OpenAIImageModeration;
+	public final fun getN ()I
+	public final fun getOutputCompression ()Ljava/lang/Integer;
+	public final fun getOutputFormat ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun getQuality ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun getSize ()Ljava/lang/String;
+	public final fun getUser ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageOptions$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageOptions;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageOptions$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat$Companion;
+	public static final field JPEG Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public static final field PNG Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public static final field WEBP Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageQuality : java/lang/Enum {
+	public static final field AUTO Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality$Companion;
+	public static final field HIGH Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static final field LOW Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static final field MAX Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static final field MEDIUM Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static final field XHIGH Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageQuality$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageResult {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageResult$Companion;
+	public fun <init> (JLjava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;)V
+	public synthetic fun <init> (JLjava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public final fun component4 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun component7 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun copy (JLjava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;)Lai/koog/prompt/executor/clients/openai/OpenAIImageResult;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageResult;JLjava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageResult;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBackground ()Lai/koog/prompt/executor/clients/openai/OpenAIImageBackground;
+	public final fun getCreated ()J
+	public final fun getData ()Ljava/util/List;
+	public final fun getOutputFormat ()Lai/koog/prompt/executor/clients/openai/OpenAIImageOutputFormat;
+	public final fun getQuality ()Lai/koog/prompt/executor/clients/openai/OpenAIImageQuality;
+	public final fun getSize ()Ljava/lang/String;
+	public final fun getUsage ()Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageResult$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageResult$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageResult;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageResult;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageResult$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Integer;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun copy (Ljava/lang/Integer;Ljava/lang/Integer;)Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;Ljava/lang/Integer;Ljava/lang/Integer;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getImageTokensCount ()Ljava/lang/Integer;
+	public final fun getTextTokensCount ()Ljava/lang/Integer;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageUsage {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;)V
+	public synthetic fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Integer;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun component3 ()Ljava/lang/Integer;
+	public final fun component4 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public final fun component5 ()Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public final fun copy (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;)Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getInputTokensCount ()Ljava/lang/Integer;
+	public final fun getInputTokensDetails ()Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public final fun getOutputTokensCount ()Ljava/lang/Integer;
+	public final fun getOutputTokensDetails ()Lai/koog/prompt/executor/clients/openai/OpenAIImageTokenDetails;
+	public final fun getTotalTokensCount ()Ljava/lang/Integer;
+	public fun hashCode ()I
+	public final fun toResponseMetaInfo (Lkotlin/time/Instant;Ljava/lang/String;)Lai/koog/prompt/message/ResponseMetaInfo;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final synthetic class ai/koog/prompt/executor/clients/openai/OpenAIImageUsage$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lai/koog/prompt/executor/clients/openai/OpenAIImageUsage;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImageUsage$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImagesClient {
+	public fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun edit (Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun editStreaming (Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;I)Lkotlinx/coroutines/flow/Flow;
+	public static synthetic fun editStreaming$default (Lai/koog/prompt/executor/clients/openai/OpenAIImagesClient;Lai/koog/prompt/executor/clients/openai/OpenAIImageEditRequest;IILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+	public final fun generate (Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun generateStreaming (Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;I)Lkotlinx/coroutines/flow/Flow;
+	public static synthetic fun generateStreaming$default (Lai/koog/prompt/executor/clients/openai/OpenAIImagesClient;Lai/koog/prompt/executor/clients/openai/OpenAIImageGenerationRequest;IILjava/lang/Object;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIImagesException : java/lang/Exception {
+	public fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIImageError;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIImageError;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getError ()Lai/koog/prompt/executor/clients/openai/OpenAIImageError;
+}
+
 public class ai/koog/prompt/executor/clients/openai/OpenAILLMClient : ai/koog/prompt/executor/clients/openai/base/AbstractOpenAILLMClient {
 	public fun <init> (Lai/koog/http/client/KoogHttpClient;)V
 	public fun <init> (Lai/koog/prompt/executor/clients/openai/OpenAIClientSettings;Lai/koog/http/client/KoogHttpClient;)V

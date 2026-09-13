@@ -26,6 +26,9 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation(project(":http-client:http-client-ktor"))
+                implementation(project(":http-client:http-client-java"))
+                implementation(project(":http-client:http-client-okhttp"))
+                implementation(project(":http-client:http-client-test"))
                 implementation(libs.ktor.client.mock)
                 implementation(libs.ktor.client.cio)
             }

@@ -68,10 +68,12 @@ class OpenAIFilesClientTest {
     @Test
     fun testOpenAIFilesPathDoesNotDependOnHostname() = runTest {
         var request: ResourceRequest? = null
-        val client = OpenAIFilesClient(ResourceTransport {
-            request = it
-            response(FILE_JSON)
-        })
+        val client = OpenAIFilesClient(
+            ResourceTransport {
+                request = it
+                response(FILE_JSON)
+            }
+        )
 
         client.retrieve("file_1")
 
