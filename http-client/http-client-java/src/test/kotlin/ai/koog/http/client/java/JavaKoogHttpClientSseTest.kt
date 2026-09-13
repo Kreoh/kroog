@@ -6,6 +6,7 @@ import ai.koog.http.client.test.MockWebServer
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -100,6 +101,50 @@ class JavaKoogHttpClientSseTest {
     }
 
     @Test
+    fun testCancellationFromAnySseCallbackReachesTheCollector() = runTest {
+        withContext(Dispatchers.Default) {
+            for (stage in listOf("filter", "decoder", "processor")) {
+                withResponse("data: first\n\n") { client ->
+                    val cancellation = CancellationException("$stage cancelled")
+                    val callbackEntered = CompletableDeferred<Unit>()
+                    fun cancelFromCallback() {
+                        callbackEntered.complete(Unit)
+                        throw cancellation
+                    }
+                    val collection = async(Dispatchers.IO) {
+                        assertFailsWith<CancellationException> {
+                            client.sse(
+                                path = "/stream",
+                                requestBody = "{}",
+                                requestBodyType = String::class,
+                                dataFilter = {
+                                    if (stage == "filter") cancelFromCallback()
+                                    true
+                                },
+                                decodeStreamingResponse = {
+                                    if (stage == "decoder") cancelFromCallback()
+                                    it
+                                },
+                                processStreamingChunk = {
+                                    if (stage == "processor") cancelFromCallback()
+                                    it
+                                },
+                            ).toList()
+                        }
+                    }
+                    try {
+                        withTimeout(5_000) { callbackEntered.await() }
+                        val error = withTimeout(2_000) { collection.await() }
+                        assertEquals(cancellation.message, error.message)
+                    } finally {
+                        collection.cancelAndJoin()
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun testCancellationWhileWaitingForHeadersFinishesBeforeServerResponds() = runTest {
         withContext(Dispatchers.Default) {
             val requested = CompletableDeferred<Unit>()
@@ -155,8 +200,21 @@ class JavaKoogHttpClientSseTest {
     @Test
     fun testTakingFirstEventClosesAnIdleStream() = runTest {
         withStalledBody { client, release ->
-            val first = async(Dispatchers.IO) { client.stream().first() }
+            val eventDecoded = CompletableDeferred<Unit>()
+            val first = async(Dispatchers.IO) {
+                client.sse(
+                    path = "/stream",
+                    requestBody = "{}",
+                    requestBodyType = String::class,
+                    decodeStreamingResponse = {
+                        eventDecoded.complete(Unit)
+                        it
+                    },
+                    processStreamingChunk = { it },
+                ).first()
+            }
             try {
+                withTimeout(5_000) { eventDecoded.await() }
                 assertEquals("preview", withTimeout(2_000) { first.await() })
                 assertEquals(1L, release.count)
             } finally {

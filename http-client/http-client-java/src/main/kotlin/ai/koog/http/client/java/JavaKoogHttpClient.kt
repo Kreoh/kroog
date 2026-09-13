@@ -8,6 +8,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -242,6 +243,8 @@ public class JavaKoogHttpClient internal constructor(
                 logger.debug { "SSE connection closed for $clientName" }
                 close()
             } catch (e: CancellationException) {
+                // Callback cancellation must also terminate the producer waiting in awaitClose.
+                this@callbackFlow.cancel(e)
                 throw e
             } catch (e: KoogHttpClientException) {
                 close(e)
