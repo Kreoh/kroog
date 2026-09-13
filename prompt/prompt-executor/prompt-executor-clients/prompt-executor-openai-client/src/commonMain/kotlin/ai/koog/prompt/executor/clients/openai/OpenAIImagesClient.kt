@@ -126,6 +126,7 @@ public class OpenAIImagesClient(
         return flow {
             var completed = false
             try {
+                // Retain callback transports' normal buffering while separating decoding from callbacks.
                 httpClient.sse(
                     path = path,
                     requestBody = streamingBody,
@@ -134,7 +135,7 @@ public class OpenAIImagesClient(
                     decodeStreamingResponse = { it },
                     processStreamingChunk = { it },
                     headers = headers,
-                ).buffer(0).mapNotNull { raw ->
+                ).buffer().mapNotNull { raw ->
                     // Decode outside transport callbacks so provider errors retain their typed identity.
                     decodeEvent(json.parseToJsonElement(raw).jsonObject, eventPrefix)
                 }.transformWhile { event ->

@@ -3,6 +3,7 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.http.client.ktor.KtorKoogHttpClient
+import ai.koog.http.client.okhttp.OkHttpKoogHttpClient
 import ai.koog.http.client.test.MockWebServer
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -370,6 +371,79 @@ class OpenAIImagesClientTest {
             } finally {
                 transport.close()
                 base.close()
+                server.stop()
+            }
+        }
+    }
+
+    @Test
+    fun testOkHttpRetainsCompletionWhilePreviewConsumerIsSuspended() = runTest {
+        for (prefix in listOf("image_generation", "image_edit")) {
+            val path = if (prefix == "image_generation") "/v1/images/generations" else "/v1/images/edits"
+            val barrier = "all-image-events-processed"
+            val processed = CompletableDeferred<Unit>()
+            val events = (0..2).map { index ->
+                event(prefix, false).replace("\"partial_image_index\":0", "\"partial_image_index\":$index")
+            } + event(prefix, true) + barrier
+            val server = MockWebServer()
+            server.start(
+                rawEndpoints = listOf(
+                    MockWebServer.RawEndpointConfig(
+                        path = path,
+                        method = HttpMethod.Post,
+                        responseBody = events.joinToString("") { "data: $it\n\n" }.encodeToByteArray(),
+                        contentType = ContentType.Text.EventStream,
+                    )
+                )
+            )
+            val transport = OkHttpKoogHttpClient.Factory().create(clientName = "images", baseUrl = server.url(""))
+            // Observe a trailing transport event without wrapping its flow, preserving callbackFlow fusion.
+            val observedTransport = object : KoogHttpClient by transport {
+                override fun <T : Any, R : Any, O : Any> sse(
+                    path: String,
+                    requestBody: T,
+                    requestBodyType: KClass<T>,
+                    dataFilter: (String?) -> Boolean,
+                    decodeStreamingResponse: (String) -> R,
+                    processStreamingChunk: (R) -> O?,
+                    parameters: Map<String, String>,
+                    headers: Map<String, String>,
+                ): Flow<O> = transport.sse(
+                    path,
+                    requestBody,
+                    requestBodyType,
+                    dataFilter = { data ->
+                        if (data == barrier) {
+                            processed.complete(Unit)
+                            false
+                        } else {
+                            dataFilter(data)
+                        }
+                    },
+                    decodeStreamingResponse,
+                    processStreamingChunk,
+                    parameters,
+                    headers,
+                )
+            }
+            try {
+                val client = OpenAIImagesClient(observedTransport)
+                val stream = if (prefix == "image_generation") {
+                    client.generateStreaming(generation(), 3)
+                } else {
+                    client.editStreaming(edit(), 3)
+                }
+                val received = mutableListOf<OpenAIImageEvent>()
+                stream.collect { imageEvent ->
+                    received += imageEvent
+                    // Keep the consumer suspended until OkHttp has attempted to deliver every image event.
+                    if (imageEvent is OpenAIImageEvent.PartialImage) processed.await()
+                }
+                assertEquals(listOf(0, 1, 2), received.filterIsInstance<OpenAIImageEvent.PartialImage>().map { it.index })
+                assertIs<OpenAIImageEvent.Completed>(received.last())
+                assertEquals(4, received.size)
+            } finally {
+                transport.close()
                 server.stop()
             }
         }
