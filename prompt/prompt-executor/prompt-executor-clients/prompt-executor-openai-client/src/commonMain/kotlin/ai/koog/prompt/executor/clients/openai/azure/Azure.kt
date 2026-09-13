@@ -1,8 +1,8 @@
 package ai.koog.prompt.executor.clients.openai.azure
 
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
-import ai.koog.prompt.executor.clients.openai.OpenAICredentialMechanism
 import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
+import ai.koog.prompt.executor.clients.openai.OpenAICredentialMechanism
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesCapability
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesDialect
 

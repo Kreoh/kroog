@@ -315,18 +315,31 @@ private class OpenAIResourceClientSupport(
     ): OpenAIResourceResult<T> = try {
         val response = request()
         OpenAIResourceResult.Success(
-            decode(response.body), settings.dialect, response.statusCode, response.headers, response.requestId
+            decode(response.body),
+            settings.dialect,
+            response.statusCode,
+            response.headers,
+            response.requestId
         )
     } catch (failure: KoogHttpClientException) {
         val statusCode = failure.statusCode ?: throw failure
         val error = decodeError(failure.errorBody)
         if (statusCode == 404) {
             OpenAIResourceResult.NotFound(
-                error, settings.dialect, statusCode, failure.responseHeaders, failure.requestId
+                error,
+                settings.dialect,
+                statusCode,
+                failure.responseHeaders,
+                failure.requestId
             )
         } else {
             OpenAIResourceResult.Failure(
-                error, failure.errorBody, settings.dialect, statusCode, failure.responseHeaders, failure.requestId
+                error,
+                failure.errorBody,
+                settings.dialect,
+                statusCode,
+                failure.responseHeaders,
+                failure.requestId
             )
         }
     }
