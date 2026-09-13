@@ -25,9 +25,8 @@ import kotlinx.serialization.json.put
  * The caller owns the transport and its base URL, authentication, timeouts and lifecycle.
  * Paths are relative to that base URL, following [OpenAIFilesClient]. No automatic retries are added.
  *
- * Streaming is supported and tested with Ktor and OkHttp transports. The current `JavaKoogHttpClient`
- * SSE parser is incompatible: it forwards `event:` lines as payloads. Custom transports must deliver
- * decoded SSE data and release the connection on cancellation.
+ * Streaming is supported and tested with Ktor, OkHttp and Java transports. Custom transports must
+ * deliver decoded SSE data and release the connection on cancellation.
  *
  * Edits use JSON references, including data URLs, so streaming needs no multipart transport extension.
  * HTTP provider errors are exposed as [OpenAIImagesException] with the original transport cause.

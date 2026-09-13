@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
+import ai.koog.http.client.java.JavaKoogHttpClient
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.http.client.okhttp.OkHttpKoogHttpClient
 import ai.koog.http.client.test.MockWebServer
@@ -16,18 +17,25 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -443,6 +451,75 @@ class OpenAIImagesClientTest {
                 assertIs<OpenAIImageEvent.Completed>(received.last())
                 assertEquals(4, received.size)
             } finally {
+                transport.close()
+                server.stop()
+            }
+        }
+    }
+
+    @Test
+    fun testJavaTransportStreamsGenerationAndEditingWithNamedEvents() = runTest {
+        for (prefix in listOf("image_generation", "image_edit")) {
+            val path = if (prefix == "image_generation") "/v1/images/generations" else "/v1/images/edits"
+            val response = ": heartbeat\n\nevent: $prefix.partial_image\ndata: ${event(prefix, false)}\n\n" +
+                "event: $prefix.completed\ndata: ${event(prefix, true, USAGE)}\n\n"
+            val server = MockWebServer()
+            server.start(
+                rawEndpoints = listOf(
+                    MockWebServer.RawEndpointConfig(
+                        path = path,
+                        method = HttpMethod.Post,
+                        responseBody = response.encodeToByteArray(),
+                        contentType = ContentType.Text.EventStream,
+                    )
+                )
+            )
+            val transport = JavaKoogHttpClient.Factory().create(clientName = "images", baseUrl = server.url(""))
+            try {
+                val client = OpenAIImagesClient(transport)
+                val stream = if (prefix == "image_generation") {
+                    client.generateStreaming(generation())
+                } else {
+                    client.editStreaming(edit())
+                }
+                val received = stream.toList()
+                assertEquals(2, received.size)
+                assertIs<OpenAIImageEvent.PartialImage>(received.first())
+                val completed = assertIs<OpenAIImageEvent.Completed>(received.last())
+                assertContentEquals(byteArrayOf(0, -1, 4), completed.image.bytes())
+                assertEquals(140, completed.usage?.totalTokensCount)
+            } finally {
+                transport.close()
+                server.stop()
+            }
+        }
+    }
+
+    @Test
+    fun testJavaImageCompletionClosesAnIdleConnection() = runTest {
+        withContext(Dispatchers.Default) {
+            val release = CountDownLatch(1)
+            val server = MockWebServer()
+            server.start(
+                linesEndpoints = listOf(
+                    MockWebServer.LinesEndpointConfig(
+                        path = "/v1/images/generations",
+                        lines = listOf("event: image_generation.completed", "data: ${event("image_generation", true)}", ""),
+                        contentType = ContentType.Text.EventStream,
+                        lineDelayMillis = 0,
+                        onLineWritten = { index -> if (index == 2) check(release.await(10, TimeUnit.SECONDS)) },
+                    )
+                )
+            )
+            val transport = JavaKoogHttpClient.Factory().create(clientName = "images", baseUrl = server.url(""))
+            val collection = async(Dispatchers.IO) { OpenAIImagesClient(transport).generateStreaming(generation()).toList() }
+            try {
+                val received = withTimeout(3_000) { collection.await() }
+                assertIs<OpenAIImageEvent.Completed>(received.single())
+                assertEquals(1L, release.count)
+            } finally {
+                release.countDown()
+                collection.cancelAndJoin()
                 transport.close()
                 server.stop()
             }
