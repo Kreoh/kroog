@@ -937,8 +937,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 orderedFrames.clear()
                 throw failure
             }
-            val recoveryParams = params.staleContainerRecoveryParams(failure, providerEventSeen)
+            val typedFailure = params.containerFailure(failure) ?: failure
+            val recoveryParams = params.staleContainerRecoveryParams(typedFailure, providerEventSeen)
             if (recoveryParams != null) {
+                val recoveryPrompt = recoveryPrompt(prompt, recoveryParams, typedFailure)
                 val staleContainerId = requireNotNull(params.codeInterpreter?.containerId)
                 emit(
                     StreamFrame.HostedExecutionUpdate(
@@ -949,10 +951,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         )
                     )
                 )
-                emitAll(executeResponsesStreaming(prompt, model, tools, recoveryParams))
+                emitAll(executeResponsesStreaming(recoveryPrompt, model, tools, recoveryParams))
             } else {
-                if (failure is LLMClientException) throw failure
-                throw LLMClientException(clientName = clientName, message = failure.message, cause = failure)
+                if (typedFailure is LLMClientException) throw typedFailure
+                throw LLMClientException(clientName = clientName, message = typedFailure.message, cause = typedFailure)
             }
         }.requireEndFrame()
     }
@@ -1243,14 +1245,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             )
         }
 
-        val messages = convertPromptToResponsesMessages(prompt, model)
-
-        suspend fun post(requestParams: OpenAIResponsesParams): OpenAIResponsesAPIResponse {
+        suspend fun post(requestParams: OpenAIResponsesParams, requestPrompt: Prompt = prompt): OpenAIResponsesAPIResponse {
             val request = serializeResponsesAPIRequest(
-                messages,
+                convertPromptToResponsesMessages(requestPrompt, model),
                 model,
                 llmTools,
-                prompt.params.toolChoice?.toOpenAIResponseToolChoice(),
+                requestParams.toolChoice?.toOpenAIResponseToolChoice(),
                 requestParams,
                 false
             )
@@ -1265,10 +1265,18 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return try {
             ResponsesExecutionResult(post(params))
         } catch (failure: Exception) {
-            val recoveryParams = params.staleContainerRecoveryParams(failure, providerEventSeen = false)
-                ?: throw failure
+            if (failure is CancellationException) throw failure
+            val typedFailure = params.containerFailure(failure) ?: failure
+            val recoveryParams = params.staleContainerRecoveryParams(typedFailure, providerEventSeen = false)
+                ?: throw typedFailure
+            val recoveryPrompt = recoveryPrompt(prompt, recoveryParams, typedFailure)
             ResponsesExecutionResult(
-                response = post(recoveryParams),
+                response = try {
+                    post(recoveryParams, recoveryPrompt)
+                } catch (retryFailure: Exception) {
+                    if (retryFailure is CancellationException) throw retryFailure
+                    throw recoveryParams.containerFailure(retryFailure) ?: retryFailure
+                },
                 recoveredContainerId = params.codeInterpreter?.containerId,
             )
         }
@@ -1921,31 +1929,48 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
     }
 
+    private suspend fun recoveryPrompt(
+        prompt: Prompt,
+        params: OpenAIResponsesParams,
+        failure: Throwable,
+    ): Prompt {
+        val retryPrompt = prompt.copy(params = params)
+        return params.containerRecovery?.invoke(retryPrompt, failure as OpenAIContainerUnavailableException)
+            ?.copy(params = params) ?: retryPrompt
+    }
+
     private fun OpenAIResponsesParams.staleContainerRecoveryParams(
         failure: Throwable,
         providerEventSeen: Boolean,
     ): OpenAIResponsesParams? {
         val interpreter = codeInterpreter ?: return null
-        val staleContainerId = interpreter.containerId ?: return null
-        if (!stateless || providerEventSeen) return null
+        if (interpreter.containerId == null || !stateless || providerEventSeen) return null
+        if (failure !is OpenAIContainerUnavailableException) return null
+        return withCodeInterpreter(OpenAICodeInterpreterConfig(fileIds = interpreter.fileIds))
+    }
+
+    private fun OpenAIResponsesParams.containerFailure(failure: Throwable): OpenAIContainerUnavailableException? {
         val httpFailure = generateSequence(failure as Throwable?) { it.cause }
             .filterIsInstance<KoogHttpClientException>()
             .firstOrNull() ?: return null
-        if (httpFailure.statusCode != 404) return null
-        val providerError = httpFailure.errorBody?.let { body ->
-            runCatching {
-                val envelope = json.parseToJsonElement(body).jsonObject
-                envelope["error"]?.jsonObject ?: envelope
-            }.getOrNull()
-        } ?: return null
-        val errorCode = providerError["code"]?.jsonPrimitive?.contentOrNull?.lowercase()
-        val errorParam = providerError["param"]?.jsonPrimitive?.contentOrNull?.lowercase()
-        val identifiesContainer = errorCode in setOf("container_not_found", "invalid_container") &&
-            errorParam?.contains("container") == true
-        if (!identifiesContainer) return null
-        return withCodeInterpreter(
-            OpenAICodeInterpreterConfig(fileIds = interpreter.fileIds)
-        )
+        if (codeInterpreter == null || httpFailure.statusCode !in setOf(400, 404)) return null
+        val reason = runCatching {
+            val envelope = json.parseToJsonElement(httpFailure.errorBody ?: return null).jsonObject
+            val error = envelope["error"]?.jsonObject ?: envelope
+            val code = error["code"]?.jsonPrimitive?.contentOrNull?.lowercase()
+            val param = error["param"]?.jsonPrimitive?.contentOrNull?.lowercase()
+            val message = error["message"]?.jsonPrimitive?.contentOrNull?.trim()?.lowercase()
+            val containerParam = param == "container" || param?.matches(Regex("tools\\[\\d+]\\.container")) == true
+            when {
+                (param == null || containerParam) && message == "container is expired." ->
+                    OpenAIContainerUnavailableReason.Expired
+                containerParam && code == "container_expired" -> OpenAIContainerUnavailableReason.Expired
+                containerParam && code in setOf("container_not_found", "invalid_container") ->
+                    OpenAIContainerUnavailableReason.Missing
+                else -> null
+            }
+        }.getOrNull() ?: return null
+        return OpenAIContainerUnavailableException(codeInterpreter.containerId, reason, failure)
     }
 
     private fun staleContainerRecoveryExecutionId(containerId: String): String =
