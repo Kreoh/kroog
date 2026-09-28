@@ -77,6 +77,10 @@ jobs:
             test-group: "ai.koog.integration.tests.*AnthropicSchemaValidation*"
             artifact-name: "anthropic-schema-test"
             os: ubuntu-latest
+          - job-name: "skills-tests"
+            test-group: "ai.koog.integration.tests.skills.*"
+            artifact-name: "skills-test"
+            os: ubuntu-latest
       fail-fast: false
 
     steps:

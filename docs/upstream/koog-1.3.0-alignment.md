@@ -112,7 +112,7 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 
 | ID | Change | Old path | New and proposed final path | B blob | U blob | H blob | Slice | Disposition and evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| U001 | M | .github/workflows/heavy-tests.yml | .github/workflows/heavy-tests.yml | 336c13d0d237ad0509f47c65994b70f712e353b4 | 40c579ea38e94979abd9318c57ceaad346d4358f | 336c13d0d237ad0509f47c65994b70f712e353b4 | R-integration | Pending adoption with named slice contracts and history evidence; B=H |
+| U001 | M | .github/workflows/heavy-tests.yml | .github/workflows/heavy-tests.yml | 336c13d0d237ad0509f47c65994b70f712e353b4 | 40c579ea38e94979abd9318c57ceaad346d4358f | 336c13d0d237ad0509f47c65994b70f712e353b4 | R-integration | Adopted U skills matrix entry with required ubuntu-latest OS; YAML and all matrix OS values verified; see R-integration validation |
 | U002 | M | CHANGELOG.md | CHANGELOG.md | 10c5f2e32a09a9212c33194f006433675d92226b | 1517d1cbccde4d3865bc719f5d014379faaf32f5 | 10c5f2e32a09a9212c33194f006433675d92226b | S7-docs | Pending adoption with named slice contracts and history evidence; B=H |
 | U003 | M | README.md | README.md | ff1aa023d2b26c60c00e04510e146685e6798a1c | e79edb4f58409a069aa3749d58418a413f39a510 | ff1aa023d2b26c60c00e04510e146685e6798a1c | S7-docs | Pending adoption with named slice contracts and history evidence; B=H |
 | U004 | M | agents/agents-features/agents-features-opentelemetry/src/commonMain/kotlin/ai/koog/agents/features/opentelemetry/integration/langfuse/LangfuseSpanAdapter.kt | agents/agents-features/agents-features-opentelemetry/src/commonMain/kotlin/ai/koog/agents/features/opentelemetry/integration/langfuse/LangfuseSpanAdapter.kt | 411f156ca8ab20c634b28f478f35344dbc8963ad | 7e57ca1c9f602437e393a02f5c6cd81167005732 | 411f156ca8ab20c634b28f478f35344dbc8963ad | S5c | Adopted exact U blob; empty reasoning and finish_reason regressions passed; see S5c validation |
@@ -125,9 +125,9 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | U011 | M | docs/mkdocs.yml | docs/mkdocs.yml | 84a3970540419f516c0063fdc3291e2667f4fb81 | 0de0f81e7a73395ebd42739bb7f282e0c11e5d28 | 84a3970540419f516c0063fdc3291e2667f4fb81 | S7-docs | Pending adoption with named slice contracts and history evidence; B=H |
 | U012 | M | gradle.properties | gradle.properties | 7916e8236aa4119b69fe2fa1564f77b5d6c693a4 | 5c9c232e3b522560a96ed970806ec346b32eca72 | 6199cccbc1158cc63586a6c48abc44cabdd24cad | X-version | Explicit exemption: retain Kroog version and coordinates; diverged |
 | U013 | M | integration-tests/build.gradle.kts | integration-tests/build.gradle.kts | 3eee32945a55ed960338c9efe5ec8dd3f6fee269 | 48be9f481449ee4c81b4d034902985e274a413d8 | 3eee32945a55ed960338c9efe5ec8dd3f6fee269 | S1 | Adopted exactly from U; S1 dependency and JVM metadata checks |
-| U014 | A | absent | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/skills/AIAgentSkillsIntegrationTest.kt | absent | aca9599d5d746d911eebe80ac9fbb3f5da08a6bf | absent | R-integration | Pending adoption with named slice contracts and history evidence; B=H |
-| U015 | A | absent | integration-tests/src/jvmTest/resources/skills/arithmetic-evaluator/SKILL.md | absent | 5dfddcd87829f07493c1facfdeeea344b943d2ff | absent | R-integration | Pending adoption with named slice contracts and history evidence; B=H |
-| U016 | A | absent | integration-tests/src/jvmTest/resources/skills/weather-retrieval/SKILL.md | absent | 46fc551563ed0038ffc88217c1afb46c775941eb | absent | R-integration | Pending adoption with named slice contracts and history evidence; B=H |
+| U014 | A | absent | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/skills/AIAgentSkillsIntegrationTest.kt | absent | aca9599d5d746d911eebe80ac9fbb3f5da08a6bf | absent | R-integration | Adopted U integration class with retained assertions, conventional integration method names, valid weather JSON and one passing offline fixture check; live cases compile only; see R-integration validation |
+| U015 | A | absent | integration-tests/src/jvmTest/resources/skills/arithmetic-evaluator/SKILL.md | absent | 5dfddcd87829f07493c1facfdeeea344b943d2ff | absent | R-integration | Adopted U fixture with British English maths spelling; strict secure discovery passes; see R-integration validation |
+| U016 | A | absent | integration-tests/src/jvmTest/resources/skills/weather-retrieval/SKILL.md | absent | 46fc551563ed0038ffc88217c1afb46c775941eb | absent | R-integration | Adopted exact U fixture; strict secure discovery passes; see R-integration validation |
 | U017 | M | koog-agents-additions/build.gradle.kts | koog-agents-additions/build.gradle.kts | 1ad4e8c7e888dcbd2ec9ec613c4bc50583787f0a | d9a55abe79f8a11c1c1f0953b7ae502b31845797 | 8c1d865da0d846390fc08a81d859687930c711f8 | S1 | Adapted with Kroog JVM-only skills exposure and retained managed-execution dependency; S1 |
 | U018 | M | koog-agents/build.gradle.kts | koog-agents/build.gradle.kts | 478a18424904672e11576114d7a1a21e385cb89e | 59b939d9f0e1c64eae11fa0d8ebcaf50acd38e29 | 5fa96eccdd8d93b1f150c5ef5248eee6a8b7aaa4 | S1 | Adapted with Kroog stable/beta partition and retained managed-execution dependency; S1 |
 | U019 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/api/android/prompt-executor-anthropic-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/api/android/prompt-executor-anthropic-client.api | 52e93e7f17de415ffcafd38a92a7388853283eb7 | ab3eaf11d4aa3f618108c1142e86d74e4888a274 | d5adcbae0693351c6d59d053da23c42c5feb3416 | X-ABI | Explicit exemption: non-JVM ABI; retain H; diverged |
@@ -234,9 +234,9 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F061 | M | http-client/http-client-ktor/src/jvmTest/kotlin/ai/koog/http/client/ktor/KtorKoogHttpClientTestBase.kt | http-client/http-client-ktor/src/jvmTest/kotlin/ai/koog/http/client/ktor/KtorKoogHttpClientTestBase.kt | 96fc8e83fed31ff39fd9272b7b719cf056922597 | 96fc8e83fed31ff39fd9272b7b719cf056922597 | 17eb309ef3a04e4b936fd30fb10546248e8261ca | S3 | Retained exactly from H; B=U. HTTP, SSE, retry and replay assertions pass; see S3 validation |
 | F062 | M | http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/BaseKoogHttpClientTest.kt | http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/BaseKoogHttpClientTest.kt | 2377ea47958a26f69cd21dba04bfba1618aa1617 | 2377ea47958a26f69cd21dba04bfba1618aa1617 | e7f185b42e8512787d2cbf6df083d66b24053c24 | R-http-fixtures | Retained exactly from H; B=U. Fixture compilation and Ktor binary/resource-lifetime assertions pass; see S3 validation |
 | F063 | M | http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/MockWebServer.kt | http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/MockWebServer.kt | 7393d738b977f95de3ebe7f17078e0c172fef5f3 | 7393d738b977f95de3ebe7f17078e0c172fef5f3 | 572284cc718c82e96e239ed87f599498dc5b9c15 | R-http-fixtures | Retained exactly from H; B=U. Fixture compilation and Ktor binary/resource-lifetime assertions pass; see S3 validation |
-| F064 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/AnthropicCacheControlIntegrationTest.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/AnthropicCacheControlIntegrationTest.kt | 41449ae0b2616db6a13f45c980314c1e7e6019fb | 41449ae0b2616db6a13f45c980314c1e7e6019fb | c2b08fdf355e1d228a9b366ec55f1d1de2856504 | R-integration | Pending regression evidence: retain fork extension; B=U |
-| F065 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/BedrockConverseApiIntegrationTest.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/BedrockConverseApiIntegrationTest.kt | 6e1623b13d203f9509f0a49815e83fded5f6788b | 6e1623b13d203f9509f0a49815e83fded5f6788b | 8f9f6351b841619dc3d5dc6e7a85c05547292681 | R-integration | Pending regression evidence: retain fork extension; B=U |
-| F066 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/ExecutorIntegrationTestBase.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/ExecutorIntegrationTestBase.kt | 8e1a9b0b0f5d830e2fd6b87071e2b4dd71ebad3d | 8e1a9b0b0f5d830e2fd6b87071e2b4dd71ebad3d | 0c8c9c503479f6f2839790e35366e3a3e92834a5 | R-integration | Pending regression evidence: retain fork extension; B=U |
+| F064 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/AnthropicCacheControlIntegrationTest.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/AnthropicCacheControlIntegrationTest.kt | 41449ae0b2616db6a13f45c980314c1e7e6019fb | 41449ae0b2616db6a13f45c980314c1e7e6019fb | c2b08fdf355e1d228a9b366ec55f1d1de2856504 | R-integration | Retained exact H blob and typed cache-token assertions; JVM test compilation passes, live execution unrun; see R-integration validation |
+| F065 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/BedrockConverseApiIntegrationTest.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/BedrockConverseApiIntegrationTest.kt | 6e1623b13d203f9509f0a49815e83fded5f6788b | 6e1623b13d203f9509f0a49815e83fded5f6788b | 8f9f6351b841619dc3d5dc6e7a85c05547292681 | R-integration | Retained exact H blob and typed cache-token assertions; JVM test compilation passes, live execution unrun; see R-integration validation |
+| F066 | M | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/ExecutorIntegrationTestBase.kt | integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/ExecutorIntegrationTestBase.kt | 8e1a9b0b0f5d830e2fd6b87071e2b4dd71ebad3d | 8e1a9b0b0f5d830e2fd6b87071e2b4dd71ebad3d | 0c8c9c503479f6f2839790e35366e3a3e92834a5 | R-integration | Retained exact H blob and unexpected-stream-frame failures; JVM test compilation passes, live execution unrun; see R-integration validation |
 | F067 | M | koog-agents-additions/build.gradle.kts | koog-agents-additions/build.gradle.kts | 1ad4e8c7e888dcbd2ec9ec613c4bc50583787f0a | d9a55abe79f8a11c1c1f0953b7ae502b31845797 | 8c1d865da0d846390fc08a81d859687930c711f8 | S1 | Adapted with JVM-only skills transitive and retained managed-execution dependency; S1 |
 | F068 | M | koog-agents/build.gradle.kts | koog-agents/build.gradle.kts | 478a18424904672e11576114d7a1a21e385cb89e | 59b939d9f0e1c64eae11fa0d8ebcaf50acd38e29 | 5fa96eccdd8d93b1f150c5ef5248eee6a8b7aaa4 | S1 | Adapted with upstream skills beta classification and retained managed-execution dependency; S1 |
 | F069 | M | koog-bedrock-agentcore-runtime/build.gradle.kts | koog-bedrock-agentcore-runtime/build.gradle.kts | 53171b8b48e9ac50235c639cf223d51eac0148e2 | 53171b8b48e9ac50235c639cf223d51eac0148e2 | dfc6b00d393c59263c76d2db0d501c1c4a2c9712 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
@@ -523,7 +523,7 @@ Enumerated from git log --reverse B..H: all 70 ancestry commits, including pre-m
 | 639a244c57ca563b9e4b5015680ff445b16c05d9 | feat(agents): improve tiered compaction handovers | F007, F012, F013, F017, F018, F047 | F018 | S1, S5b, S7-docs; pending; S5b verified where assigned, see S5b and R-ktor validation |
 | f263bd05af057032c46afef6001597cd7ec2a619 | feat(agents): bound history compaction and tool-result requests | F006, F010, F011, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5b verified where assigned, see S5b and R-ktor validation |
 | 16861174d4371218d39f9fd8d14eb7d146e1ad4e | chore(release): prepare 1.1.1-kroog.10 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | R-integration, R-openai-base, S2, S4a, S4b, S4c, S4d, S4e-deepseek, S4e-ollama, S5b, S5c; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S4e-ollama verified, see S4e-ollama validation; S5b verified where assigned, see S5b and R-ktor validation; S5c verified only F030, see S5c validation |
+| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | R-integration, R-openai-base, S2, S4a, S4b, S4c, S4d, S4e-deepseek, S4e-ollama, S5b, S5c; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S4e-ollama verified, see S4e-ollama validation; S5b verified where assigned, see S5b and R-ktor validation; S5c verified only F030, see S5c validation; R-integration preserves F064/F065/F066 and compiles them; live assertions unrun, see R-integration validation |
 | fc2a2f29c37296476dcef2866364374c7cec4a1f | fix(prompt): recover unavailable OpenAI containers with projected history (#4) | F141, U038, F148, F151, F153, F171 | F171 | S4a; pending |
 | e5114814b4c5c98eaad47a1017b2cfef95acbc03 | feat(openai): add standalone image generation and editing (#5) | F058, F059, F142, U038, F147, F149, F150, F155, F156, F163, F169 | F059, F163, F169 | S1, S3, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
 | 324d5d8a0ac93df85cd796e2c19f666422293e74 | chore(release): prepare 1.1.1-kroog.11 (#6) | U012 | Slice regressions; assertion review pending | Provenance only; pending |
@@ -1350,3 +1350,75 @@ three related history annotations are updated. No blocker or production defect
 remains. Residual limits: JVM-only validation, local secure-stream filesystem
 coverage, and consumer compilation rather than published-artifact resolution.
 No publication, non-JVM task or aggregate ABI task ran.
+
+## R-integration validation
+
+Pinned U supplies the skills integration class, both resource fixtures and the
+skills matrix entry. U001 retains the existing workflow and adds the upstream
+selector `ai.koog.integration.tests.skills.*` and artefact name `skills-test`.
+The upstream matrix entry omits `os`, although `runs-on` reads `matrix.os`.
+The adopted entry explicitly uses `ubuntu-latest`, which also provides the
+secure directory operations required by canonical JVM skills discovery.
+Ruby's YAML parser accepts the workflow; static assertions verify all 12 matrix
+entries have an OS and the single skills entry has the exact selector, artefact
+name and Linux OS. No workflow or external action was executed; actionlint was
+not available.
+
+U014 retains all three upstream live scenarios and all 25 upstream assertion
+lines. The method names now use `integration_test...` without backticks and
+still match the convention's `*.integration_*` filter. Its fake weather tool
+returned invalid JSON containing `"temperature_c":$10`; the adopted fixture
+returns the JSON number 10. One added offline test,
+`testSkillFixturesAreDiscoverableAndWeatherOutputIsValidJson`, discovers the
+actual imported resource directory through `JVMFileSystemProvider.ReadOnly`,
+asserts zero warnings and exactly the two expected skill names, checks both
+names and descriptions in generated XML, and parses fake weather output with
+a quoted city name, temperature and fixture marker assertions. This checks
+the accepted strict parser and secure filesystem against the actual fixtures.
+U015 changes only `math` to British English `maths`; U016 is byte-identical to U.
+Both frontmatter names already match their directory names, so no parsing or
+security relaxation is required. Scripts remain simulated by the upstream
+tool; no Python executable or weather service is invoked.
+
+F064, F065 and F066 are byte-identical to their historical H blobs. The first
+two retain typed `ResponseMetaInfo.cacheReadTokensCount` and
+`cacheWriteTokensCount` assertions. F066 retains failures for unexpected delta,
+complete and other stream frames. All three compile with the imported class.
+Their live-provider assertions remain unrun, so compilation is not reported
+as runtime coverage. Accepted provider and prompt unit suites from earlier
+slices remain the deterministic evidence for these contracts.
+
+Task registration was inspected in `JvmTestConfigure.kt` and `TestType.kt`.
+The integration module uses the JVM target test runs; default `jvmTest`
+excludes `*.integration_*` and `*.ollama_*`, while `jvmIntegrationTest` includes
+`*.integration_*`. The offline test uses the default task with an exact method
+filter. `AIAgentTestBase` initialises only local media resources for this test;
+it does not call the model source or executor factory. Credentials resolution
+is lazy and its environment-loading action is attached only to integration and
+Ollama tasks. No provider test, credential-loading test action or live request
+was run.
+
+All Gradle commands used `JAVA_HOME=/usr/lib/jvm/java-21-openjdk` and
+`--no-parallel --no-daemon`:
+
+- `./gradlew :integration-tests:jvmTestClasses --dry-run` passed; the graph
+  contains 392 task entries and no non-JVM compilation tasks.
+- `./gradlew :integration-tests:jvmTestClasses` passed, compiling the JVM Kotlin
+  and Java integration test sources. Its 15 Kotlin warnings refer to unchanged
+  sources; the existing Java unchecked-operation note also remains. No warning
+  suppression was added.
+- `./gradlew :integration-tests:jvmTest --tests 'ai.koog.integration.tests.skills.AIAgentSkillsIntegrationTest.testSkillFixturesAreDiscoverableAndWeatherOutputIsValidJson'`
+  passed. Fresh XML records exactly one test, zero failures, errors or skips.
+  The existing multiple-SLF4J-provider warning remains.
+
+Host logs: `/tmp/kroog-r-integration-graph.log`,
+`/tmp/kroog-r-integration-compile.log` and
+`/tmp/kroog-r-integration-offline.log`. `git diff --check` passes; all 299
+historical ledger prefixes remain intact. Only seven R-integration dispositions
+and the relevant token-usage history annotation change. No production API or
+ABI dump changed, so no new ABI check was needed. S6c's two deterministic
+agent skills integration tests and full 119-test suite remain the agent-loading
+runtime evidence. Residual limits: the three new parameterised live scenarios
+and retained executor integration cases have compilation evidence only; remote
+provider behaviour and the GitHub workflow have not been exercised. No blocker,
+publication or non-JVM execution occurred.
