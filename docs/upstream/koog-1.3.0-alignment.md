@@ -180,15 +180,15 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F007 | M | agents/agents-core/build.gradle.kts | agents/agents-core/build.gradle.kts | 9e2d621e390481187a089e25dd4a798d0dec7eb8 | 9e2d621e390481187a089e25dd4a798d0dec7eb8 | 9c4ce1031dde859bfba32340a1d79b9ad67aece0 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F008 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/agent/tools/ManagedExecutionTool.kt | absent | absent | 21e9a9df1970ad247b1cec98ab3456bc7efc7ff1 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
 | F009 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/agent/tools/ServiceBackedManagedExecutionTool.kt | absent | absent | 6cba2f86c26b973f43684fc29b053adaa70780b4 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
-| F010 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/AIAgentNodes.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/AIAgentNodes.kt | 26393542a611ce601113c8f2948ecab089892493 | 26393542a611ce601113c8f2948ecab089892493 | b1d73d9929a3581220679412e686c9570650479d | S5b | Pending regression evidence: retain fork extension; B=U |
-| F011 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/BudgetedHistoryCompressionStrategy.kt | absent | absent | c85779be2b0dd01a543a906675d4ffcfbe894052 | S5b | Pending regression evidence: retain fork extension; B=U |
-| F012 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/DefaultHistoryCompressionStrategies.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/DefaultHistoryCompressionStrategies.kt | 38585a355081f16925bc3296cd7a8c821561cd18 | 38585a355081f16925bc3296cd7a8c821561cd18 | 57c29e8b83eca7a68345c0ec427a6a8548736c01 | S5b | Pending regression evidence: retain fork extension; B=U |
-| F013 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy.kt | ad9818b029e842338610c8455093a477072b26b8 | ad9818b029e842338610c8455093a477072b26b8 | a1cabbf14a0d786dd0bae6424faf6c3dd4fe3f5c | S5b | Pending regression evidence: retain fork extension; B=U |
+| F010 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/AIAgentNodes.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/AIAgentNodes.kt | 26393542a611ce601113c8f2948ecab089892493 | 26393542a611ce601113c8f2948ecab089892493 | b1d73d9929a3581220679412e686c9570650479d | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
+| F011 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/BudgetedHistoryCompressionStrategy.kt | absent | absent | c85779be2b0dd01a543a906675d4ffcfbe894052 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
+| F012 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/DefaultHistoryCompressionStrategies.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/DefaultHistoryCompressionStrategies.kt | 38585a355081f16925bc3296cd7a8c821561cd18 | 38585a355081f16925bc3296cd7a8c821561cd18 | 57c29e8b83eca7a68345c0ec427a6a8548736c01 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
+| F013 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy.kt | ad9818b029e842338610c8455093a477072b26b8 | ad9818b029e842338610c8455093a477072b26b8 | a1cabbf14a0d786dd0bae6424faf6c3dd4fe3f5c | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
 | F014 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/ContextualAgentEnvironment.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/ContextualAgentEnvironment.kt | c3b57f548203e062944514edeb83ce37ae521da6 | c3b57f548203e062944514edeb83ce37ae521da6 | 03774f6901e7c66a6cd073627c6a89ee5328f833 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
 | F015 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/GenericAgentEnvironment.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/GenericAgentEnvironment.kt | c63eb2ad24ba3142cf35bc426dfd9fb700688679 | c63eb2ad24ba3142cf35bc426dfd9fb700688679 | 198fb15e1b65c0bd596f5e6493d67b576e305d9c | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
 | F016 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/ManagedExecutionEventObserver.kt | absent | absent | ec5acd3621c89dcd8e6ff6c638dcd7cb852ea5d3 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
-| F017 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/prompt/Prompts.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/prompt/Prompts.kt | 4bef19c65a9d07df7601901c6572e2e78adff1f8 | 4bef19c65a9d07df7601901c6572e2e78adff1f8 | 6ea197cf30ae8b9f56d4b94ef1dfdd36323ffad3 | S5b | Pending regression evidence: retain fork extension; B=U |
-| F018 | A | absent | agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategyTest.kt | absent | absent | 0cfb4774e288359f4eccbb2e82e1633d35450c59 | S5b | Pending regression evidence: retain fork extension; B=U |
+| F017 | M | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/prompt/Prompts.kt | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/prompt/Prompts.kt | 4bef19c65a9d07df7601901c6572e2e78adff1f8 | 4bef19c65a9d07df7601901c6572e2e78adff1f8 | 6ea197cf30ae8b9f56d4b94ef1dfdd36323ffad3 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
+| F018 | A | absent | agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategyTest.kt | absent | absent | 0cfb4774e288359f4eccbb2e82e1633d35450c59 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
 | F019 | A | absent | agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/JvmLogCapture.kt | absent | absent | dec348afa0e820ed288bdcacd22efcc3980b7edd | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
 | F020 | A | absent | agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/ManagedExecutionPipelinePrivacyTest.kt | absent | absent | 4b5faa1449c29da59385f68d6f2404d0ed749539 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
 | F021 | A | absent | agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/ManagedExecutionToolTest.kt | absent | absent | 39720e5aa6f294bde9b37eeecb4bb95a5ddbe967 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
@@ -206,8 +206,8 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F033 | M | agents/agents-features/agents-features-trace/src/commonMain/kotlin/ai/koog/agents/features/tracing/messageFormat.kt | agents/agents-features/agents-features-trace/src/commonMain/kotlin/ai/koog/agents/features/tracing/messageFormat.kt | ab2fc0d51d74942803f06d95249f999bc22e535d | ab2fc0d51d74942803f06d95249f999bc22e535d | 90cefe32ee2b15087ce69d0f1a86f31725caae48 | S5c | Pending regression evidence: retain fork extension; B=U |
 | F034 | A | absent | agents/agents-features/agents-features-trace/src/commonTest/kotlin/ai/koog/agents/features/tracing/CodeExecutionMessageFormatTest.kt | absent | absent | cb70556375e8c2a69b1c470566dce5ea0c5c77ae | S5c | Pending regression evidence: retain fork extension; B=U |
 | F035 | A | absent | agents/agents-features/agents-features-trace/src/commonTest/kotlin/ai/koog/agents/features/tracing/HostedExecutionMessageFormatTest.kt | absent | absent | b3b8d348032c9d0a159cfc70dece6dd06c1ad038 | S5c | Pending regression evidence: retain fork extension; B=U |
-| F036 | M | agents/agents-test/src/commonMain/kotlin/ai/koog/agents/testing/tools/MockPromptExecutor.kt | agents/agents-test/src/commonMain/kotlin/ai/koog/agents/testing/tools/MockPromptExecutor.kt | 59d6f3098694294781561ab29fed51ae080adaf5 | 59d6f3098694294781561ab29fed51ae080adaf5 | 61cc2f605f0c7ac52558bd20fe4f6becb0c0a200 | S5b | Pending regression evidence: retain fork extension; B=U |
-| F037 | A | absent | agents/agents-test/src/jvmTest/kotlin/ai/koog/agents/test/TokenUsagePreservationTest.kt | absent | absent | 5ec056a4e15097ea0d0c1dbcbce0dc3a66a43ec9 | S5b | Pending regression evidence: retain fork extension; B=U |
+| F036 | M | agents/agents-test/src/commonMain/kotlin/ai/koog/agents/testing/tools/MockPromptExecutor.kt | agents/agents-test/src/commonMain/kotlin/ai/koog/agents/testing/tools/MockPromptExecutor.kt | 59d6f3098694294781561ab29fed51ae080adaf5 | 59d6f3098694294781561ab29fed51ae080adaf5 | 61cc2f605f0c7ac52558bd20fe4f6becb0c0a200 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
+| F037 | A | absent | agents/agents-test/src/jvmTest/kotlin/ai/koog/agents/test/TokenUsagePreservationTest.kt | absent | absent | 5ec056a4e15097ea0d0c1dbcbce0dc3a66a43ec9 | S5b | Retained exactly from H; B=U; inspected compaction and usage assertions pass in reused S5a run; see S5b and R-ktor validation |
 | F038 | M | build.gradle.kts | build.gradle.kts | baa1464b3f6b71abc508a6e38fd3d4efde23692d | baa1464b3f6b71abc508a6e38fd3d4efde23692d | e474a745bd6222c10132c0ca18848dc6e2c46302 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F039 | M | convention-plugin-ai/build.gradle.kts | convention-plugin-ai/build.gradle.kts | 794f50f9866fd1721cb0d2e7dd884831e202f32b | 794f50f9866fd1721cb0d2e7dd884831e202f32b | 4087bca85a75ef95d02dd6bc59ace4e8081d986d | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F040 | M | convention-plugin-ai/src/main/kotlin/ai.kotlin.jvm.publish.gradle.kts | convention-plugin-ai/src/main/kotlin/ai.kotlin.jvm.publish.gradle.kts | 025d1bb49b539c51ac067e5a869fad57afabaa53 | 025d1bb49b539c51ac067e5a869fad57afabaa53 | 401cea7b2e9c23ee19f4865ca0c60737d3795c37 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
@@ -241,8 +241,8 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F068 | M | koog-agents/build.gradle.kts | koog-agents/build.gradle.kts | 478a18424904672e11576114d7a1a21e385cb89e | 59b939d9f0e1c64eae11fa0d8ebcaf50acd38e29 | 5fa96eccdd8d93b1f150c5ef5248eee6a8b7aaa4 | S1 | Adapted with upstream skills beta classification and retained managed-execution dependency; S1 |
 | F069 | M | koog-bedrock-agentcore-runtime/build.gradle.kts | koog-bedrock-agentcore-runtime/build.gradle.kts | 53171b8b48e9ac50235c639cf223d51eac0148e2 | 53171b8b48e9ac50235c639cf223d51eac0148e2 | dfc6b00d393c59263c76d2db0d501c1c4a2c9712 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F070 | M | koog-bedrock-agentcore-runtime/src/test/kotlin/ai/koog/agentcore/runtime/AgentCoreRuntimeTest.kt | koog-bedrock-agentcore-runtime/src/test/kotlin/ai/koog/agentcore/runtime/AgentCoreRuntimeTest.kt | 1f3bfcbda16af95eb53a6015ccdb1cb1ce87cd12 | 1f3bfcbda16af95eb53a6015ccdb1cb1ce87cd12 | d9821c050a4511a570a7ccadf88854e2924beb5e | R-runtime | Retained exactly from H; B=U; 30 runtime request tests pass; see S5a and R-runtime validation |
-| F071 | M | koog-ktor/src/commonMain/kotlin/ai/koog/ktor/utils/LLMModelParser.kt | koog-ktor/src/commonMain/kotlin/ai/koog/ktor/utils/LLMModelParser.kt | 8f374f73ac1015471357720ac3c4edcca7c5c9d5 | 8f374f73ac1015471357720ac3c4edcca7c5c9d5 | d12b086d44844a14f300ba770b176b2e07d843c4 | R-ktor | Pending regression evidence: retain fork extension; B=U |
-| F072 | M | koog-ktor/src/commonTest/kotlin/ai/koog/ktor/ModelIdentifierParsingTest.kt | koog-ktor/src/commonTest/kotlin/ai/koog/ktor/ModelIdentifierParsingTest.kt | 23db09a087eb401f24ef076686aca92b0d79eebe | 23db09a087eb401f24ef076686aca92b0d79eebe | 372eeb2ca83f809d143e795663a3aafb251c5f8e | R-ktor | Pending regression evidence: retain fork extension; B=U |
+| F071 | M | koog-ktor/src/commonMain/kotlin/ai/koog/ktor/utils/LLMModelParser.kt | koog-ktor/src/commonMain/kotlin/ai/koog/ktor/utils/LLMModelParser.kt | 8f374f73ac1015471357720ac3c4edcca7c5c9d5 | 8f374f73ac1015471357720ac3c4edcca7c5c9d5 | d12b086d44844a14f300ba770b176b2e07d843c4 | R-ktor | Retained exactly from H; B=U; 13 model parser tests pass; see S5b and R-ktor validation |
+| F072 | M | koog-ktor/src/commonTest/kotlin/ai/koog/ktor/ModelIdentifierParsingTest.kt | koog-ktor/src/commonTest/kotlin/ai/koog/ktor/ModelIdentifierParsingTest.kt | 23db09a087eb401f24ef076686aca92b0d79eebe | 23db09a087eb401f24ef076686aca92b0d79eebe | 372eeb2ca83f809d143e795663a3aafb251c5f8e | R-ktor | Retained exactly from H; B=U; 13 model parser tests pass; see S5b and R-ktor validation |
 | F073 | M | koog-spring-ai-v2/koog-spring-ai-v2-starter-chat-memory/build.gradle.kts | koog-spring-ai-v2/koog-spring-ai-v2-starter-chat-memory/build.gradle.kts | b309782416b2f9b017e33643bb9a1b282f1b68fb | b309782416b2f9b017e33643bb9a1b282f1b68fb | ad688adf35b25b96d83bcb3b9f385282413cf528 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F074 | M | koog-spring-ai-v2/koog-spring-ai-v2-starter-model-chat/build.gradle.kts | koog-spring-ai-v2/koog-spring-ai-v2-starter-model-chat/build.gradle.kts | 0e1f2ff38efbc08d4f4060ac109c85d866e735f3 | 0e1f2ff38efbc08d4f4060ac109c85d866e735f3 | 235b61385bb47dff69c8222877c5e8f2570d8537 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F075 | M | koog-spring-ai-v2/koog-spring-ai-v2-starter-model-embedding/build.gradle.kts | koog-spring-ai-v2/koog-spring-ai-v2-starter-model-embedding/build.gradle.kts | a7b6481c4dfea396a9645c4e8aba6e7ab35990d6 | a7b6481c4dfea396a9645c4e8aba6e7ab35990d6 | 1b1f6c2a7eadd3a440301971196b2a7513debf81 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
@@ -507,23 +507,23 @@ Enumerated from git log --reverse B..H: all 70 ancestry commits, including pre-m
 | 2605311ac14b669d694d791059526f750ab55dec | fix(skills): expose public API dependencies | U017, U018, U047, F226, F227, F228, U049, F234, F241, F243 | F243 | S1, S6a, S6c, S7-docs; pending |
 | 1e1316b98f93429b19489a350273e4b91abce953 | fix(release): support verified browser tag dispatch | F001, F005 | Slice regressions; assertion review pending | S7; pending |
 | d0af9baee80d5caf3f62f03079f79a2a7689a39e | fix(release): encode Central upload query directly | F001 | Slice regressions; assertion review pending | S7; pending |
-| bab8fc8403b507ad6a84cdc146902d927f8203dd | feat(models): add Gemini and Claude model profiles | F048, F071, F072, U020, F087, U022, U023, U024, F101, U025, F108, F111, F117, F121, U028, U029, U031, F131, F204, F219, F222 | F072, U023, F111, F117, U031, F131, F219, F222 | R-ktor, S2, S4b, S4c, S4d, S7-docs; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation |
+| bab8fc8403b507ad6a84cdc146902d927f8203dd | feat(models): add Gemini and Claude model profiles | F048, F071, F072, U020, F087, U022, U023, U024, F101, U025, F108, F111, F117, F121, U028, U029, U031, F131, F204, F219, F222 | F072, U023, F111, F117, U031, F131, F219, F222 | R-ktor, S2, S4b, S4c, S4d, S7-docs; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; R-ktor verified, see S5b and R-ktor validation |
 | 43f2ddd6cc72609ad1262377ac28e9bfdd61bfd3 | chore(release): prepare 1.1.1-kroog.2 | F005, U012, F228 | Slice regressions; assertion review pending | S7, S7-docs; pending |
 | a9c11138657920b042a68e0b3f2276736ae14a02 | feat(bedrock): support xhigh reasoning effort | F005, U012, U024, F105, F113, F228 | F113 | S4d, S7, S7-docs; pending; S4d verified, see S4d validation |
-| bbd81cf927b175dabd924db30fcdfcef4ae5eaf8 | feat: add gemini 3.7 flash | F048, F071, F072, F121, U029, U031, F131, F204, F219, F222 | F072, U031, F131, F219, F222 | R-ktor, S2, S4c, S7-docs; pending; S4c verified, see S4c validation |
+| bbd81cf927b175dabd924db30fcdfcef4ae5eaf8 | feat: add gemini 3.7 flash | F048, F071, F072, F121, U029, U031, F131, F204, F219, F222 | F072, U031, F131, F219, F222 | R-ktor, S2, S4c, S7-docs; pending; S4c verified, see S4c validation; R-ktor verified, see S5b and R-ktor validation |
 | 0569c91d7bd6d270ab553d264e7aeb89ce5ddc87 | fix(google): apply Gemini 3.7 request constraints | U028 | Slice regressions; assertion review pending | S4c; pending; S4c verified, see S4c validation |
 | e454dabb356b2f22c44a8909b9c0fa30c60addea | chore(release): prepare 1.1.1-kroog.4 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
 | e8a4f0037e0fe1d57a1651c1c22fd4dd8f1aca6e | feat(models): add Claude Fable 5.1 | F005, F048, U012, F083, U020, U022, U023, U024, U025, F111, F117, F204, F219, F222, F228 | U023, F111, F117, F219, F222 | S2, S4b, S4d, S7, S7-docs; pending; S4b verified, see S4b validation; S4d verified, see S4d validation |
-| 6bddf26334f0f918a91beab1544e363b324ab9ee | feat(agents): add portable tiered history compaction | F006, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
+| 6bddf26334f0f918a91beab1544e363b324ab9ee | feat(agents): add portable tiered history compaction | F006, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5b verified where assigned, see S5b and R-ktor validation |
 | dd0363f08074cfbe2f23ceab9475d3f562bd6c71 | chore(release): prepare 1.1.1-kroog.6 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
 | 1f5e900e24af2384a87b6821a32e1a9502a3fe87 | chore(release): prepare 1.1.1-kroog.7 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 21157b96cf3e9f4fb10e7d3606c25b467920d8b3 | fix(agents): retain exact recent turns in tiered compaction | F012, F013, F018, U012 | F018 | S5b; pending |
+| 21157b96cf3e9f4fb10e7d3606c25b467920d8b3 | fix(agents): retain exact recent turns in tiered compaction | F012, F013, F018, U012 | F018 | S5b verified; see S5b and R-ktor validation |
 | a7bad9498655af865f6677a76b33b67e3f9a17ce | feat(openai): add GPT-6 Astra support | U038, F151, U040, F160, F164, F165, F171, F204, F219, F222 | F160, F164, F165, F171, F219, F222 | S2, S4a; pending |
-| fb086e6da9fa9bed234589d67795693d594c51b5 | fix(agents): reset execution containers during tiered compaction | F012, F018, U012 | F018 | S5b; pending |
-| 639a244c57ca563b9e4b5015680ff445b16c05d9 | feat(agents): improve tiered compaction handovers | F007, F012, F013, F017, F018, F047 | F018 | S1, S5b, S7-docs; pending |
-| f263bd05af057032c46afef6001597cd7ec2a619 | feat(agents): bound history compaction and tool-result requests | F006, F010, F011, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
+| fb086e6da9fa9bed234589d67795693d594c51b5 | fix(agents): reset execution containers during tiered compaction | F012, F018, U012 | F018 | S5b verified; see S5b and R-ktor validation |
+| 639a244c57ca563b9e4b5015680ff445b16c05d9 | feat(agents): improve tiered compaction handovers | F007, F012, F013, F017, F018, F047 | F018 | S1, S5b, S7-docs; pending; S5b verified where assigned, see S5b and R-ktor validation |
+| f263bd05af057032c46afef6001597cd7ec2a619 | feat(agents): bound history compaction and tool-result requests | F006, F010, F011, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5b verified where assigned, see S5b and R-ktor validation |
 | 16861174d4371218d39f9fd8d14eb7d146e1ad4e | chore(release): prepare 1.1.1-kroog.10 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | R-integration, R-openai-base, S2, S4a, S4b, S4c, S4d, S4e-deepseek, S4e-ollama, S5b, S5c; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S4e-ollama verified, see S4e-ollama validation |
+| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | R-integration, R-openai-base, S2, S4a, S4b, S4c, S4d, S4e-deepseek, S4e-ollama, S5b, S5c; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S4e-ollama verified, see S4e-ollama validation; S5b verified where assigned, see S5b and R-ktor validation |
 | fc2a2f29c37296476dcef2866364374c7cec4a1f | fix(prompt): recover unavailable OpenAI containers with projected history (#4) | F141, U038, F148, F151, F153, F171 | F171 | S4a; pending |
 | e5114814b4c5c98eaad47a1017b2cfef95acbc03 | feat(openai): add standalone image generation and editing (#5) | F058, F059, F142, U038, F147, F149, F150, F155, F156, F163, F169 | F059, F163, F169 | S1, S3, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
 | 324d5d8a0ac93df85cd796e2c19f666422293e74 | chore(release): prepare 1.1.1-kroog.11 (#6) | U012 | Slice regressions; assertion review pending | Provenance only; pending |
@@ -1066,3 +1066,75 @@ Existing warnings remain. No non-JVM target, aggregate ABI task, publication or 
 request ran. Residual limits are the existing skipped tests, untested live services and
 unverified whole-module ABI dumps. All 299 ledger rows retain their historical columns;
 git diff --check passes. No S5a or R-runtime blocker remains.
+
+## S5b and R-ktor validation
+
+This preservation slice changes only this audit. S5b F010 to F013, F017, F018, F036
+and F037 and R-ktor F071 and F072 match their recorded H blobs byte-for-byte.
+Direct Git object checks confirm B=U for all ten paths, including explicit absence.
+There is no upstream import or source API delta. The input checkpoint is
+1ce34406d355bcc503b026288a5e9c7b35ce757c; only this audit changed since the S5a
+validation input 77263bec31c561660d691f078e431860733a359b. The working tree was clean
+before this audit edit, so tracked source and dependency inputs for the reused run
+remain identical.
+
+Inspected source and actual TieredHistoryCompressionStrategyTest assertions establish:
+
+- Exact recent user-led turns: the eight-turn regression compares the complete retained
+  tail, excludes it from the summary request and retains paired call/result identifiers.
+  Repeated compression folds the prior handover into one replacement and preserves memory.
+- Portable projection: provider fixtures produce equal history shapes. Both tiers and the
+  generated summary remove reasoning replay, hosted progress, response IDs and raw responses.
+  Saved OpenAI containers are cleared in the summary request and final prompt; execution
+  settings and input file IDs survive. Disabled execution and Google parameters stay intact.
+- Attributed handovers: summaries remain assistant history, with source and authority
+  framing; reconstructed handovers occur once. Budgeted fragments preserve user and
+  assistant attribution, tool name and call ID, and failed or succeeded result status,
+  while reconstructing the full source text.
+- Bounded summaries: all captured requests stay within the 3,000-token test budget,
+  including huge tool results and summary-only retention. Oversized fixed system content
+  fails before any provider call. Summary settings replace answer settings temporarily;
+  failure, cancellation, empty summaries and metric failures restore the original prompt.
+- Callback ordering: testStreamingPreparationSeesToolResultsAndCanStopTheRequest asserts
+  the complete tool result is present when preparation runs, exactly one callback occurs,
+  the successful request sees the callback's changed prompt, and callback failure sends
+  no streaming request. AIAgentNodes appends results, invokes beforeRequest, then streams.
+
+TokenUsagePreservationTest checks separate ordinary and streaming requests, inclusive
+input counts for both and the streaming total count, and unchanged cache-read, cache-write and reasoning
+subsets for null, zero and positive values, plus model identity. MockPromptExecutor copies
+only estimated totals, retaining the breakdown metadata.
+
+The following evidence is explicitly reused from S5a, not rerun in S5b: its Java 21
+agents-core and agents-test jvmTest execution recorded above, with XML timestamps
+28 September 2026 at 16:57:30 UTC and 16:57:06 UTC for the two named suites.
+TieredHistoryCompressionStrategyTest passed all 38 tests; TokenUsagePreservationTest
+passed its one test, with no skips or failures in either. The containing reports have
+65 core suites, 465 passed and 23 existing skips, and six agents-test suites, 28 passed
+and one existing skip. The successful S5a log and unchanged tracked inputs were checked.
+No new regression or product edit was necessary.
+
+R-ktor's explicit maps and ModelIdentifierParsingTest compare resolved models with named
+catalogue constants and provider identities, including the retained Gemini 3.7 Flash,
+Claude Fable 5 and Opus 5 entries. Invalid identifiers return null. This is deterministic
+catalogue resolution evidence and makes no claim about live provider support.
+
+Java 21 task discovery used the following command with --dry-run first. Its graph
+contained JVM compilation and tests only. The focused execution was:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :koog-ktor:jvmTest --tests ai.koog.ktor.ModelIdentifierParsingTest --console=plain --no-parallel --no-daemon
+```
+
+BUILD SUCCESSFUL in 49 seconds, 179 actionable tasks, 94 executed and 85 up-to-date.
+The fresh XML report at 17:05:53 UTC on 28 September 2026 has one suite and 13 tests,
+all passed, with zero skips, failures or errors. Logs are /tmp/kroog-s5b-graph.log and
+/tmp/kroog-s5b-tests.log; XML and HTML remain under koog-ktor/build. This focused run
+compiled its JVM prerequisites, including skills, but does not establish S6 acceptance.
+
+All 299 ledger rows retain their historical columns. git diff --check passes. No source,
+test, API dump, build input or dependency changed; no new tests were added. Compiled JVM
+ABI comparison was not run for this audit-only slice. No non-JVM compilation, aggregate
+ABI task, publication or live-provider request ran. Residual limits are the reused suites'
+24 existing skips, untested live services, unverified whole-module ABI dumps and the
+focused scope of the Ktor execution. No S5b or R-ktor blocker remains.
