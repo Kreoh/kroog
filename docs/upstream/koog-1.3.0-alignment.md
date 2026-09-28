@@ -155,9 +155,9 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | U041 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPI.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPI.kt | 3cfde38b90bff1109e0b96cc635f36d1f8d1018e | 3500ba6a093a5ff3b5b11eb17935db4e337f07b3 | 71e80d71d19384f2ef40db9c7aab510fe02b6b95 | S4a | S4a: pinned scalar-or-array serializer adopted; List<Item>? and fork response contracts retained |
 | U042 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPIResponseTest.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPIResponseTest.kt | cf9fc56ad4d593793e768911128605cd98951176 | 585898a10701cbde62c0572ec34362df3003e673 | 2bd3601e3f4578afe7162e0eba6eecafbfefbc6e | S4a | S4a: upstream scalar/string-array/item-array regressions adopted; null, missing, empty and array-output coverage added |
 | U043 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/android/prompt-executor-openrouter-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/android/prompt-executor-openrouter-client.api | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | 808772d5f24e192bfa92c3e3fff7b923c340a3ac | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | X-ABI | Explicit exemption: non-JVM ABI; retain H; B=H |
-| U044 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/jvm/prompt-executor-openrouter-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/jvm/prompt-executor-openrouter-client.api | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | 808772d5f24e192bfa92c3e3fff7b923c340a3ac | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | S4e-openrouter | Pending adoption with named slice contracts and history evidence; B=H |
+| U044 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/jvm/prompt-executor-openrouter-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/jvm/prompt-executor-openrouter-client.api | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | 808772d5f24e192bfa92c3e3fff7b923c340a3ac | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | S4e-openrouter | Adopted pinned eight-field JVM API delta from compiled output; terminal newline normalised; S4e-openrouter validation |
 | U045 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/prompt-executor-openrouter-client.klib.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/prompt-executor-openrouter-client.klib.api | cd67abc10278f55fba061090b636ca768902d636 | 30b9c24270fceaa5599157024a0826e53da087d6 | cd67abc10278f55fba061090b636ca768902d636 | X-ABI | Explicit exemption: non-JVM ABI; retain H; B=H |
-| U046 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModels.kt | 935ffccdca86781cac3fd184974a39b529ae1963 | fce36deae57a3d4414212db5415a85104e304ea5 | 935ffccdca86781cac3fd184974a39b529ae1963 | S4e-openrouter | Pending adoption with named slice contracts and history evidence; B=H |
+| U046 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModels.kt | 935ffccdca86781cac3fd184974a39b529ae1963 | fce36deae57a3d4414212db5415a85104e304ea5 | 935ffccdca86781cac3fd184974a39b529ae1963 | S4e-openrouter | Adopted complete pinned model and catalogue delta; three KDoc punctuation adaptations for repository language rules; S4e-openrouter validation |
 | U047 | M | settings.gradle.kts | settings.gradle.kts | 451015ad7f16f75f76bf768cc111799d99901215 | 53638c13fdc85b4de98fe2dd1243421ffd55e7ee | 47256fc64a231c1fe1cddb8d8c7a08d09a615ba8 | S1 | Adapted with Kroog module graph; skills inclusion already present in H, retained byte-for-byte; S1 |
 | U048 | A | absent | skills/Module.md | absent | b37fc4f353e81c0d828903c89e9fda0ae6a62ad6 | absent | S7-docs | Pending adoption with named slice contracts and history evidence; B=H |
 | U049 | A | absent | skills/build.gradle.kts | absent | 234f2e0d5ccfc02e0f65ac1bfbf4f342665f5dc8 | a40ddc6a83f78c3aaf2d097965ad2cd448da90d5 | S1 | Adapted with Kroog JVM server convention, public tools and JSON APIs, SnakeYAML and existing regressions; upstream dependencies added; S1 |
@@ -943,3 +943,49 @@ remain under the module's build/test-results/jvmTest and build/reports/tests/jvm
 All 299 ledger rows retain their historical columns; git diff --check passes.
 No non-JVM or aggregate ABI task, live-provider request or publication ran.
 Residual risk: live Ollama behaviour is untested. No slice blocker remains.
+
+## S4e-openrouter validation
+
+U046 adopts all eight pinned upstream profiles and catalogue entries: Claude4_7Opus,
+Claude4_8Opus, Claude5Opus, Claude5Sonnet, GPT5_6Sol, GPT5_6Terra, GPT5_6Luna and
+Gemini3ProPreview. Baseline and starting H model source were identical. The final
+source differs from pinned upstream only by three KDoc em-dash-to-comma substitutions
+for the repository language rules. Existing profiles, embedding definitions, identifiers,
+custom-model registration and client implementation remain unchanged.
+
+The existing JVM OpenRouterModelsTest now verifies the exact ordered catalogue of
+46 supported models, distinct identifiers and reflected object identities. Its new
+profile regression checks all eight exact identifiers, OpenRouter provider, complete
+capability lists, context limits and output limits, with unique catalogue lookup.
+Claude profiles have JSON Basic and Standard capabilities; the new GPT and Gemini
+profiles have Standard. The previous provider regression remains active under a
+conventional test function name. No version or alias override is introduced.
+
+Java 21 validation commands:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openrouter-client:jvmJar --offline --console=plain --no-parallel --no-daemon
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openrouter-client:jvmTest :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openrouter-client:jvmJar --offline --console=plain --no-parallel --no-daemon
+```
+
+Both pass: baseline JAR in 38 seconds; final suite and JAR in 54 seconds. The XML
+reports contain 50 tests in six suites with zero failures, errors or skips, including
+three model regressions. Existing embedding, serialisation, parameter-validation and
+reasoning-message preservation tests pass unchanged.
+
+U044 was generated from compiled JVM classes using Kotlin 2.3.10 AbiToolsV2 through
+/tmp/kroog-s4b-CheckAbi.java and /tmp/kroog-s4a-abi-classpath, retaining the seven
+repository internal-API exclusions. Generated ABI grows from 30,538 characters and
+347 lines to 31,091 characters and 355 lines. Removing exactly the eight new public
+static model fields produces a byte-identical baseline. No previous signature changes
+or removals occur. The old checked-in dump differs from compiled baseline only by a
+terminal blank line. The new dump matches pinned upstream after terminal whitespace
+normalisation and compiled output exactly; the final runner comparison passes.
+Initial generation comparisons report the expected old newline and new-field differences.
+
+Host artefacts use /tmp/kroog-s4e-openrouter- with suffixes before.log, tests.log,
+abi-before.log, abi-after.log, before.api, after.api and verified.api. JVM test reports
+remain under the module's build/test-results/jvmTest and build/reports/tests/jvmTest.
+All 299 ledger rows retain their historical columns; git diff --check passes.
+No non-JVM target, aggregate ABI task, live-provider call or publication ran.
+Residual risk: live OpenRouter behaviour is untested. No slice blocker remains.
