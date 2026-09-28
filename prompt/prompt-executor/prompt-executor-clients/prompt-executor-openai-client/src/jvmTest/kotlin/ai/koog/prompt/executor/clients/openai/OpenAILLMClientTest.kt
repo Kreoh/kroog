@@ -305,6 +305,30 @@ class OpenAILLMClientTest {
     }
 
     @Test
+    fun testGpt56FamilyDetectionPreservesOlderDeploymentSampling() {
+        val olderDeployment = OpenAIModels.Chat.GPT5_5.copy(id = "older-deployment")
+        chatRequest(
+            olderDeployment,
+            OpenAIChatParams(temperature = 0.4, reasoningEffort = ReasoningEffort.XHIGH),
+        )["temperature"]?.jsonPrimitive?.double shouldBe 0.4
+        responsesRequest(
+            olderDeployment,
+            OpenAIResponsesParams(temperature = 0.4, reasoning = ReasoningConfig(effort = ReasoningEffort.XHIGH)),
+        )["temperature"]?.jsonPrimitive?.double shouldBe 0.4
+
+        gpt5_6Models().forEach { model ->
+            val rebuilt = model.copy(capabilities = model.capabilities?.toMutableList())
+            chatRequest(
+                rebuilt,
+                OpenAIChatParams(temperature = 0.4, reasoningEffort = ReasoningEffort.MAX),
+            ).let { request ->
+                request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
+                request.containsKey("temperature") shouldBe false
+            }
+        }
+    }
+
+    @Test
     fun `GPT-5_6 deployment copy keeps wire id and model behaviour while older models remain unchanged`() {
         val deployment = OpenAIModels.Chat.GPT5_6Terra.copy(id = "azure-terra-deployment")
         chatRequest(

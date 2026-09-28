@@ -43,9 +43,9 @@ import kotlin.jvm.JvmField
  * | [Chat.GPT5_4Pro]                 | Slowest   | $30-$180           | Text, Image, Tools, Document | Text, Tools                  |
  * | [Chat.GPT5_5]                    | Fast      | $5-$30             | Text, Image, Tools, Document | Text, Tools                  |
  * | [Chat.GPT5_5Pro]                 | Slowest   | $30-$180           | Text, Image, Tools, Document | Text, Tools                  |
- * | [Chat.GPT5_6Sol]                 | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
- * | [Chat.GPT5_6Terra]               | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
- * | [Chat.GPT5_6Luna]                | Fast      | Varies              | Text, Image, Tools           | Text, Tools                  |
+ * | [Chat.GPT5_6Sol]                 | Fast      | Varies              | Text, Image, Tools, Document | Text, Tools                  |
+ * | [Chat.GPT5_6Terra]               | Fast      | Varies              | Text, Image, Tools, Document | Text, Tools                  |
+ * | [Chat.GPT5_6Luna]                | Fast      | Varies              | Text, Image, Tools, Document | Text, Tools                  |
  * | [Audio.GptAudio]                 | Fast      | $2.5-$10           | Text, Audio, Tools           | Text, Audio, Tools           |
  * | [Audio.GPT4oMiniAudio]           | Fast      | $0.15-$0.6/$10-$20 | Text, Audio, Tools           | Text, Audio, Tools           |
  * | [Audio.GPT4oAudio]               | Medium    | $2.5-$10/$40-$80   | Text, Audio, Tools           | Text, Audio, Tools           |
@@ -984,6 +984,7 @@ public object OpenAIModels : LLModelDefinitions {
             LLMCapability.Tools,
             LLMCapability.ToolChoice,
             LLMCapability.Vision.Image,
+            LLMCapability.Document,
             LLMCapability.MultipleChoices,
             LLMCapability.OpenAIEndpoint.Completions,
             LLMCapability.OpenAIEndpoint.Responses,

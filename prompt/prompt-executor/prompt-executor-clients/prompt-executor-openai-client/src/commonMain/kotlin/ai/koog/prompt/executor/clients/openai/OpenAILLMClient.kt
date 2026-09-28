@@ -539,10 +539,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     private fun LLModel.isGpt56(): Boolean =
-        !isGpt6Astra() &&
-            contextLength == 1_050_000L &&
-            maxOutputTokens == 128_000L &&
-            capabilities == OpenAIModels.Chat.GPT5_6Sol.capabilities
+        id == OpenAIModels.Chat.GPT5_6Sol.id ||
+            id == OpenAIModels.Chat.GPT5_6Terra.id ||
+            id == OpenAIModels.Chat.GPT5_6Luna.id ||
+            // A deployment copy retains the catalogue list. Equal capability values also occur on GPT-5.5.
+            capabilities === OpenAIModels.Chat.GPT5_6Sol.capabilities
 
     override val clientName: String = OPENAI_CLIENT_NAME
 

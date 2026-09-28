@@ -101,6 +101,7 @@ class OpenAIModelsTest {
             LLMCapability.Tools,
             LLMCapability.ToolChoice,
             LLMCapability.Vision.Image,
+            LLMCapability.Document,
             LLMCapability.MultipleChoices,
             LLMCapability.OpenAIEndpoint.Completions,
             LLMCapability.OpenAIEndpoint.Responses,

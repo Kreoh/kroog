@@ -33,9 +33,9 @@ requirements.
 | GPT-5 Codex | Medium    | 400K    | Text, Images, Documents        | Text, Tools    | $1.25-$10               | Responses       |
 | GPT-5.5     | Fast      | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | $5-$30                  | Chat, Responses |
 | GPT-5.5 pro | Slowest   | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | $30-$180                | Responses only  |
-| GPT-5.6 Sol | Fast      | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
-| GPT-5.6 Terra | Fast    | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
-| GPT-5.6 Luna | Fast     | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Sol | Fast      | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Terra | Fast    | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Luna | Fast     | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
 
 #### Audio Models
 
@@ -130,7 +130,10 @@ GPT-5.6 Sol, Terra and Luna support `ReasoningEffort.MAX`. Responses API request
 requests map `MAX` to `XHIGH`, which is the highest Chat value for these models. Positive GPT-5.6 reasoning effort
 omits temperature on both endpoints; `ReasoningEffort.NONE` keeps the configured temperature. A copied model keeps
 these capabilities and limits while its copied `id` remains the request wire model, which supports named deployment
-IDs without changing GPT-5.6 request behaviour.
+IDs without changing GPT-5.6 request behaviour. Create deployment aliases with `model.copy(id = deploymentId)`
+and retain the catalogue capability list. Canonical model IDs are recognised independently of that list;
+reconstructing an alias from serialised metadata loses its family identity because GPT-5.5 and GPT-5.6 share
+capability values and token limits.
 
 ### API Endpoints Support
 
