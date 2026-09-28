@@ -14,6 +14,7 @@ import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4_6
+import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_5
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -31,6 +32,7 @@ import kotlin.jvm.JvmField
  * | [Sonnet_4]   | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
  * | [Sonnet_4_5] | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
  * | [Sonnet_4_6] | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
+ * | [Sonnet_5]   | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
  * | [Opus_4]     | Moderately fast | $15-$75      | Text, Image, Tools, Document | Text, Tools |
  * | [Opus_4_1]   | Moderately fast | $15-$75      | Text, Image, Tools, Document | Text, Tools |
  * | [Opus_4_5]   | Moderately fast | $5-$25       | Text, Image, Tools, Document | Text, Tools |
@@ -209,6 +211,37 @@ public object AnthropicModels : LLModelDefinitions {
         ),
         contextLength = 1_000_000,
         maxOutputTokens = 64_000,
+    )
+
+    /**
+     * Claude Sonnet 5 is the first Sonnet model of Anthropic's fifth generation, delivering
+     * near-Opus quality on coding and agentic work at Sonnet pricing.
+     * Adaptive thinking is enabled by default on this model.
+     *
+     * 1M context window
+     * 128K max output tokens
+     *
+     * @see <a href="https://platform.claude.com/docs/en/about-claude/models/whats-new-sonnet-5">
+     * @see <a href="https://platform.claude.com/docs/en/about-claude/models/overview">
+     */
+    @JvmField
+    public val Sonnet_5: LLModel = LLModel(
+        provider = LLMProvider.Anthropic,
+        id = "claude-sonnet-5",
+        capabilities = listOf(
+            LLMCapability.Temperature,
+            LLMCapability.Tools,
+            LLMCapability.ToolChoice,
+            LLMCapability.Vision.Image,
+            LLMCapability.Document,
+            LLMCapability.Completion,
+            LLMCapability.Schema.JSON.Basic,
+            LLMCapability.Schema.JSON.Standard,
+            LLMCapability.Thinking,
+            LLMCapability.PromptCaching,
+        ),
+        contextLength = 1_000_000,
+        maxOutputTokens = 128_000,
     )
 
     /**
@@ -420,6 +453,7 @@ public object AnthropicModels : LLModelDefinitions {
         Sonnet_4,
         Sonnet_4_5,
         Sonnet_4_6,
+        Sonnet_5,
         Opus_4,
         Opus_4_1,
         Opus_4_5,
@@ -451,6 +485,7 @@ internal val DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP: Map<LLModel, String> = mapOf(
     Sonnet_4 to "claude-sonnet-4-20250514",
     Sonnet_4_5 to "claude-sonnet-4-5-20250929",
     Sonnet_4_6 to "claude-sonnet-4-6",
+    Sonnet_5 to "claude-sonnet-5",
     Opus_4 to "claude-opus-4-20250514",
     Opus_4_1 to "claude-opus-4-1-20250805",
     Opus_4_5 to "claude-opus-4-5-20251101",

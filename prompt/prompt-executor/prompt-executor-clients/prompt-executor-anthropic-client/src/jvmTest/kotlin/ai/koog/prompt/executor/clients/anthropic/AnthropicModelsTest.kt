@@ -1,6 +1,9 @@
 package ai.koog.prompt.executor.clients.anthropic
 
 import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinking
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinkingDisplay
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessageRequest
 import ai.koog.prompt.executor.clients.list
 import ai.koog.prompt.llm.LLMCapability
@@ -40,6 +43,7 @@ class AnthropicModelsTest {
             AnthropicModels.Haiku_4_5,
             AnthropicModels.Sonnet_4_5,
             AnthropicModels.Sonnet_4_6,
+            AnthropicModels.Sonnet_5,
             AnthropicModels.Opus_4_5,
             AnthropicModels.Opus_4_6,
             AnthropicModels.Opus_4_7,
@@ -128,6 +132,7 @@ class AnthropicModelsTest {
         assertNotNull(AnthropicModels.Opus_4_7.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_8.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_5.capabilities) shouldContain LLMCapability.Thinking
+        assertNotNull(AnthropicModels.Sonnet_5.capabilities) shouldContain LLMCapability.Thinking
     }
 
     @Test
@@ -193,6 +198,72 @@ class AnthropicModelsTest {
         assertTrue(model.supports(LLMCapability.PromptCaching))
         assertTrue(model in AnthropicModels.models)
         assertEquals("claude-opus-5", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+    }
+
+    @Test
+    fun testSonnet5ExposesUpstreamProfileAndDefaultVersion() {
+        val model = AnthropicModels.Sonnet_5
+
+        assertEquals(LLMProvider.Anthropic, model.provider)
+        assertEquals("claude-sonnet-5", model.id)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(128_000, model.maxOutputTokens)
+        assertEquals(
+            listOf(
+                LLMCapability.Temperature,
+                LLMCapability.Tools,
+                LLMCapability.ToolChoice,
+                LLMCapability.Vision.Image,
+                LLMCapability.Document,
+                LLMCapability.Completion,
+                LLMCapability.Schema.JSON.Basic,
+                LLMCapability.Schema.JSON.Standard,
+                LLMCapability.Thinking,
+                LLMCapability.PromptCaching,
+            ),
+            model.capabilities,
+        )
+        assertTrue(model in AnthropicModels.models)
+        assertEquals("claude-sonnet-5", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+    }
+
+    @Test
+    fun testSonnet5RequestUsesDefaultVersionAndExplicitAdaptiveThinking() {
+        val client = AnthropicLLMClient(apiKey = "unused")
+        listOf(false, true).forEach { adaptive ->
+            val request = client.createAnthropicRequest(
+                prompt = prompt(
+                    "sonnet-5",
+                    params = AnthropicParams(
+                        temperature = 0.7,
+                        maxTokens = 128_000,
+                        thinking = if (adaptive) {
+                            AnthropicThinking.Adaptive(
+                                display = AnthropicThinkingDisplay.SUMMARIZED,
+                                effort = AnthropicEffort.HIGH,
+                            )
+                        } else {
+                            null
+                        },
+                    ),
+                ) { user("Hello") },
+                tools = emptyList(),
+                model = AnthropicModels.Sonnet_5,
+                stream = adaptive,
+            )
+            val body = Json.parseToJsonElement(request).jsonObject
+            assertEquals("\"claude-sonnet-5\"", body.getValue("model").toString())
+            assertEquals("128000", body.getValue("max_tokens").toString())
+            assertEquals(adaptive.toString(), body.getValue("stream").toString())
+            if (adaptive) {
+                assertFalse("temperature" in body)
+                assertEquals("\"adaptive\"", body.getValue("thinking").jsonObject.getValue("type").toString())
+                assertEquals("\"high\"", body.getValue("output_config").jsonObject.getValue("effort").toString())
+            } else {
+                assertEquals("0.7", body.getValue("temperature").toString())
+                assertFalse("thinking" in body)
+            }
+        }
     }
 
     @Test

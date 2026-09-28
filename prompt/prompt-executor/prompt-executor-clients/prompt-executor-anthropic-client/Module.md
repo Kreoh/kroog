@@ -18,6 +18,7 @@ It handles authentication, request formatting, response parsing, multimodal cont
 | Claude Sonnet 4    | Fast            | 200K    | Text, Images, PDF | Text, Tools                   | $3.00 / $15.00          |
 | Claude Sonnet 4.5  | Fast            | 200K    | Text, Images, PDF | Text, Tools, Structured (JSON)| $3.00 / $15.00          |
 | Claude Sonnet 4.6  | Fast            | 200K    | Text, Images, PDF | Text, Tools, Structured (JSON)| $3.00 / $15.00          |
+| Claude Sonnet 5    | Fast            | 1M      | Text, Images, PDF | Text, Tools, Structured (JSON)| $3.00 / $15.00          |
 | Claude Opus 4      | Moderately fast | 200K    | Text, Images, PDF | Text, Tools                   | $15.00 / $75.00         |
 | Claude Opus 4.1    | Moderately fast | 200K    | Text, Images, PDF | Text, Tools                   | $15.00 / $75.00         |
 | Claude Opus 4.5    | Moderately fast | 200K    | Text, Images, PDF | Text, Tools, Structured (JSON)| $5.00 / $25.00          |
