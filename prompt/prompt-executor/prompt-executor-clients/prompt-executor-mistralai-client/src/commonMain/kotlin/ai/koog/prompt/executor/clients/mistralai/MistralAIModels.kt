@@ -11,7 +11,7 @@ import kotlin.jvm.JvmField
  * Object containing a collection of predefined Mistral AI model configurations.
  * These models span various use cases including chat, reasoning, coding, vision, and audio tasks.
  *
- * Models are organized by functionality:
+ * Models are organised by functionality:
  * - [Chat]: General purpose conversation models
  * - [Embeddings]: Semantic representation models
  * - [Moderation]: Content safety models
@@ -51,11 +51,13 @@ public object MistralAIModels : LLModelDefinitions {
         )
 
         /**
-         * Mistral Large 2.1 - Top-tier large model for high-complexity tasks (Premier)
+         * Mistral Large - Top-tier large model for high-complexity tasks (Premier)
          *
-         * Released November 2024. Most capable model for complex reasoning and tasks.
+         * The `mistral-large-latest` alias currently points to Mistral Large 3 (`mistral-large-2512`,
+         * released December 2025), an open-weight multimodal MoE model (41B active and 675B total
+         * parameters) with agentic capabilities.
          *
-         * 128k context window
+         * 256k context window
          *
          * @see <a href="https://docs.mistral.ai/models/">Mistral AI Models</a>
          */
@@ -72,7 +74,7 @@ public object MistralAIModels : LLModelDefinitions {
                 LLMCapability.Schema.JSON.Standard,
                 LLMCapability.MultipleChoices
             ),
-            contextLength = 128_000
+            contextLength = 256_000
         )
 
         /**
@@ -131,7 +133,7 @@ public object MistralAIModels : LLModelDefinitions {
         /**
          * Codestral 2508 - Cutting-edge coding model (Premier)
          *
-         * Released July 2025. Specializes in low-latency tasks like fill-in-the-middle,
+         * Released July 2025. Specialises in low-latency tasks like fill-in-the-middle,
          * code correction, and test generation.
          *
          * 256k context window
@@ -174,6 +176,81 @@ public object MistralAIModels : LLModelDefinitions {
                 LLMCapability.Schema.JSON.Basic,
                 LLMCapability.Schema.JSON.Standard,
                 LLMCapability.Document,
+            ),
+            contextLength = 128_000
+        )
+
+        /**
+         * Ministral 3 3B - Smallest model of the Ministral 3 edge family (Open)
+         *
+         * Released December 2025 (`ministral-3b-2512`). Designed for phones, laptops,
+         * and embedded hardware.
+         *
+         * 128k context window
+         *
+         * @see <a href="https://docs.mistral.ai/models/">Mistral AI Models</a>
+         */
+        @JvmField
+        public val Ministral3_3B: LLModel = LLModel(
+            provider = LLMProvider.MistralAI,
+            id = "ministral-3b-latest",
+            capabilities = listOf(
+                LLMCapability.Temperature,
+                LLMCapability.Completion,
+                LLMCapability.Tools,
+                LLMCapability.ToolChoice,
+                LLMCapability.Schema.JSON.Basic,
+                LLMCapability.MultipleChoices
+            ),
+            contextLength = 128_000
+        )
+
+        /**
+         * Ministral 3 8B - Mid-size model of the Ministral 3 edge family (Open)
+         *
+         * Released December 2025 (`ministral-8b-2512`). Balanced quality and efficiency
+         * for edge and on-device deployments.
+         *
+         * 128k context window
+         *
+         * @see <a href="https://docs.mistral.ai/models/">Mistral AI Models</a>
+         */
+        @JvmField
+        public val Ministral3_8B: LLModel = LLModel(
+            provider = LLMProvider.MistralAI,
+            id = "ministral-8b-latest",
+            capabilities = listOf(
+                LLMCapability.Temperature,
+                LLMCapability.Completion,
+                LLMCapability.Tools,
+                LLMCapability.ToolChoice,
+                LLMCapability.Schema.JSON.Basic,
+                LLMCapability.MultipleChoices
+            ),
+            contextLength = 128_000
+        )
+
+        /**
+         * Ministral 3 14B - Largest model of the Ministral 3 edge family (Open)
+         *
+         * Released December 2025 (`ministral-14b-2512`). The most capable Ministral,
+         * still deployable on consumer hardware.
+         *
+         * 128k context window
+         *
+         * @see <a href="https://docs.mistral.ai/models/">Mistral AI Models</a>
+         */
+        @JvmField
+        public val Ministral3_14B: LLModel = LLModel(
+            provider = LLMProvider.MistralAI,
+            id = "ministral-14b-latest",
+            capabilities = listOf(
+                LLMCapability.Temperature,
+                LLMCapability.Completion,
+                LLMCapability.Tools,
+                LLMCapability.ToolChoice,
+                LLMCapability.Schema.JSON.Basic,
+                LLMCapability.MultipleChoices
             ),
             contextLength = 128_000
         )
@@ -258,6 +335,9 @@ public object MistralAIModels : LLModelDefinitions {
         Chat.MagistralMedium12,
         Chat.Codestral,
         Chat.DevstralMedium,
+        Chat.Ministral3_3B,
+        Chat.Ministral3_8B,
+        Chat.Ministral3_14B,
         Embeddings.MistralEmbed,
         Embeddings.CodestralEmbed,
         Moderation.MistralModeration

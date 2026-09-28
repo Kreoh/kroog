@@ -143,7 +143,7 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | U029 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt | fdbe670c33fdba787d934e8ae48b55deb9f19e8f | 024a3a5ef0c38f82e4e86cfc24d44b97012f5c29 | bed1f4657d6eaadffd1bdf796b368b8e88fe7fb9 | S4c | All upstream profiles already present; retained evidenced fixed-sampling and Document patches; adopted introductory pricing qualification; see S4c validation |
 | U030 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/models/GoogleGenerateContent.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/models/GoogleGenerateContent.kt | 2905490b7e1461b105c15640df82cf0fbdb3bd59 | 31ea6c4838d354794171fbbf236b06e7f1f2ca2d | 8d7dede3c042e1f8acf8071de1055267678ab8d1 | S4c | Upstream optional cache wire field already present with inclusive-subset KDoc; retained fork hosted execution and thinking wire types; see S4c validation |
 | U031 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClientTest.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClientTest.kt | f42c6891175c967ad901bb346361f1bcfa53e175 | eb781921ad4e58d5284778f08dfae4394abc849c | 07ce97c022ad5a409337c33883d088bc23366d10 | S4c | Upstream cache assertion covered and extended in GoogleTokenUsageTest across both transports; existing signature and constraint assertions pass; see S4c validation |
-| U032 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModels.kt | acf41e597b858f743cfb337df85bf4d40b743d54 | 0815e9d5c00813912b359244be76b87f787f5eb8 | acf41e597b858f743cfb337df85bf4d40b743d54 | S4e-mistralai | Pending adoption with named slice contracts and history evidence; B=H |
+| U032 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModels.kt | acf41e597b858f743cfb337df85bf4d40b743d54 | 0815e9d5c00813912b359244be76b87f787f5eb8 | acf41e597b858f743cfb337df85bf4d40b743d54 | S4e-mistralai | Adopted complete pinned model and catalogue delta; cosmetic British English and KDoc punctuation adaptation; three additive JVM fields and exact profile regressions; S4e-mistralai validation |
 | U033 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/android/prompt-executor-ollama-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/android/prompt-executor-ollama-client.api | 07e68087bc80355616e176c21a476425ceefd5eb | 283fc36ecd21312d66d4d3578a51974c63d49eb9 | 07e68087bc80355616e176c21a476425ceefd5eb | X-ABI | Explicit exemption: non-JVM ABI; retain H; B=H |
 | U034 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/jvm/prompt-executor-ollama-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/jvm/prompt-executor-ollama-client.api | 07e68087bc80355616e176c21a476425ceefd5eb | 283fc36ecd21312d66d4d3578a51974c63d49eb9 | 07e68087bc80355616e176c21a476425ceefd5eb | S4e-ollama | Pending adoption with named slice contracts and history evidence; B=H |
 | U035 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/prompt-executor-ollama-client.klib.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/prompt-executor-ollama-client.klib.api | 658700aa53fda45d9f4b5f913573f52eb840241b | 493aae6d0c433fa029e1988f900bbacad1179a97 | 658700aa53fda45d9f4b5f913573f52eb840241b | X-ABI | Explicit exemption: non-JVM ABI; retain H; B=H |
@@ -854,3 +854,47 @@ no checked-in DeepSeek dump and none was introduced. This proves relative JVM co
 All 299 ledger rows retain their historical columns. No non-JVM task, aggregate ABI task,
 publication or live-provider request ran. Residual risk is untested live-provider behaviour;
 no slice blocker remains. git diff --check passes.
+
+## S4e-mistralai validation
+
+U032 adopts the complete pinned upstream model and catalogue delta from blob
+0815e9d5c00813912b359244be76b87f787f5eb8. The pre-slice source matched baseline blob
+acf41e597b858f743cfb337df85bf4d40b743d54. Sole upstream adaptations are KDoc British
+English spelling and punctuation. Ministral3_3B, Ministral3_8B and Ministral3_14B join
+the catalogue with their pinned latest aliases, six capabilities and 128,000-token
+contexts. MistralLarge21 retains its public field name, latest alias and capabilities,
+while its context grows to 256,000 tokens. All remaining model profiles are unchanged.
+
+MistralAIModelsTest now uses unconditional assertions and testXxx names. Its four tests
+verify every provider, all twelve catalogue entries and reflected-field identities,
+unique IDs, exact new aliases and complete capability lists, context lengths and
+unspecified output limits. The existing Large field regression verifies its alias,
+capabilities and expanded context. No transport source changed.
+
+Java 21 validation command:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :prompt:prompt-executor:prompt-executor-clients:prompt-executor-mistralai-client:jvmTest :prompt:prompt-executor:prompt-executor-clients:prompt-executor-mistralai-client:jvmJar --offline --console=plain --no-parallel --no-daemon
+```
+
+Pass: 21 tests across four XML suites, zero failures, errors or skips; BUILD SUCCESSFUL
+in 1 minute 14 seconds. The pre-change JVM JAR passed in 45 seconds. Logs are
+/tmp/kroog-s4e-mistralai-before.log and /tmp/kroog-s4e-mistralai-tests.log.
+Module reports are under build/test-results/jvmTest and build/reports/tests/jvmTest.
+
+Relative JVM ABI validation uses Kotlin 2.3.10 AbiToolsV2 through
+/tmp/kroog-s4b-CheckAbi.java and /tmp/kroog-s4a-abi-classpath with the seven repository
+internal-API exclusions. Baseline /tmp/kroog-s4e-mistralai-before.api contains 16,305
+characters and 170 lines. Final /tmp/kroog-s4e-mistralai-after.api contains 16,516
+characters and 173 lines. Removing exactly the three Ministral3 public static fields
+makes the final dump byte-identical to the baseline. The independent runner comparison
+against /tmp/kroog-s4e-mistralai-expected.api passes and writes
+/tmp/kroog-s4e-mistralai-verified.api. Initial generation comparisons against /dev/null
+and the pre-change dump intentionally report differences. The passing comparison uses
+a temporary expected dump, despite the runner's generic checked-in-dump success message.
+The module sets isBeta=true; the convention disables beta ABI tasks. Its existing
+absence of checked-in API dumps is preserved. No existing JVM signature changed.
+
+All 299 ledger rows retain their historical columns. git diff --check passes.
+No non-JVM task, aggregate ABI task, publication or live-provider request ran.
+Residual risk is untested live-provider behaviour; no slice blocker remains.
