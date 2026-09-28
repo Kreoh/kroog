@@ -288,3 +288,25 @@ val backgroundResponse = client.execute(
     )
 )
 ```
+
+## Live transcription WebRTC setup
+
+`OpenAILiveTranscriptionClient` sets up a transcription-only WebRTC session through an authenticated `KoogHttpClient`. It sends the browser's SDP offer and transcription settings together in one multipart request and returns the SDP answer. The transport's base URL, project authentication, optional `OpenAI-Safety-Identifier` header, timeouts and lifecycle remain caller-owned, as with `OpenAIImagesClient`. The default path includes `v1/` and assume a base URL such as `https://api.openai.com/`; override the path when using a versioned base URL or gateway.
+
+```kotlin
+val transcription = OpenAILiveTranscriptionClient(authenticatedHttpClient)
+val answer = transcription.createSession(
+    sdpOffer = browserSdpOffer,
+    options = OpenAILiveTranscriptionOptions(
+        languages = listOf("en", "ru"),
+        delay = OpenAITranscriptionDelay.LOW,
+    ),
+)
+// Return the answer to the browser for RTCPeerConnection.setRemoteDescription.
+```
+
+The default model is `gpt-live-transcribe`. Language hints, context, keywords and delay are optional; omitted settings preserve provider defaults. Use compatible live-transcription snapshots when overriding the model. WebRTC negotiates audio format, and server turn detection is explicitly disabled. HTTP failures retain `KoogHttpClientException`, including status and request ID; cancellation propagates and no retries are added by this client.
+
+This API only performs setup. The browser must create its data channel before the offer, wait for session readiness, handle partial and final transcript events, commit audio turns and close the connection. Stopping a media track or receiving an SDP answer does not prove that audio has been fully transcribed. Applications must verify final audio delivery and final transcript handling before submitting dictated text. Cancelling setup does not undo a provider request already accepted; close any abandoned browser peer connection too.
+
+Setup uses the unified multipart [call endpoint](https://developers.openai.com/api/reference/resources/realtime/subresources/calls/methods/create). Its reference currently declares conversational configuration only; transcription-only setup was verified against the live endpoint. See the [transcription guide](https://developers.openai.com/api/docs/guides/realtime-transcription) for browser event semantics. No agent loop, audio relay or browser library is introduced by this setup API.
