@@ -137,7 +137,7 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | U023 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModelsTest.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModelsTest.kt | 88317dc814bcd3ff9058031b61650f8138f1f8d8 | 4e69669d1d0ddd50673c3571111e28af232d3854 | 929c1dc046fcc20a8e61dc89422b83499b198835 | S4b | Adapted: all upstream schema and thinking assertions retained, with Sonnet_5 profile and request regressions; see S4b validation |
 | U024 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/api/jvm/prompt-executor-bedrock-client.api | prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/api/jvm/prompt-executor-bedrock-client.api | ec8e5269d14527c502896a2bd8bfac1c62f0296c | 29de9245957bf9200c0d572d1dcd0c54572c37a1 | bd642355e7e6ce52c6d3a4ba8d873df035534597 | S4d | Adapted with retained Kroog APIs; generated JVM dump, exactly two additive getters versus compiled baseline; pre-existing ordering drift resolved; S4d validation |
 | U025 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt | e22e1fcf08d0b742273e5c3721f7e5ba3066e16c | 8049739064957eacad068f88f03fa877d6834551 | 22bb8b06c1fd5ec317244d3970d105c332f1826d | S4d | Adapted with retained Fable 5.1 profile; all U model additions present, Opus 4.8/5 already equivalent; exact new Sonnet 5/Nova 2 Lite definitions and registry; S4d validation |
-| U026 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/dashscope/DashscopeModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/dashscope/DashscopeModels.kt | 38854edcf3f211cc3a112a48539f1dc03ff5ea27 | 71c99ebc13aa9cde5bc6734e7edb55533afb4a9e | 38854edcf3f211cc3a112a48539f1dc03ff5ea27 | S4e-dashscope | Pending adoption with named slice contracts and history evidence; B=H |
+| U026 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/dashscope/DashscopeModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/dashscope/DashscopeModels.kt | 38854edcf3f211cc3a112a48539f1dc03ff5ea27 | 71c99ebc13aa9cde5bc6734e7edb55533afb4a9e | 38854edcf3f211cc3a112a48539f1dc03ff5ea27 | S4e-dashscope | Adopted pinned upstream model definitions and catalogue; sole cosmetic KDoc punctuation adaptation; three additive JVM fields and exact profile regressions; S4e-dashscope validation |
 | U027 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/deepseek/DeepSeekModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/deepseek/DeepSeekModels.kt | 08bad5f400598bc6a102061aa15f7313c82ab5bb | 97cfb48ac329f8fe00758bb4d7d56f8ecd9de209 | 08bad5f400598bc6a102061aa15f7313c82ab5bb | S4e-deepseek | Pending adoption with named slice contracts and history evidence; B=H |
 | U028 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClient.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClient.kt | cff3739025a71c1c06e29abd831a7069960762e7 | 989431decee2ffb551b017918c0d46bdf1ff5969 | 0d20b02ce49d2b6e0342bfc628dcb537d6fda9fc | S4c | Adopted pinned cache metadata at shared conversion; retained structured inclusive usage, signatures, hosted execution and request constraints; see S4c validation |
 | U029 | M | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt | prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt | fdbe670c33fdba787d934e8ae48b55deb9f19e8f | 024a3a5ef0c38f82e4e86cfc24d44b97012f5c29 | bed1f4657d6eaadffd1bdf796b368b8e88fe7fb9 | S4c | All upstream profiles already present; retained evidenced fixed-sampling and Document patches; adopted introductory pricing qualification; see S4c validation |
@@ -762,3 +762,49 @@ classes; its line multiset matches the compiled baseline. The refreshed JVM dump
 final generated output exactly. No non-JVM dumps or targets were touched. git diff --check
 passes. All 299 ledger rows retain their historical columns. Live AWS access was not tested;
 the pinned profiles and injected transport regressions define this slice's evidence.
+
+## S4e-dashscope validation
+
+U026 adopts all three model definitions and supported-model entries from pinned upstream
+3acc88cf8ce70b87d8afbd3cf184844a50aa504e: QWEN3_5_PLUS, QWEN3_7_MAX and QWEN3_8_MAX.
+B and H were identical (38854edcf3f211cc3a112a48539f1dc03ff5ea27). The sole difference
+from upstream blob 71c99ebc13aa9cde5bc6734e7edb55533afb4a9e is replacing an em dash
+with a comma in Qwen 3.8 KDoc to follow repository prose rules. No runtime source changes
+or fork-only Dashscope ledger rows exist in this slice.
+
+DashscopeModelsTest adds testNewQwenVersionsExposeExactProfiles, asserting exact IDs,
+Alibaba provider identity, catalogue and reflected-field identity, million-token context,
+output limits, and complete capability sets. Text-only 3.7, image-only 3.5 and image/video
+3.8 capabilities are distinguished. The existing catalogue completeness test now uses
+assertEquals instead of a JVM assertion. Existing parameter, serialisation, HTTP request,
+reasoning/tool-call and token-usage assertions remain unchanged. Streaming coverage creates
+a flow only; it does not establish end-to-end provider streaming.
+
+Java 21 validation command:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :prompt:prompt-executor:prompt-executor-clients:prompt-executor-dashscope-client:jvmTest :prompt:prompt-executor:prompt-executor-clients:prompt-executor-dashscope-client:jvmJar --offline --console=plain --no-parallel --no-daemon
+```
+
+Pass: 30 tests in four XML suites, zero failures, errors or skips; BUILD SUCCESSFUL in
+1 minute 4 seconds. The earlier test compilation caught nullable capabilities and numeric
+assertion types; both were corrected before the passing run. Logs are
+/tmp/kroog-s4e-dashscope-before.log, /tmp/kroog-s4e-dashscope-tests.log (initial compile
+failure) and /tmp/kroog-s4e-dashscope-tests-final.log. XML and HTML reports reside in the
+module's build/test-results/jvmTest and build/reports/tests/jvmTest directories.
+
+JVM-only ABI proof uses Kotlin 2.3.10 AbiToolsV2 via /tmp/kroog-s4b-CheckAbi.java and
+/tmp/kroog-s4a-abi-classpath with seven internal-API exclusions. The unchanged JVM JAR
+baseline passed first. Generated before/after dumps are /tmp/kroog-s4e-dashscope-before.api
+(13,249 characters, 125 lines) and /tmp/kroog-s4e-dashscope-after.api (13,454 characters,
+128 lines). Removing exactly the three new public static model-field lines makes the
+final dump byte-identical to the baseline. Final compiled output independently matches
+/tmp/kroog-s4e-dashscope-verified.api. Initial runner comparisons deliberately report a
+difference when generating against /dev/null and then the pre-change baseline; these
+are generation steps, not claims of unchanged ABI. Dashscope sets isBeta=true and the
+multiplatform convention disables ABI tasks for beta modules. It has no checked-in dump;
+none was introduced. This evidence establishes relative JVM compatibility only.
+
+All 299 ledger rows retain their historical columns. git diff --check passes. No aggregate
+ABI task, non-JVM target or live-provider request ran. Residual risk is untested live-provider
+behaviour; no slice blocker remains.
