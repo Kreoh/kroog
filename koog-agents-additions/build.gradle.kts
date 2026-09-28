@@ -8,7 +8,6 @@ plugins {
 }
 
 val excluded = setOf(
-    ":skills",
     ":skills-api-consumer-test",
     ":agents:agents-test",
     ":agents:agents-ext",
@@ -120,7 +119,8 @@ val included = setOf(
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-dashscope-client",
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-litert-client",
     ":prompt:prompt-executor:prompt-executor-llms-all",
-    ":rag:rag-vector"
+    ":rag:rag-vector",
+    ":skills"
 )
 
 // Modules that do not publish a wasmJs artifact. They are filtered out of the
@@ -171,7 +171,7 @@ kotlin {
                     }
                 }
 
-                projects.filterNot { it.path in wasmJsExcluded }.forEach {
+                projects.filterNot { it.path in wasmJsExcluded || it.path == ":skills" }.forEach {
                     api(project(it.path))
                 }
             }
@@ -192,6 +192,8 @@ kotlin {
         }
 
         jvmMain.dependencies {
+            // Skills retains Kroog's JVM-only server convention.
+            api(project(":skills"))
             api(libs.ktor.client.apache5)
         }
 

@@ -7,7 +7,6 @@ plugins {
 }
 
 val excluded = setOf(
-    ":skills",
     ":skills-api-consumer-test",
     ":agents:agents-test",
     ":agents:agents-ext",
@@ -80,7 +79,8 @@ val betaModules = setOf(
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-dashscope-client",
     ":prompt:prompt-executor:prompt-executor-clients:prompt-executor-litert-client",
     ":prompt:prompt-executor:prompt-executor-llms-all",
-    ":rag:rag-vector"
+    ":rag:rag-vector",
+    ":skills"
 )
 
 // Non-beta modules ONLY:
