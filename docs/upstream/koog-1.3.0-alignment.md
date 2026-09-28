@@ -397,10 +397,10 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F224 | M | prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt | prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt | c77a34e68cc331c4f8f3da98544cdc2219442360 | c77a34e68cc331c4f8f3da98544cdc2219442360 | e442082adb31c7229bfb243ddb76c9338e7609b1 | S5c | Retained H unchanged; assigned JVM presentation regressions passed; see S5c validation; B=U |
 | F225 | M | settings.gradle.kts | settings.gradle.kts | 451015ad7f16f75f76bf768cc111799d99901215 | 53638c13fdc85b4de98fe2dd1243421ffd55e7ee | 47256fc64a231c1fe1cddb8d8c7a08d09a615ba8 | S1 | Adapted with Kroog module graph; upstream skills inclusion already present, retained H; S1 |
 | F226 | A | absent | skills-api-consumer-test/build.gradle.kts | absent | absent | 054fcc7a08fabb4bfd4e088062ff36b7d161cc9d | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
-| F227 | A | absent | skills-api-consumer-test/src/main/kotlin/ai/koog/skills/consumer/SkillsApiConsumer.kt | absent | absent | 2f60934704e3b2a216ec23643e85fb0e1eb503b7 | S6c | Pending regression evidence: retain fork extension; B=U |
+| F227 | A | absent | skills-api-consumer-test/src/main/kotlin/ai/koog/skills/consumer/SkillsApiConsumer.kt | absent | absent | 2f60934704e3b2a216ec23643e85fb0e1eb503b7 | S6c | Extended consumer compiles legacy and upstream APIs with only skills dependency; explicit rag provider and tool serialisation exposure verified in S6c |
 | F228 | A | absent | skills/README.md | absent | absent | 6f4b2a776e04ecbe046d5cdf02c190b4fcaff53a | S7-docs | Pending regression evidence: retain fork extension; B=U |
 | F229 | A | absent | skills/build.gradle.kts | absent | 234f2e0d5ccfc02e0f65ac1bfbf4f342665f5dc8 | a40ddc6a83f78c3aaf2d097965ad2cd448da90d5 | S1 | Adapted with Kroog JVM server convention, tools and JSON APIs, SnakeYAML and upstream dependencies; S1 |
-| F230 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/LoadSkillTool.kt | absent | absent | c29d00c7e63135c314de6ef909236c3d9d531cb9 | S6c | Pending regression evidence: retain fork extension; B=U |
+| F230 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/LoadSkillTool.kt | absent | absent | c29d00c7e63135c314de6ef909236c3d9d531cb9 | S6c | Retained fork source byte-identically; exact snapshot lookup, typed errors and all merge policies verified in S6c |
 | F231 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/Skill.kt | absent | absent | 395ef49722b5ea6d0a6a55df0a31f795f3e7c8a7 | S6a | Retained public legacy model byte-identically in compiled ABI; internal validation accepts empty bodies only for upstream metadata parsing. Loadable values retain non-blank body checks. S6a. |
 | F232 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/SkillCatalogue.kt | absent | absent | c127233501b83352c8b811e7d73565456974c76f | S6a | Legacy renderer delegates to upstream-owned structured catalogue, preserving compact metadata-only JSON, empty null and encoded code-point limits. Five retained tests plus escaping equivalence pass. S6a. |
 | F233 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/SkillError.kt | absent | absent | 991bb8afd55587a9a9adf390c654cfce13083ab6 | S6a | Retained unchanged typed errors and redaction; hostile filesystem and compatibility tests pass in S6a. |
@@ -408,13 +408,13 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F235 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/SkillRegistry.kt | absent | absent | 1b36e01b1487442358aac024045f00d415f530dd | S6a | Registry delegates duplicate selection to canonical complete-record snapshot; sequential sources, ordering, diagnostics, aggregate budgets and value identity retained. Thirteen unchanged tests pass. S6a. |
 | F236 | A | absent | skills/src/commonMain/kotlin/ai/koog/skills/SkillSource.kt | absent | absent | f0fe01ed1b509ec8472f931006fb44a24d6da2e2 | S6a | In-memory source delegates canonical snapshot selection; immutable copied results and legacy validation retained. Seven unchanged tests pass. S6a. |
 | F237 | A | absent | skills/src/commonTest/kotlin/ai/koog/skills/InMemorySkillSourceTest.kt | absent | absent | 822d7ccd3144b73d8485edcc5872ab5ab5cca4cf | S6a | Unchanged seven-test suite passes against canonical snapshot selection. S6a. |
-| F238 | A | absent | skills/src/commonTest/kotlin/ai/koog/skills/LoadSkillToolTest.kt | absent | absent | 132bfdca9b46de5210c4f309ddef3bc6884702a6 | S6c | Pending regression evidence: retain fork extension; B=U |
+| F238 | A | absent | skills/src/commonTest/kotlin/ai/koog/skills/LoadSkillToolTest.kt | absent | absent | 132bfdca9b46de5210c4f309ddef3bc6884702a6 | S6c | Retained fork assertions byte-identically; all 12 typed loading and collision tests pass in S6c |
 | F239 | A | absent | skills/src/commonTest/kotlin/ai/koog/skills/SkillCatalogueTest.kt | absent | absent | d7d9a058d0d424fbc49c43557d97a9f59a6793ce | S6a | Unchanged five-test suite passes against canonical renderer projection. S6a. |
 | F240 | A | absent | skills/src/commonTest/kotlin/ai/koog/skills/SkillRegistryTest.kt | absent | absent | be93e41588b9b331fcd7ae5c73a194bcd815221a | S6a | Unchanged thirteen-test suite passes against canonical snapshot selection. S6a. |
 | F241 | A | absent | skills/src/jvmMain/kotlin/ai/koog/skills/JvmFileSystemSkillSource.kt | absent | absent | 4681c773d79f21b3f1047694aad91aefc00ba429 | S6a | Legacy filesystem source wraps upstream-owned discoverRecords and secure JVM session; original Path providers and race hooks retained. Twenty-three unchanged hostile/race tests plus compatibility regressions pass. S6a. |
 | F242 | A | absent | skills/src/jvmMain/kotlin/ai/koog/skills/SkillParser.kt | absent | absent | 590243e2f11edf725e4e2105ebb95d180e4ddda9 | S6a | Legacy parser is a shim to the upstream-owned strict JVM parser actual; no parallel lenient parser. Twelve unchanged tests plus canonical compatibility regressions pass. S6a. |
 | F243 | A | absent | skills/src/jvmTest/kotlin/ai/koog/skills/JvmFileSystemSkillSourceTest.kt | absent | absent | 5b7558d02ac3654c38356c483ad8f758ed8de4b4 | S6a | Unchanged twenty-three-test hostile/race suite passes against canonical discovery and scoped descriptors. S6a. |
-| F244 | A | absent | skills/src/jvmTest/kotlin/ai/koog/skills/LoadSkillToolAgentIntegrationTest.kt | absent | absent | a3d02b3cdf3e328f133ccc6039404bb86a44fa08 | S6c | Pending regression evidence: retain fork extension; B=U |
+| F244 | A | absent | skills/src/jvmTest/kotlin/ai/koog/skills/LoadSkillToolAgentIntegrationTest.kt | absent | absent | a3d02b3cdf3e328f133ccc6039404bb86a44fa08 | S6c | Retained in-memory carry-forward assertions and added secure filesystem capture followed by source deletion; both agent tests pass in S6c |
 | F245 | A | absent | skills/src/jvmTest/kotlin/ai/koog/skills/SkillParserTest.kt | absent | absent | 4afb3836dcc4d107f4abcb90e0ca654ba1e9f7d8 | S6a | Unchanged twelve-test strict YAML suite passes through the legacy parser shim. S6a. |
 
 ## Exact slice memberships
@@ -501,10 +501,10 @@ Enumerated from git log --reverse B..H: all 70 ancestry commits, including pre-m
 | 68b632c3cdf6a1cc4bbff046b0dd23fdb1db84b8 | chore(release): prepare 1.0.0-kroog.5 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
 | 6843b0136f0a098c353163dcb8ae1364c53fa326 | chore(kroog): merge Koog 1.1.1 | F001, F002, F003, F004, U002, F005, U003, F006, F007, F008, F009, F014, F015, F016, F019, F020, F021, F022, F023, F024, F025, F026, F027, F028, F029, F030, F031, F032, F033, F034, F035, F038, F039, F040, F041, F042, F043, F044, F045, F046, U006, U007, F049, U009, U010, F050, U011, F051, U012, F053, F054, F055, F056, F057, F060, F061, F062, F063, U017, U018, F069, F070, F073, F074, F075, F076, F077, F078, F079, F080, F081, F082, F083, U019, U020, U021, F087, U022, F089, F090, F091, F092, F093, U023, F095, F096, F097, F098, U024, F100, F101, U025, F103, F104, F105, F106, F107, F108, F109, F110, F111, F112, F113, F114, F116, F117, F119, F120, F121, F122, U028, F125, U030, F127, F128, F129, U031, F133, F136, F137, F138, F140, F143, U037, U038, U039, F151, U040, F153, F154, F155, F156, F157, U041, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F178, F179, F180, F181, F182, F183, F184, F185, F186, F187, F188, F189, F190, F191, F192, F193, F194, F195, F197, F198, F199, F200, F201, F202, F203, F204, F205, F206, F207, F208, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F223, F224, U047 | F019, F020, F021, F022, F025, F026, F028, F029, F030, F032, F034, F035, F045, F046, F057, F061, F062, F070, F091, F092, F093, U023, F095, F096, F097, F098, F109, F110, F111, F112, F113, F114, F116, F117, F119, F127, F128, F129, U031, F133, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F180, F181, F182, F190, F191, F192, F195, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F224 | R-http-fixtures, R-openai-base, R-runtime, S1, S2, S3, S4a, S4b, S4c, S4d, S4e-deepseek, S5a, S5c, S7, S7-docs; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5c verified only F024, F025, F026, F027, F028, F029, F030, F031, F032, F033, F034, F035, F223, F224, see S5c validation |
 | db3a94f08879eb7c5bf77ef283ef9b95ace74707 | feat(skills): add validated skill sources | F054, U017, U018, U047, U049, F231, F233, F234, F236, F237, F241, F242, F243, F245 | F237, F243, F245 | S1, S6a; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending) |
-| f3c304b0076d70fa8726f2a3ac125f9976b0ea88 | feat(skills): add catalogue and load tool | U049, F230, F232, F235, F238, F239, F240 | F238, F239, F240 | S1, S6a, S6c; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending) |
-| ac2b5cfa17b749bdf135c5d9e2209e259197110d | test(skills): cover agent history carry-forward | U049, F244 | F244 | S1, S6c; pending |
+| f3c304b0076d70fa8726f2a3ac125f9976b0ea88 | feat(skills): add catalogue and load tool | U049, F230, F232, F235, F238, F239, F240 | F238, F239, F240 | S1, S6a, S6c; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending); S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation |
+| ac2b5cfa17b749bdf135c5d9e2209e259197110d | test(skills): cover agent history carry-forward | U049, F244 | F244 | S1, S6c; pending; S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation |
 | 1e822f6267f8e9735aaad9ac72db77cc8f7f1a77 | docs(skills): document beta module publication | F001, F002, F005, F053, F228 | Slice regressions; assertion review pending | S7, S7-docs; pending |
-| 2605311ac14b669d694d791059526f750ab55dec | fix(skills): expose public API dependencies | U017, U018, U047, F226, F227, F228, U049, F234, F241, F243 | F243 | S1, S6a, S6c, S7-docs; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending) |
+| 2605311ac14b669d694d791059526f750ab55dec | fix(skills): expose public API dependencies | U017, U018, U047, F226, F227, F228, U049, F234, F241, F243 | F243 | S1, S6a, S6c, S7-docs; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending); S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation |
 | 1e1316b98f93429b19489a350273e4b91abce953 | fix(release): support verified browser tag dispatch | F001, F005 | Slice regressions; assertion review pending | S7; pending |
 | d0af9baee80d5caf3f62f03079f79a2a7689a39e | fix(release): encode Central upload query directly | F001 | Slice regressions; assertion review pending | S7; pending |
 | bab8fc8403b507ad6a84cdc146902d927f8203dd | feat(models): add Gemini and Claude model profiles | F048, F071, F072, U020, F087, U022, U023, U024, F101, U025, F108, F111, F117, F121, U028, U029, U031, F131, F204, F219, F222 | F072, U023, F111, F117, U031, F131, F219, F222 | R-ktor, S2, S4b, S4c, S4d, S7-docs; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; R-ktor verified, see S5b and R-ktor validation |
@@ -1302,3 +1302,51 @@ comparison, consumer compilation or non-JVM check is claimed. Residual limits:
 filesystem race tests use deterministic seams on the local secure-stream
 provider; they do not certify other providers or every possible concurrent
 filesystem schedule. No blocker or observed production defect remains.
+
+### S6c typed loading, formats and consumer verification
+
+No production correction is needed atop `ae192f266129e447905635d7da21d1622834859f`.
+F230 `LoadSkillTool.kt` and F238 `LoadSkillToolTest.kt` retain their original
+fork blobs exactly. The 12 typed-tool tests prove case-sensitive lookup,
+traversal-shaped missing keys, typed unknown-skill and collision errors,
+serialisation, source-free execution and every collision policy, including
+registry identity and replacement order. Existing catalogue tests retain compact
+metadata-only JSON, lexical order, path and diagnostic privacy, empty `null`,
+and the exact encoded Unicode code-point limit. Existing compatibility and
+upstream prompt tests cover control characters, all optional fields, format
+selection, XML validity and YAML string-key preservation.
+
+Two observable regressions close the remaining gaps. The existing
+`LoadSkillToolAgentIntegrationTest` now also builds a registry through
+`JvmFileSystemSkillSource`, deletes its document and directory, then executes the
+real typed tool through a mocked agent. It checks the captured complete body in
+the next prompt, matching tool-call/result identifiers, final response and token
+counts. The source is invoked exactly once and rejects any later invocation.
+The original in-memory integration test retains all assertions through the same
+helper. `SkillsPromptTest.testEmptySkillsRetainEveryUpstreamFormatEnvelope`
+checks the exact non-null XML, JSON and YML empty envelopes; the separate legacy
+empty-null assertion remains unchanged.
+
+F227 now explicitly consumes `FileSystemProvider.ReadOnly<String>` from rag and
+`KotlinxSerializer` through the tool's argument and result APIs. Both legacy and
+upstream public consumers compile. The consumer build file still declares only
+`implementation(project(":skills"))`; no direct dependency masks missing public
+exposure. This is compilation evidence, not a claim that consumer functions ran.
+No dependency or publication metadata changed, so the accepted S1 POM evidence
+is reused. The README already documents these compatibility contracts and was
+not edited. Production sources and build declarations are byte-identical to
+accepted S6a, so its JVM ABI evidence is reused: all 48 old public blocks retained
+and eight additions. No fresh ABI comparison is claimed.
+
+Validation: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :skills:jvmTest :skills-api-consumer-test:compileKotlin --no-parallel --no-daemon`
+passes after the final test edit. Fresh XML reports record 119 tests in ten
+suites, zero failures, errors or skips, including two agent integration tests,
+12 typed-tool tests, five catalogue tests and nine upstream prompt tests. The
+initial run compiled the changed consumer; the final run correctly reports it
+up-to-date. Host logs are `/tmp/kroog-s6c-tests.log` and
+`/tmp/kroog-s6c-tests-final.log`. `git diff --check` passes and all 299 ledger
+historical prefixes remain unchanged. Only four S6c ledger dispositions and
+three related history annotations are updated. No blocker or production defect
+remains. Residual limits: JVM-only validation, local secure-stream filesystem
+coverage, and consumer compilation rather than published-artifact resolution.
+No publication, non-JVM task or aggregate ABI task ran.

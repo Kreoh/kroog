@@ -9,6 +9,22 @@ import kotlin.test.assertFailsWith
 
 /** Imported Koog 1.3.0 (3acc88cf) goldens with British English fixtures; XML rejection regression added. */
 class SkillsPromptTest {
+    @Test
+    fun testEmptySkillsRetainEveryUpstreamFormatEnvelope() {
+        assertEquals(
+            "<available_skills>\n</available_skills>",
+            generateSkillsPrompt(emptyList(), SkillsPromptFormat.XML),
+        )
+        assertEquals(
+            "{\n  \"available_skills\": [\n  ]\n}",
+            generateSkillsPrompt(emptyList(), SkillsPromptFormat.JSON),
+        )
+        assertEquals(
+            "available_skills:\n  []",
+            generateSkillsPrompt(emptyList(), SkillsPromptFormat.YML),
+        )
+    }
+
     private val skills = listOf(
         Skill(
             name = "pdf-processing",

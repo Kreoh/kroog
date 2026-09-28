@@ -1,6 +1,8 @@
 package ai.koog.skills.consumer
 
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.rag.base.files.FileSystemProvider
+import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.skills.InMemorySkillSource
 import ai.koog.skills.LoadSkillArgs
 import ai.koog.skills.LoadSkillResult
@@ -18,6 +20,10 @@ public suspend fun consumeSkillsApi(): ToolRegistry {
     val argsSerializer = LoadSkillArgs.serializer()
     val resultSerializer = LoadSkillResult.serializer()
 
+    val serializer = KotlinxSerializer()
+    val args = LoadSkillArgs("example")
+    check(tool.decodeArgs(tool.encodeArgs(args, serializer), serializer) == args)
+    check(tool.encodeResultToString(tool.execute(args), serializer).contains("Follow the instructions."))
     check(tool.name == LoadSkillTool.NAME)
     check(argsSerializer.descriptor.serialName.endsWith("LoadSkillArgs"))
     check(resultSerializer.descriptor.serialName.endsWith("LoadSkillResult"))
@@ -26,7 +32,7 @@ public suspend fun consumeSkillsApi(): ToolRegistry {
 
 /** Compiles the upstream discovery, model serialiser and all prompt formats. */
 public suspend fun consumeUpstreamSkillsApi(): List<ai.koog.skills.model.Skill> {
-    val fs = ai.koog.skills.discovery.SkillFileSystemSnapshot(mapOf(
+    val fs: FileSystemProvider.ReadOnly<String> = ai.koog.skills.discovery.SkillFileSystemSnapshot(mapOf(
         "/skills/example/SKILL.md" to "---\nname: example\ndescription: Example skill\n---\nInstructions".encodeToByteArray(),
     ))
     val skills = ai.koog.skills.discovery.discoverSkills(fs, listOf("/skills"))
