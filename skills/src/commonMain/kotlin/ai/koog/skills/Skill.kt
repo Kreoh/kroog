@@ -35,12 +35,13 @@ internal object SkillValidation {
         instructions: String,
         limits: SkillLimits? = null,
         expectedName: String? = null,
+        allowEmptyInstructions: Boolean = false,
     ) {
         validateName(name)
         if (description.isBlank() || description != description.trim()) {
             throw SkillException(SkillError.InvalidField("description", "must be trimmed and non-blank"))
         }
-        if (instructions.isBlank() || instructions != instructions.trim()) {
+        if ((!allowEmptyInstructions && instructions.isBlank()) || instructions != instructions.trim()) {
             throw SkillException(SkillError.InvalidField("instructions", "must be trimmed and non-blank"))
         }
         if (limits != null && description.unicodeCodePointCount() > limits.maxDescriptionCharacters) {

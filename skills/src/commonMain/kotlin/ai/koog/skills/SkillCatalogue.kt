@@ -2,9 +2,7 @@ package ai.koog.skills
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
+import ai.koog.skills.prompt.skillsCatalogue
 
 /** Catalogue formats supported by [SkillCatalogueRenderer]. */
 public enum class SkillCatalogueFormat {
@@ -27,23 +25,12 @@ public object SkillCatalogueRenderer {
         if (registry.isEmpty()) return null
 
         val catalogue: String = when (format) {
-            SkillCatalogueFormat.JSON -> Json.encodeToString(JsonArray.serializer(), registry.asJsonArray())
+            SkillCatalogueFormat.JSON -> Json.encodeToString(JsonArray.serializer(), skillsCatalogue(registry.metadata.map { ai.koog.skills.model.Skill(it.name, it.description, "") }))
         }
         if (catalogue.unicodeCodePointCount() > limits.maxCatalogueCharacters) {
             throw SkillException(SkillError.CatalogueOverflow)
         }
         return catalogue
-    }
-}
-
-private fun SkillRegistry.asJsonArray(): JsonArray = buildJsonArray {
-    metadata.forEach { skill ->
-        add(
-            buildJsonObject {
-                put("name", skill.name)
-                put("description", skill.description)
-            }
-        )
     }
 }
 

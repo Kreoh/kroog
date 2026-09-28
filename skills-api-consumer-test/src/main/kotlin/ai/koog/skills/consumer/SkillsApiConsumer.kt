@@ -23,3 +23,16 @@ public suspend fun consumeSkillsApi(): ToolRegistry {
     check(resultSerializer.descriptor.serialName.endsWith("LoadSkillResult"))
     return registry.mergeToolInto(ToolRegistry.EMPTY)
 }
+
+/** Compiles the upstream discovery, model serialiser and all prompt formats. */
+public suspend fun consumeUpstreamSkillsApi(): List<ai.koog.skills.model.Skill> {
+    val fs = ai.koog.skills.discovery.SkillFileSystemSnapshot(mapOf(
+        "/skills/example/SKILL.md" to "---\nname: example\ndescription: Example skill\n---\nInstructions".encodeToByteArray(),
+    ))
+    val skills = ai.koog.skills.discovery.discoverSkills(fs, listOf("/skills"))
+    ai.koog.skills.prompt.SkillsPromptFormat.entries.forEach {
+        check(ai.koog.skills.prompt.generateSkillsPrompt(skills, it).isNotEmpty())
+    }
+    check(ai.koog.skills.model.Skill.serializer().descriptor.serialName.endsWith("Skill"))
+    return skills
+}
