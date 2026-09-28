@@ -1197,6 +1197,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             } else {
                 knownTotal.takeIf { totalTokenCount == null || it == totalTokenCount }
             },
+            metadata = cachedContentTokenCount?.let { cached ->
+                buildJsonObject { put("cachedContentTokenCount", cached) }
+            },
             cacheReadTokensCount = cachedContentTokenCount,
             reasoningTokensCount = thoughtsTokenCount,
         )

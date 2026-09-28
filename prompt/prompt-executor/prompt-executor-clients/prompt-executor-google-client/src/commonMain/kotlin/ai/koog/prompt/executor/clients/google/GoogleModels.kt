@@ -35,7 +35,9 @@ import kotlin.jvm.JvmField
  * | [Gemini3_5Flash]            | Fast      | $1.50 / $9.00                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_5FlashLite]        | Very fast | $0.30 / $2.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
  * | [Gemini3_6Flash]            | Fast      | $1.50 / $7.50                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
- * | [Gemini3_7Flash]            | Fast      | $0.75 / $3.75                | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
+ * | [Gemini3_7Flash]            | Fast      | $0.75 / $3.75¹               | Audio, Image, Video, Text, Tools, Document  | Text, Tools         |
+ *
+ * ¹ Introductory pricing until 31 December 2026.
  *
  * @see <a href="modelcards.withgoogle.com/model-cards">
  */
