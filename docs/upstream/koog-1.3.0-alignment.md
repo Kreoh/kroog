@@ -1246,3 +1246,59 @@ still has no checked-in dump. All 299 ledger historical prefixes are unchanged;
 `git diff --check` passes. No new blocker remains. Residual limits are JVM-only
 validation and the documented XML rejection contract; no non-JVM target,
 publication or aggregate ABI task ran.
+
+### S6b security and snapshot boundary verification
+
+S6b audits the accepted S6a implementation at `4cff72896963c3aeba38c1dd4037a7ad5fa89538`.
+No production change is required. The canonical parser still rejects aliases and
+duplicate keys before constructing values, bounds nesting and YAML code points,
+and applies explicit unknown-field policy. Secure JVM discovery holds parent
+descriptors, uses relative no-follow opens, bounds both reported and actual file
+bytes, decodes strictly, and closes channels and directories on failure or
+cancellation. `discoverRecords` counts candidates before duplicate selection;
+`SkillSnapshot` selects complete metadata/body records. Registry construction
+reads sources sequentially, copies inputs, retains lexical iteration and caller
+source precedence, and reload returns a separate snapshot.
+
+Six additional regressions cover previously unasserted boundaries:
+
+- `SkillsCompatibilityTest.testCanonicalParserRejectsHostileNestedAndIgnoredFields`
+  rejects duplicate nested metadata, recursive aliases and scalar aliases inside
+  ignored fields; it checks unknown-field policy and exact nesting depth.
+- `SkillsCompatibilityTest.testYamlBudgetCountsSupplementaryCodePointsAtExactBoundary`
+  accepts a supplementary character at the exact YAML code-point limit and
+  rejects a limit one code point lower with the typed budget error.
+- `SkillsCompatibilityTest.testDiscoveryCountsDuplicateCandidatesBeforeSelectingWinner`
+  accepts two duplicate candidates at the limit for both precedence policies,
+  then rejects the same discovery with a one-candidate limit before selection.
+- `JvmFileSystemSkillSourceTest.testDirectoryReplacementWithSymlinkIsRefusedBeforeTraversal`
+  replaces an inspected directory with an escaping symlink and observes typed
+  failure from the relative no-follow open.
+- `JvmFileSystemSkillSourceTest.testFileGrowthAfterAttributesCannotBypassExactByteLimit`
+  accepts an exact-size document, then grows it after the attribute check and
+  observes the typed byte-limit error during the bounded read.
+- `JvmFileSystemSkillSourceTest.testCancellationDuringChannelReadClosesChannelAndDirectories`
+  cancels the actual loading coroutine from its first channel read and verifies
+  cancellation, no returned snapshot, one channel closure and both directory
+  closures.
+
+The existing assertions remain unchanged. They cover strict UTF-8, unknown
+provider refusal, secure-stream requirements, root and entry limits, depth,
+file symlinks and file replacement races, cleanup on success and failure,
+primary cancellation, close failures, one-read metadata/body winner pairing,
+source order, duplicate policies, successful and failed reload, and defensive
+copies of input and output byte arrays and registry collections. The fresh full
+suite also reruns the formatter and typed-loading regressions; further S6c
+acceptance remains separate.
+
+Validation: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :skills:jvmTest --no-parallel --no-daemon`
+completed successfully. Fresh XML reports contain 117 tests in ten suites, with
+zero failures, errors or skips. The two extended suites contain 22 compatibility
+tests and 26 filesystem tests. `git diff --check` passes. All 299 ledger
+historical prefixes remain unchanged. JVM JAR, consumer and ABI results are
+reused explicitly from accepted S6a: this slice changes only tests and this audit,
+so production classes and dependency declarations are unchanged. No new ABI
+comparison, consumer compilation or non-JVM check is claimed. Residual limits:
+filesystem race tests use deterministic seams on the local secure-stream
+provider; they do not certify other providers or every possible concurrent
+filesystem schedule. No blocker or observed production defect remains.

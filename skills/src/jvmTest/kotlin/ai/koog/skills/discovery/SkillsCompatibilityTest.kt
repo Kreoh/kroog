@@ -41,6 +41,67 @@ class SkillsCompatibilityTest {
     }
 
     @Test
+    fun testCanonicalParserRejectsHostileNestedAndIgnoredFields() {
+        val policy = SkillLoadPolicy(unknownField = UnknownFieldPolicy.IGNORE)
+        for (fields in listOf(
+            "metadata: {author: first, author: second}\n",
+            "extra: &recursive [*recursive]\n",
+            "? &recursive [*recursive]\n: value\n",
+            "extra: &scalar value\nother: *scalar\n",
+        )) {
+            assertIs<SkillError.MalformedFrontmatter>(assertFailsWith<SkillException> {
+                SkillDocumentParser.parse(document(fields = fields), "alpha", policy, "", true)
+            }.error)
+        }
+        val unknown = document(fields = "extension: safe\n")
+        assertEquals("alpha", SkillDocumentParser.parse(unknown, "alpha", policy, "", true).skill.name)
+        assertIs<SkillError.InvalidField>(assertFailsWith<SkillException> {
+            SkillDocumentParser.parse(unknown, "alpha", SkillLoadPolicy(), "", true)
+        }.error)
+        val depthPolicy = policy.copy(limits = SkillLimits(maxYamlNestingDepth = 2))
+        assertEquals("alpha", SkillDocumentParser.parse(
+            document(fields = "extra: [safe]\n"), "alpha", depthPolicy, "", true,
+        ).skill.name)
+        assertEquals(SkillError.LimitExceeded("YAML nesting depth", 2), assertFailsWith<SkillException> {
+            SkillDocumentParser.parse(document(fields = "extra: [[deep]]\n"), "alpha", depthPolicy, "", true)
+        }.error)
+    }
+
+    @Test
+    fun testYamlBudgetCountsSupplementaryCodePointsAtExactBoundary() {
+        val yaml = "name: alpha\ndescription: '😀'"
+        val count = yaml.codePointCount(0, yaml.length)
+        val text = "---\n$yaml\n---\nInstructions"
+        val policy = SkillLoadPolicy(limits = SkillLimits(maxYamlCodePoints = count))
+        assertEquals("😀", SkillDocumentParser.parse(text, "alpha", policy, "", true).skill.description)
+        assertEquals(SkillError.LimitExceeded("YAML code points", (count - 1).toLong()),
+            assertFailsWith<SkillException> {
+                SkillDocumentParser.parse(text, "alpha",
+                    policy.copy(limits = SkillLimits(maxYamlCodePoints = count - 1)), "", true)
+            }.error)
+    }
+
+    @Test
+    fun testDiscoveryCountsDuplicateCandidatesBeforeSelectingWinner() = runTest {
+        val fs = SkillFileSystemSnapshot(mapOf(
+            "/first/alpha/SKILL.md" to document(description = "First").encodeToByteArray(),
+            "/last/alpha/SKILL.md" to document(description = "Last").encodeToByteArray(),
+        ))
+        for (precedence in listOf(DuplicateSkillPolicy.KEEP_FIRST, DuplicateSkillPolicy.KEEP_LAST)) {
+            val policy = SkillLoadPolicy(limits = SkillLimits(maxSkills = 2), duplicateSkill = precedence)
+            val roots = listOf("/first/alpha", "/last/alpha")
+            val accepted = discoverRecords(fs.openSession(policy), roots, policy, true)
+            assertEquals(if (precedence == DuplicateSkillPolicy.KEEP_FIRST) "First" else "Last",
+                accepted.records.single().skill.description)
+            assertIs<SkillError.DuplicateName>(accepted.diagnostics.single().error)
+            val bounded = policy.copy(limits = SkillLimits(maxSkills = 1))
+            assertEquals(SkillError.LimitExceeded("skills", 1), assertFailsWith<SkillException> {
+                discoverRecords(fs.openSession(bounded), roots, bounded, true)
+            }.error)
+        }
+    }
+
+    @Test
     fun testOptionalFieldsUseStrictTypesAndMetadataOnlyDocumentsCannotBecomeLoadable() {
         val text = document(body = "", fields = "license: MIT\nmetadata:\n  version: '1'\n")
         val parsed = SkillDocumentParser.parse(text, "alpha", SkillLoadPolicy(), "/alpha/SKILL.md", true)

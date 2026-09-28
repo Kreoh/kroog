@@ -1,12 +1,21 @@
 package ai.koog.skills
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.io.TempDir
+import java.nio.ByteBuffer
+import java.nio.channels.SeekableByteChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.AccessDeniedException
 import java.nio.file.DirectoryStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.LinkOption
+import java.nio.file.OpenOption
+import java.nio.file.SecureDirectoryStream
+import java.nio.file.attribute.FileAttribute
 import kotlin.io.path.createDirectories
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -352,6 +361,92 @@ class JvmFileSystemSkillSourceTest {
         val snapshot = JvmFileSystemSkillSource(listOf(root)).load()
         Files.writeString(file, skillDocument("stable", "after"))
         assertEquals("before", snapshot.skills.single().description)
+    }
+
+    @Test
+    fun testDirectoryReplacementWithSymlinkIsRefusedBeforeTraversal() = runTest {
+        val root = tempDir.resolve("root").createDirectories()
+        val directory = root.resolve("replace").createDirectories()
+        val outside = tempDir.resolve("outside").createDirectories()
+        Files.writeString(outside.resolve("SKILL.md"), skillDocument("replace", body = "outside instructions"))
+        var replaced = false
+        val hooks = object : SkillFileSystemHooks {
+            override fun afterAttributes(path: Path) {
+                if (path == directory && !replaced) {
+                    replaced = true
+                    Files.delete(directory)
+                    Files.createSymbolicLink(directory, outside)
+                }
+            }
+        }
+        assertIs<SkillError.IoFailure>(assertFailsWith<SkillException> {
+            source(listOf(root), hooks = hooks).load()
+        }.error)
+        assertTrue(replaced)
+    }
+
+    @Test
+    fun testFileGrowthAfterAttributesCannotBypassExactByteLimit() = runTest {
+        val root = tempDir.resolve("root").createDirectories()
+        val file = writeSkill(root, "bounded")
+        val limit = Files.size(file)
+        val policy = SkillLoadPolicy(limits = SkillLimits(maxFileBytes = limit))
+        assertEquals("bounded", source(listOf(root), policy).load().skills.single().name)
+        var grew = false
+        val hooks = object : SkillFileSystemHooks {
+            override fun afterAttributes(path: Path) {
+                if (path == file) {
+                    grew = true
+                    Files.writeString(file, skillDocument("bounded") + "x")
+                }
+            }
+        }
+        assertEquals(SkillError.LimitExceeded("file bytes", limit), assertFailsWith<SkillException> {
+            source(listOf(root), policy, hooks = hooks).load()
+        }.error)
+        assertTrue(grew)
+    }
+
+    @Test
+    fun testCancellationDuringChannelReadClosesChannelAndDirectories() = runTest {
+        val root = tempDir.resolve("root").createDirectories()
+        writeSkill(root, "alpha")
+        var channelReads = 0
+        var channelsClosed = 0
+        var directoriesClosed = 0
+        var returned = false
+        val job = launch {
+            val loadingJob = currentCoroutineContext()[Job]!!
+            fun tracked(stream: SecureDirectoryStream<Path>): SecureDirectoryStream<Path> =
+                object : SecureDirectoryStream<Path> by stream {
+                    override fun newDirectoryStream(path: Path, vararg options: LinkOption): SecureDirectoryStream<Path> =
+                        tracked(stream.newDirectoryStream(path, *options))
+                    override fun newByteChannel(path: Path, options: MutableSet<out OpenOption>,
+                        vararg attrs: FileAttribute<*>): SeekableByteChannel {
+                        val channel = stream.newByteChannel(path, options, *attrs)
+                        return object : SeekableByteChannel by channel {
+                            override fun read(dst: ByteBuffer): Int {
+                                channelReads++
+                                val count = channel.read(dst)
+                                loadingJob.cancel()
+                                return count
+                            }
+                            override fun close() { channelsClosed++; channel.close() }
+                        }
+                    }
+                    override fun close() { directoriesClosed++; stream.close() }
+                }
+            source(listOf(root), rootDirectoryOpener = RootDirectoryOpener {
+                tracked(Files.newDirectoryStream(it) as SecureDirectoryStream<Path>)
+            }).load()
+            returned = true
+        }
+        job.join()
+        assertTrue(job.isCancelled)
+        assertFalse(returned)
+        assertEquals(1, channelReads)
+        assertEquals(1, channelsClosed)
+        assertEquals(2, directoriesClosed)
     }
 
     private fun writeSkill(
