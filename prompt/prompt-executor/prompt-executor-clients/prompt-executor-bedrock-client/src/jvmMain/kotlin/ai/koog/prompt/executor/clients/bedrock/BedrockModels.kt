@@ -283,6 +283,18 @@ public object BedrockModels : LLModelDefinitions {
     ).effectiveModel
 
     /**
+     * Claude Sonnet 5 is the first Sonnet model of Anthropic's fifth generation, delivering
+     * near-Opus quality on coding and agentic work at Sonnet pricing.
+     * Adaptive thinking is enabled by default on this model.
+     *
+     * @see <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5.html">
+     */
+    public val AnthropicClaude5Sonnet: LLModel = BedrockModel(
+        AnthropicModels.Sonnet_5,
+        "anthropic.claude-sonnet-5",
+    ).effectiveModel
+
+    /**
      * Claude Haiku 4.5 - Anthropic's most powerful model for powering real-world agents,
      * with industry-leading capabilities around coding, and computer use.
      *
@@ -376,6 +388,30 @@ public object BedrockModels : LLModelDefinitions {
             capabilities = novaCapabilities,
             contextLength = 1_000_000,
             maxOutputTokens = 25_000,
+        ),
+    ).effectiveModel
+
+    /**
+     * Amazon Nova 2 Lite - Fast, cost-effective reasoning model for everyday workloads
+     *
+     * Part of the Amazon Nova 2 family announced at re:Invent 2025:
+     * - Extended thinking with three intensity levels (low, medium, high)
+     * - 1M token context window
+     * - Multimodal understanding (text, image, video)
+     * - Tool/function calling support
+     *
+     * @see <a href="https://aws.amazon.com/about-aws/whats-new/2025/12/nova-2-foundation-models-amazon-bedrock">
+     */
+    public val AmazonNova2Lite: LLModel = BedrockModel(
+        LLModel(
+            provider = LLMProvider.Bedrock,
+            id = "amazon.nova-2-lite-v1:0",
+            capabilities = novaCapabilities + listOf(
+                LLMCapability.Vision.Image,
+                LLMCapability.Vision.Video,
+                LLMCapability.Thinking,
+            ),
+            contextLength = 1_000_000,
         ),
     ).effectiveModel
 
@@ -888,7 +924,7 @@ public object BedrockModels : LLModelDefinitions {
      * List of the supported models by the Bedrock provider.
      */
     private val supportedModels: List<LLModel> = listOf(
-        // Claude 4 Series
+        // Claude Series
         AnthropicClaude4Opus,
         AnthropicClaude41Opus,
         AnthropicClaude45Opus,
@@ -901,6 +937,7 @@ public object BedrockModels : LLModelDefinitions {
         AnthropicClaude4Sonnet,
         AnthropicClaude4_5Sonnet,
         AnthropicClaude4_6Sonnet,
+        AnthropicClaude5Sonnet,
         AnthropicClaude4_5Haiku,
 
         // Amazon Nova Series
@@ -908,6 +945,7 @@ public object BedrockModels : LLModelDefinitions {
         AmazonNovaLite,
         AmazonNovaPro,
         AmazonNovaPremier,
+        AmazonNova2Lite,
 
         // Meta Llama 3.0 Series
         MetaLlama3_0_8BInstruct,

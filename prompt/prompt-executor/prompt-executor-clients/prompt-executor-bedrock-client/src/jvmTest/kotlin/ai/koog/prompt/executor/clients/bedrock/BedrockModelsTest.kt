@@ -97,4 +97,35 @@ class BedrockModelsTest {
         assertEquals(128_000, model.maxOutputTokens)
         BedrockModels.models shouldContain model
     }
+
+    @Test
+    fun testClaudeSonnet5BedrockModelExposesExactEffectiveProfile() {
+        val model = BedrockModels.models.single { it.id == "us.anthropic.claude-sonnet-5" }
+
+        assertEquals(LLMProvider.Bedrock, model.provider)
+        assertEquals(AnthropicModels.Sonnet_5.capabilities, model.capabilities)
+        assertEquals(AnthropicModels.Sonnet_5.contextLength, model.contextLength)
+        assertEquals(AnthropicModels.Sonnet_5.maxOutputTokens, model.maxOutputTokens)
+        assertTrue(model.supports(LLMCapability.Thinking))
+        assertTrue(model.supports(LLMCapability.Temperature))
+        assertTrue(model.supports(LLMCapability.ToolChoice))
+    }
+
+    @Test
+    fun testAmazonNova2LiteExposesExactEffectiveProfile() {
+        val model = BedrockModels.models.single { it.id == "us.amazon.nova-2-lite-v1:0" }
+
+        assertEquals(LLMProvider.Bedrock, model.provider)
+        assertEquals(1_000_000, model.contextLength)
+        assertEquals(
+            requireNotNull(BedrockModels.AmazonNovaMicro.capabilities) + listOf(
+                LLMCapability.Vision.Image,
+                LLMCapability.Vision.Video,
+                LLMCapability.Thinking,
+            ),
+            model.capabilities,
+        )
+        assertEquals(null, model.maxOutputTokens)
+    }
+
 }
