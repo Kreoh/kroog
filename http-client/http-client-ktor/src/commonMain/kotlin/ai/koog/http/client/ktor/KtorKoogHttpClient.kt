@@ -19,10 +19,9 @@ import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.plugins.sse.SSEClientException
 import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.get
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
-import io.ktor.client.request.header
+import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.preparePost
@@ -430,8 +429,10 @@ public class KtorKoogHttpClient internal constructor(
 
             defaultRequest {
                 url.takeFrom(normalizedBaseUrl)
-                contentType(ContentType.Application.Json)
-                headers.forEach { (name, value) -> header(name, value) }
+                headers.forEach { (name, value) ->
+                    if (!this.headers.contains(name)) this.headers.append(name, value)
+                }
+                if (!this.headers.contains(HttpHeaders.ContentType)) contentType(ContentType.Application.Json)
                 queryParameters.forEach { (name, value) -> url.parameters.append(name, value) }
             }
 

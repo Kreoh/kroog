@@ -564,6 +564,34 @@ public class ai/koog/prompt/executor/clients/openai/OpenAILLMClient : ai/koog/pr
 	protected fun serializeProviderChatRequest (Ljava/util/List;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/base/models/OpenAIToolChoice;Lai/koog/prompt/params/LLMParams;Z)Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionClient {
+	public fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;)V
+	public synthetic fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun createSession (Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun createSession$default (Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionClient;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;)Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions;
+	public static synthetic fun copy$default (Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDelay ()Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public final fun getKeywords ()Ljava/util/List;
+	public final fun getLanguages ()Ljava/util/List;
+	public final fun getModel ()Ljava/lang/String;
+	public final fun getPrompt ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAIModels : ai/koog/prompt/executor/clients/LLModelDefinitions {
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIModels;
 	public fun addCustomModel (Lai/koog/prompt/llm/LLModel;)V
@@ -710,6 +738,22 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesParams 
 	public final fun withCodeInterpreter (Lai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterConfig;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public final fun withContainerRecovery (Lkotlin/jvm/functions/Function3;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 	public final fun withPromptCacheIdentity (Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay : java/lang/Enum {
+	public static final field Companion Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay$Companion;
+	public static final field HIGH Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static final field LOW Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static final field MEDIUM Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static final field MINIMAL Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static final field XHIGH Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAITranscriptionDelay$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
 public final class ai/koog/prompt/executor/clients/openai/azure/AzureKt {
