@@ -1,16 +1,21 @@
 package ai.koog.integration.tests.client
 
 import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.http.client.KoogHttpClient
+import ai.koog.http.client.HttpClientFactoryResolver
 import ai.koog.integration.tests.utils.Models
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.anthropic.AnthropicLLMClient
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.anthropic.AnthropicParams
+import ai.koog.prompt.executor.clients.anthropic.AnthropicVertexClientSettings
+import ai.koog.prompt.executor.clients.anthropic.AnthropicVertexLLMClient
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinking
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinkingDisplay
 import ai.koog.prompt.executor.clients.google.GoogleLLMClient
+import ai.koog.prompt.executor.clients.google.GoogleClientSettings
 import ai.koog.prompt.executor.clients.google.GoogleModels
 import ai.koog.prompt.executor.clients.google.GoogleParams
 import ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig
@@ -28,6 +33,7 @@ import ai.koog.prompt.streaming.toMessageResponse
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.jsonObject
@@ -82,6 +88,74 @@ class LatestModelsIntegrationTest {
             ))
         }
     }
+
+    @Test
+    fun integration_testVertexAnthropicOpus55() = runTest(timeout = 180.seconds) {
+        checkVertexAnthropic(AnthropicModels.Opus_5_5)
+    }
+
+    @Test
+    fun integration_testVertexAnthropicSonnet55() = runTest(timeout = 180.seconds) {
+        checkVertexAnthropic(AnthropicModels.Sonnet_5_5)
+    }
+
+    @Test
+    fun integration_testVertexGemini38Flash() = runTest(timeout = 180.seconds) {
+        val model = GoogleModels.Gemini3_8Flash
+        Models.assumeAvailable(model.provider)
+        val project = credential("VERTEX_PROJECT_ID")
+        val location = vertexLocation()
+        val settings = GoogleClientSettings(
+            baseUrl = vertexBaseUrl(location),
+            defaultPath = "v1/projects/$project/locations/$location/publishers/google/models",
+        )
+        GoogleLLMClient(settings = settings, httpClient = vertexHttpClient(location)).use { client ->
+            checkGeneration(client, model, GoogleParams(
+                maxTokens = 2048,
+                thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.LOW),
+            ))
+        }
+    }
+
+    private suspend fun checkVertexAnthropic(model: LLModel) {
+        Models.assumeAvailable(model.provider)
+        val settings = AnthropicVertexClientSettings(
+            projectId = credential("VERTEX_PROJECT_ID"),
+            location = vertexLocation(),
+            modelVersionsMap = mapOf(model to model.id),
+        )
+        AnthropicVertexLLMClient(
+            settings = settings,
+            httpClient = vertexHttpClient(settings.location, JsonNamingStrategy.SnakeCase),
+        ).use { client ->
+            checkGeneration(client, model, AnthropicParams(
+                maxTokens = 2048,
+                thinking = AnthropicThinking.Adaptive(AnthropicThinkingDisplay.SUMMARIZED, AnthropicEffort.LOW),
+            ))
+        }
+    }
+
+    private fun vertexLocation(): String = System.getenv("VERTEX_LOCATION")?.takeIf(String::isNotBlank) ?: "eu"
+
+    private fun vertexBaseUrl(location: String): String = when (location) {
+        "global" -> "https://aiplatform.googleapis.com"
+        "eu", "us" -> "https://aiplatform.$location.rep.googleapis.com"
+        else -> "https://$location-aiplatform.googleapis.com"
+    }
+
+    private fun vertexHttpClient(location: String, naming: JsonNamingStrategy? = null): KoogHttpClient =
+        HttpClientFactoryResolver.resolve().create(
+            clientName = "VertexLatestModelsIntegrationTest",
+            baseUrl = vertexBaseUrl(location),
+            headers = mapOf("Authorization" to "Bearer ${credential("VERTEX_ACCESS_TOKEN")}"),
+            json = Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                encodeDefaults = true
+                explicitNulls = false
+                namingStrategy = naming
+            },
+        )
 
     private suspend fun checkOpenAI(model: LLModel) {
         Models.assumeAvailable(model.provider)

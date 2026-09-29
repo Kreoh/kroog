@@ -40,7 +40,17 @@ Compiled JVM ABI comparisons against the captured pre-edit classes show exactly 
 
 Both tests passed with no skips. Each verifies authenticated model retrieval, streamed text and usage, Responses tool calling, replay of the assistant response and tool result, and Chat Completions tool calling at `none` effort. Tests use bounded output budgets and synthetic prompts.
 
-Anthropic and Gemini tests are implemented and compile, but were not run because neither provider has credentials in this session or the documented `integration-tests/env.properties` file. They compare token limits with live model metadata before testing streaming and tool replay. To run them, configure the provider keys through the existing credential mechanism and select:
+Three reusable Vertex tests passed for Opus 5.5, Sonnet 5.5 and Gemini 3.8 Flash, with no failures, errors or skips:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :integration-tests:jvmIntegrationTest --tests '*LatestModelsIntegrationTest.integration_testVertex*' --offline --console=plain --no-parallel --no-daemon --quiet
+```
+
+Each checks streamed text, positive input usage, a tool call, replay of the assistant response and tool result, the returned probe value, and positive output usage. Requests use synthetic prompts and a 2,048-token output budget. Claude uses adaptive thinking with low effort; Gemini uses low thinking. These checks exercise Anthropic's Vertex client and Google's client with an injected authenticated HTTP client.
+
+The Vertex tests accept `VERTEX_ACCESS_TOKEN`, `VERTEX_PROJECT_ID` and optional `VERTEX_LOCATION` (default `eu`). This run used an in-memory OAuth access token derived from the user-specified ChatUI service account and the `eu` location. No credentials are stored in the repository. The `eu` and `us` multi-region endpoints use `https://aiplatform.LOCATION.rep.googleapis.com`, as documented in [Google's endpoint locations](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations). Global and individual regional endpoints are also supported by the test configuration.
+
+The native Anthropic and Gemini tests compile but remain unrun because direct provider API keys were not supplied. Those separate tests compare token limits with native model metadata before checking streaming and tool replay. The Vertex tests do not call native metadata endpoints. To run the native tests, configure the provider keys and select:
 
 ```sh
 ./gradlew :integration-tests:jvmIntegrationTest --tests '*LatestModelsIntegrationTest.integration_testAnthropic*' --tests '*LatestModelsIntegrationTest.integration_testGemini*' --offline --console=plain --no-parallel
@@ -48,6 +58,6 @@ Anthropic and Gemini tests are implemented and compile, but were not run because
 
 The tests accept `ANTHROPIC_API_TEST_KEY` or `ANTHROPIC_API_KEY`, and `GEMINI_API_TEST_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`. OpenAI accepts `OPEN_AI_API_TEST_KEY` or `OPENAI_API_KEY`. Missing credentials fail a selected test explicitly. The existing `skip.llm.providers` property is honoured before any credential or network access.
 
-Token limits are checked against official specifications. OpenAI's model metadata endpoint does not report those limits, and no full-window or maximum-output stress test was performed. Successful small requests establish runtime compatibility, not empirical proof of the entire context boundary.
+Token limits were verified against official specifications only. OpenAI's model metadata endpoint does not report those limits, and the native Anthropic and Gemini metadata checks remain unrun. No full-window or maximum-output stress test was performed. Successful small requests establish runtime compatibility; they do not empirically prove the entire context boundary.
 
 Independent review identified an Astra alias regression, which was corrected by retaining structural profile matching and adding rebuilt-list regression cases. The [alignment audit](upstream/koog-1.3.0-alignment.md#s8-final-accounting) records the accepted local publication closure and current whole-plan review status.
