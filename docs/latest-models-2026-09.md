@@ -50,4 +50,4 @@ The tests accept `ANTHROPIC_API_TEST_KEY` or `ANTHROPIC_API_KEY`, and `GEMINI_AP
 
 Token limits are checked against official specifications. OpenAI's model metadata endpoint does not report those limits, and no full-window or maximum-output stress test was performed. Successful small requests establish runtime compatibility, not empirical proof of the entire context boundary.
 
-An existing review child became available again. Its independent review identified an Astra alias regression, which was corrected by retaining structural profile matching and adding rebuilt-list regression cases. The earlier upstream alignment's publication closure and final whole-plan review remain separate pending work.
+Independent review identified an Astra alias regression, which was corrected by retaining structural profile matching and adding rebuilt-list regression cases. The [alignment audit](upstream/koog-1.3.0-alignment.md#s8-final-accounting) records the accepted local publication closure and current whole-plan review status.

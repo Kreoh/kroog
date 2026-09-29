@@ -1,6 +1,6 @@
 # Koog 1.3.0 alignment audit
 
-S0 establishes provenance and implementation boundaries. Product adoption and regression validation remain pending. This audit refines the frozen plan without changing release numbering.
+Upstream adoption, retained-contract checks and local JVM publication validation are checkpointed. This audit preserves the original provenance and records final path accounting without changing release numbering. The final blind whole-plan review remains pending; slice acceptance does not imply whole-plan acceptance. See [S8 final accounting](#s8-final-accounting).
 
 ## Immutable source
 
@@ -18,17 +18,17 @@ Starting HEAD was H, tracked tree clean, version 1.1.1-kroog.11. B is an ancesto
 
 ## Ledger conventions
 
-Both complete ledgers are generated from git diff --raw --full-index --no-abbrev --no-renames B U (or B H), with full blob IDs from git ls-tree -r for B, U and H. Explicit absence is absent. There are no deletions or renames in either delta. Every final path is proposed and currently equals the new path. Upstream: 54 paths, 11 additions and 43 modifications. Fork: 245 paths.
+Both complete ledgers are generated from git diff --raw --full-index --no-abbrev --no-renames B U (or B H), with full blob IDs from git ls-tree -r for B, U and H. Explicit absence is absent. There are no deletions or renames in either original delta. All ledger paths survive at their recorded new paths. Upstream: 54 paths, 11 additions and 43 modifications. Fork: 245 paths, 107 additions and 138 modifications. The S8 inventory records final blobs separately from these immutable historical columns.
 
-The slice key defines exact membership, with no unassigned paths. Test source sets, resources and http-client-test/src/main are test ownership. Other source and build files are production ownership. The additional proposed skills files are listed below. Shared paths appear in both ledgers but are edited once.
+The slice key defines exact membership, with no unassigned paths. Test source sets, resources and http-client-test/src/main are test ownership. Other source and build files are production ownership. The additional implemented skills files are listed below and in the S8 inventory. Shared paths appear in both ledgers but are edited once.
 
-B=U, U=H and B=H denote exact blob identity, not behavioural equivalence. Pending requires review and validation in the assigned slice. Final dispositions must become adopted exactly, adapted with named Kroog contract, superseded with equivalence evidence, upstream deletion applied with preservation evidence, or explicit exemption with reason. Record checkpoint and test evidence upon acceptance. No S0 row claims passing runtime or ABI validation.
+B=U, U=H and B=H denote exact historical blob identity. Every row now records its adoption, retained contract or explicit exemption and its accepted slice evidence. Runtime and ABI results come from the validation sections and checkpoint map; historical blob equality alone proves neither.
 
 X-ABI retains existing Android and KLIB dumps without regeneration or validation, as required by JVM-only scope. X-version retains Kroog coordinates and 1.1.1-kroog.11 without a release bump. X-local preserves repository guidance and ignore rules. Retained fork-only paths with B=U need no upstream import but still require their regression evidence.
 
 ## Bounded groups and order
 
-The exact slice-membership table below provides production and test paths by reference to the full ledgers. These refinements must enter derived state before dispatch.
+The exact slice-membership table below provides production and test paths by reference to the full ledgers. The accepted checkpoints below implement these boundaries.
 
 1. S1 preserves JVM publication, signing, BOMs and beta transformation while importing dependency prerequisites. Its exact umbrella paths include koog-agents/build.gradle.kts and koog-agents-additions/build.gradle.kts, plus integration-tests/build.gradle.kts. Retain the skills server convention, tools and JSON API dependencies and SnakeYAML 3.0.1. Add upstream API dependencies on rag-base, coroutines and serialisation core, plus logging and needed test dependencies. No new module root is required. Consumer compilation depends on S6.
 2. S2 preserves prompt identities, parallel tool calls, signed reasoning, replay, generated files, inclusive usage and catalogue capabilities. There is zero U delta in prompt-model. Provider model changes stay in their bounded S4 groups so tests and model imports remain coherent.
@@ -46,9 +46,11 @@ OpenAI #2220 retains internal OpenAIResponsesAPIResponse.instructions: List<Item
 
 Google adds cachedContentTokenCount metadata to streaming and ordinary responses. Preserve inclusive totals, structured cache subsets and missing-versus-zero semantics; do not add cache counts twice. Provider profiles coexist with later Kroog models and constraints. Langfuse changes belong to its adapter and test U rows and must retain hosted execution presentation.
 
-U contains no source deletion. S0 approves no removal of local code. JVM dumps require reliable JVM-only comparison with compiled output. No ABI check ran and no binary compatibility claim has been accepted.
+U contains no source deletion, and no original fork path was removed. JVM-only compiled ABI comparisons and their limits are recorded per slice. Existing prompt-model, OpenAI and Google dump drift remains unresolved; this audit makes no blanket binary compatibility claim.
 
-## Skills signatures and ownership
+## Accepted skills design and ownership
+
+The following design was implemented and reviewed in S6a to S6c; its imperative wording records the preserved requirements.
 
 Pinned U provides ai.koog.skills.model.Skill; ai.koog.skills.discovery.discoverSkills; ai.koog.skills.prompt.generateSkillsPrompt; SkillsPromptFormat.XML, JSON and YML. There is no registry class or public parser hook.
 
@@ -93,24 +95,24 @@ S6a owns all S6a ledger rows and these new production paths:
 - skills/src/jvmMain/kotlin/ai/koog/skills/discovery/SkillDocumentParserJvm.kt
 - skills/src/jvmMain/kotlin/ai/koog/skills/discovery/SecureSkillFileSystemJvm.kt
 
-Tests comprise the existing parser, filesystem, in-memory source, registry and catalogue F tests; U discovery and prompt tests; and proposed skills/src/jvmTest/kotlin/ai/koog/skills/discovery/SkillsCompatibilityTest.kt. Extend skills-api-consumer-test/src/main/kotlin/ai/koog/skills/consumer/SkillsApiConsumer.kt during S6a to compile both APIs, then revisit it in S6c.
+Tests comprise the existing parser, filesystem, in-memory source, registry and catalogue F tests; U discovery and prompt tests; and the added skills/src/jvmTest/kotlin/ai/koog/skills/discovery/SkillsCompatibilityTest.kt. The consumer at skills-api-consumer-test/src/main/kotlin/ai/koog/skills/consumer/SkillsApiConsumer.kt was extended in S6a and S6c to compile both APIs; S7 also compiles it against staged POMs.
 
 S6a must prove canonical parser invocation, one-read body capture through collisions, stock JVM and in-memory provider use, unknown provider refusal, strict decoding, secure-session closure and unchanged legacy security tests. S6b adds boundary tests to those exact test files; production corrections require reviewed bounded scope. S6c owns typed loading and consumer rows plus further catalogue and prompt boundary tests. No checkpoint may defer a known security regression. Add skills JVM ABI evidence only through reliable generation and comparison; neither starting skills tree contains a JVM dump.
 
 ## Validation and residual risk
 
-S0 runs read-only Git object, ancestry, full-index diff and tree-identity checks, with complete ledger counts. No builds, tests, publication, ABI generation or cross-platform tasks are required for this audit-only slice. The audit is the only authorised changed file.
+S0 performed read-only Git object, ancestry, full-index diff and tree-identity checks. The validation sections below record subsequent execution. S8 reconciles those accepted results and final blobs; it introduces no source or build changes and runs no new Gradle checks.
 
 Execution validation: S1 uses ./gradlew -p convention-plugin-ai test and affected module jvmJar and generatePomFileForJvmPublication. S2 uses :prompt:prompt-model:jvmTest. R-http-fixtures uses :http-client:http-client-test:compileKotlin. S3 uses :http-client:http-client-core:jvmTest, :http-client:http-client-java:jvmTest, :http-client:http-client-ktor:jvmTest and :prompt:prompt-executor:prompt-executor-clients:jvmTest. R-openai-base uses its module-qualified jvmTest. Each S4 provider uses :prompt:prompt-executor:prompt-executor-clients:prompt-executor-<provider>-client:jvmTest. Verify actual task existence and JVM scope before dispatch.
 
 S5a uses managed-execution and agents-core jvmTest; S5b uses agents-core and agents-test jvmTest; S5c uses affected feature modules and prompt-tokenizer jvmTest. R-runtime uses :koog-bedrock-agentcore-runtime:test; R-ktor uses :koog-ktor:jvmTest. S6 uses ./gradlew :skills:jvmTest :skills-api-consumer-test:compileKotlin. R-integration requires inspection of its JVM task registration before compilation. Documentation receives path and reference review. S7 uses the frozen plan's local-only publication checks. Never run root builds, aggregate ABI tasks or Central Portal publication.
 
-Regression names below are evidence anchors, not passing results. Remaining execution risks: secure session implementation and provider migration; body retention through collisions; formatter escaping; public descriptors; cache-token semantics; reliable JVM ABI tooling. No source-access blocker remains at S0.
+Regression names in the historical ledgers are evidence anchors. Their actual outcomes, unchanged test skips, security adaptations, ABI limits and provider coverage are stated in the accepted validation sections and S8 summary. Final blind review remains a separate gate.
 
 
 ## Complete upstream path ledger
 
-| ID | Change | Old path | New and proposed final path | B blob | U blob | H blob | Slice | Disposition and evidence |
+| ID | Change | Old path | New and final path | B blob | U blob | H blob | Slice | Disposition and evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | U001 | M | .github/workflows/heavy-tests.yml | .github/workflows/heavy-tests.yml | 336c13d0d237ad0509f47c65994b70f712e353b4 | 40c579ea38e94979abd9318c57ceaad346d4358f | 336c13d0d237ad0509f47c65994b70f712e353b4 | R-integration | Adopted U skills matrix entry with required ubuntu-latest OS; YAML and all matrix OS values verified; see R-integration validation |
 | U002 | M | CHANGELOG.md | CHANGELOG.md | 10c5f2e32a09a9212c33194f006433675d92226b | 1517d1cbccde4d3865bc719f5d014379faaf32f5 | 10c5f2e32a09a9212c33194f006433675d92226b | S7-docs | Adapted with Kroog JVM coordinates, unchanged release version and secure skills contracts; complete upstream documentation delta accounted for; see S7-docs validation |
@@ -169,7 +171,7 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 
 ## Complete fork path ledger
 
-| ID | Change | Old path | New and proposed final path | B blob | U blob | H blob | Slice | Disposition and evidence |
+| ID | Change | Old path | New and final path | B blob | U blob | H blob | Slice | Disposition and evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | F001 | A | absent | .github/workflows/publish-maven-release.yml | absent | absent | 2778206931f47d2e0fcbd2567ec7dcece836cc59 | S7 | Retained byte-for-byte; release guards reviewed, signing and snapshot opt-in tests pass; signed release execution remains unrun; see S7 validation |
 | F002 | A | absent | .github/workflows/publish-maven-snapshot.yml | absent | absent | dd0b442ff854908efebf371cdca9b18d0ded4cbf | S7 | Corrected proven local snapshot closure from 1392 to 3045 files; required-file and checksum guards pass positive and tamper checks; remote controls retained; see S7 validation |
@@ -453,80 +455,81 @@ A group with no U rows requires retained-contract validation and no upstream imp
 
 ## Complete fork behavioural history
 
-Enumerated from git log --reverse B..H: all 70 ancestry commits, including pre-merge work. Recorded subjects identify features and fixes. Each row maps surviving changed paths to exact ledger code and blobs. Regression entries identify surviving tests changed in that commit; otherwise the assigned slice tests need assertion review. Public API effects require the assigned JVM ABI gate. Checkpoints are pending. Merge rows preserve provenance; release rows preserve controls without authorising a bump.
+Enumerated from `git log --reverse B..H`: all 70 ancestry commits, including pre-merge work. Commit subjects, surviving code mappings and named regression anchors remain historical evidence. Each final cell now links its assigned contracts to accepted checkpoints in the S8 map. Public API claims retain the per-slice ABI limits below. Release-only rows preserve version and release controls without a version bump or remote release; merge rows preserve provenance.
 
-| Commit | Recorded behaviour or maintenance change | Retained code evidence | Regression evidence | Public API gate and checkpoint |
+| Commit | Recorded behaviour or maintenance change | Retained code evidence | Regression evidence | Accepted checkpoints and remaining limits |
 | --- | --- | --- | --- | --- |
-| 6dc856d99389602a3f6340647c965b106f564927 | fix(openai): preserve streaming tool call identity | F151, F166 | F166 | S4a; pending |
-| 250ad21fc9ce7022e84799d6f756c594051ed067 | Merge pull request #1 from Kreoh/feat/tool-call-ids | F151, F166 | F166 | S4a; pending |
-| 37ddaf65f38c2851a3ff1148783ad21b14a77252 | build(publishing): configure Central snapshots | F005, F038, F039, F041, F043, F045, F049, U012, U047 | F045 | S1, S7, S7-docs; pending; S7-docs verified only F049, see S7-docs validation |
-| 586e38a084ae184172abc5048980d9186c939e66 | ci(publishing): add manual snapshot workflow | F002, F005 | Slice regressions; assertion review pending | S7; pending |
-| 2c56ea2fb6fabfa01f3e08760698af1543a2c816 | perf(publishing): optimise JVM snapshot workflow | F002 | Slice regressions; assertion review pending | S7; pending |
-| 62039470c0ff15e85dfccb3be8fa6ed0ce085f82 | fix(openai): emit completed streaming text | F151, F166 | F166 | S4a; pending |
-| 5c1924af32b7ecab00ea78a5369e7c99c837a12a | feat(openai): support xhigh reasoning effort | F140, F173 | F173 | R-openai-base, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
-| 4ef675dc1d7941f13d7f3014854af27e92ead387 | fix(streaming): preserve parallel tool calls | F208, F213 | F213 | S2; pending |
-| 139d5e6d54e5009efc6910aeae5418e4ea8d4bb2 | feat(bedrock): expose runtime client injection | F101, F110 | F110 | S4d; pending; S4d verified, see S4d validation |
-| 3b49937cfe1540e646da00b0443ed9fb5c29cf73 | feat(bedrock): stream signed reasoning | U024, F103, F104, F105, F110, F113, F197, F198, F199, F208, F213 | F110, F113, F213 | S2, S4d; pending; S4d verified, see S4d validation |
-| 804d8f6c2185bc847229a70d445a96cf4dc0bf79 | fix(google): preserve streaming tool signatures | U028, U031 | U031 | S4c; pending; S4c verified, see S4c validation |
-| 497725844dae84ccda2abcbafa2ed736f3018cfb | feat(google): add thinking levels | F120, F121, F122, U030, F133 | F133 | S4c; pending; S4c verified, see S4c validation |
-| 733a328b7b1b082812af09853b6947cdb02c99ca | fix(google): preserve thought signatures | U028, U031 | U031 | S4c; pending; S4c verified, see S4c validation |
-| 0587101f0931d647106f7fec4b0aaaeec9907d89 | feat(anthropic): add Vertex client | F083, U019, U020, U021, F087, F089, F090, F091, F098 | F091, F098 | S4b; pending; S4b verified, see S4b validation |
-| 3d8ab81907187bfe638a3c46cf473a303e829873 | feat(openai): add GPT-5.6 models | F136, F137, F138, F140, F143, U037, U038, U039, F151, U040, F160, F164, F165, F173, F174 | F160, F164, F165, F173, F174 | R-openai-base, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
-| 967531a8cf6ea97be8030c1cafea3182605e98d1 | fix(anthropic): support anyOf tool schemas | F087, F097 | F097 | S4b; pending; S4b verified, see S4b validation |
-| 41d849f79aa90336c44f54c79dbac4a93c7b0c2e | fix(openai): accept streaming choices without delta | F140, F166 | F166 | R-openai-base, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
-| 4a1c37b1914b1529be96b4752807ca14ef8f591e | feat(models): add Claude Opus 4.8 | U019, U020, U021, U022, U023, U024, F100, U025, F111 | U023, F111 | S4b, S4d; pending; S4b verified, see S4b validation; S4d verified, see S4d validation |
-| 171c8a220f0913fc456b68071d9abc27a8e60880 | feat(openai): stream code interpreter responses | F004, F023, F024, F025, F027, F028, F031, F032, F033, F034, F051, F087, F093, F103, F107, F108, F112, F116, F117, U028, U038, F151, F153, U041, F166, F170, F176, F198, F203, F206, F207, F212, F223, F224 | F025, F028, F032, F034, F093, F112, F116, F117, F166, F170, F176, F212, F224 | S1, S2, S4a, S4b, S4c, S4d, S5c, S7-docs; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S5c verified only F024, F025, F027, F028, F031, F032, F033, F034, F223, F224, see S5c validation; S7-docs verified only F051, see S7-docs validation |
-| 2d5dbec84e11beff22533e47a30a70d178df2044 | feat(prompt): add provider replay primitives | F050, F180, F203, F206, F207, F208, F209 | F180, F209 | S2, S3, S7-docs; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S7-docs verified only F050, see S7-docs validation |
-| 250069ec648f647694ebfda9984bc589f98a3447 | feat(http): add provider resource APIs | F055, F056, F057, F060, F061, F062, F063, F151, F155, F166, F169 | F057, F061, F062, F166, F169 | R-http-fixtures, S3, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
-| 8483123ee8ea6ccc7450a5de0213a171fdf405fa | feat(openai): unify responses execution | U038, F151, F153, F156, F159, F162, F166, F170, F171, F177 | F159, F162, F166, F170, F171, F177 | S4a; pending |
-| 4f955e20778361b4998195cf0b43d149b81d82b5 | feat(anthropic): preserve portable reasoning | U020, F087, F090, F095, F098, U024, F103, F106, F107, F108, F109, F113 | F095, F098, F109, F113 | S4b, S4d; pending; S4b verified, see S4b validation; S4d verified, see S4d validation |
-| 27150c03e269f5b71b947fd3528e441700d29a6c | feat(google): add Gemini hosted execution | F121, U028, F125, U030, F127, F128, F129 | F127, F128, F129 | S4c; pending; S4c verified, see S4c validation |
-| 2575f1fafcb0acd3cb0a9271f6d7616cbfc72805 | feat(prompt): add caching and replay identity | F087, F092, F096, F098, F103, F112, F114, U038, F151, F153, F154, F167, F168, F180, F198, F200, F201, F210, F211 | F092, F096, F098, F112, F114, F167, F168, F180, F210, F211 | S2, S3, S4a, S4b, S4d; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4d verified, see S4d validation |
-| 727d293b5c8735c8623c71805483d1a0e1e173fb | fix(openai): correct code interpreter replay | F151, U041, F166, F171, F176 | F166, F171, F176 | S4a; pending |
-| faf94802d957ab99388c76f78dafdbc067b99a2f | fix(tokeniser): support hosted execution content | F223, F224 | F224 | S5c; pending; S5c verified only F223, F224, see S5c validation |
-| 1a2f16e7d52f846bbe3aec2846701b030a03663e | fix(events): format hosted execution content | F027, F029, F030 | F029, F030 | S5c; pending; S5c verified only F027, F029, F030, see S5c validation |
-| 74f7b656e89c1507a6eb73b16bffb185b82c1979 | fix(telemetry): map hosted execution content | F031, F032 | F032 | S5c; pending; S5c verified only F031, F032, see S5c validation |
-| 2ba1976f9454ac9291d58968a33cb897b638ca1f | fix(trace): format hosted execution content | F033, F035 | F035 | S5c; pending; S5c verified only F033, F035, see S5c validation |
-| ca97c8a99370a617da24cc4061228e81c9d79b3c | feat(prompt): add model capability catalogue | F198, F204, F205, F219, F220, F222 | F219, F220, F222 | S2; pending |
-| 9a118180cd514be277058221a01014d735da675b | feat(agents): add managed execution framework | F006, F007, F008, F014, F015, F016, F019, F020, F021, U017, U018, F183, F184, F185, F191, F198, F205, F206, F207, F208, F220, F221, U047 | F019, F020, F021, F191, F220, F221 | S1, S2, S5a; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
-| 0d87359d9c36f72cce3a4df588dc04d7180e3710 | feat(vertex): add Agent Engine execution | F183, F184, F185, F187, F188, F189, F191, F192, F205, F220 | F191, F192, F220 | S1, S2, S5a; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
-| 4de26452cd162a9b42ef62aa298819a589ccfe60 | feat(bedrock): add AgentCore code execution | F183, F184, F185, F191, F193, F194, F195, F205, F220 | F191, F195, F220 | S1, S2, S5a; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
-| d4ef32ef661c15a0a49189677bed7d25247e2e4f | feat(agents): integrate managed execution replay | F006, F009, F014, F016, F021, F022, F087, F093, F101, F103, F108, F109, U028, F128, F151, F166, F183, F185, F186, F188, F190, F191, F193, F198, F202, F203, F204, F205, F206, F207, F216, F217, F220, F221 | F021, F022, F093, F109, F128, F166, F190, F191, F216, F217, F220, F221 | S2, S4a, S4b, S4c, S4d, S5a; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S5a and R-runtime verified where assigned, see S5a and R-runtime validation |
-| a9b1ecdbfca6656b71ca54188fa29c9e27798326 | feat(prompt): harden caching and retries | F081, F082, F087, F092, F098, F101, F103, F108, F110, F112, F117, F151, F153, F154, F166, F167, F178, F179, F181, F182, F198, F200, F211 | F092, F098, F110, F112, F117, F166, F167, F181, F182, F211 | S1, S2, S3, S4a, S4b, S4d; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4d verified, see S4d validation |
-| d9a3074bdf459695d37823ea77ca597cf89ef4ba | docs: document jvm snapshot closure | F005 | Slice regressions; assertion review pending | S7; pending |
-| f46bc813b8b7c8f2cb5886a448ec6f5feba5bfc8 | ci: add Maven Central release workflow | F001, F005, F040, F041, F042, F044, F046 | F046 | S1, S7; pending |
-| 00ab8bd70ebb9a0a0666b9cf2fdbde70589b487c | fix: publish complete Kroog JVM catalogue | F001, F002, F005, F024, F025, F026, U012, F053 | F025, F026 | S5c, S7; pending; S5c verified only F024, F025, F026, see S5c validation |
-| 70435302d4371aa4f5b2e7ff880191e42faca63c | fix: publish Spring AI BOMs in starter POMs | F005, U012, F073, F074, F075, F076, F077, F078, F079, F080 | Slice regressions; assertion review pending | S1, S7; pending |
-| ba7899a0e37df7d6cb7c9cf8d4fe777cd58983ed | feat(openai): pass through chat template kwargs | F003, F143, U038, F151, F153, F157, F161, F164, F173 | F161, F164, F173 | S4a; pending |
-| 68b632c3cdf6a1cc4bbff046b0dd23fdb1db84b8 | chore(release): prepare 1.0.0-kroog.5 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 6843b0136f0a098c353163dcb8ae1364c53fa326 | chore(kroog): merge Koog 1.1.1 | F001, F002, F003, F004, U002, F005, U003, F006, F007, F008, F009, F014, F015, F016, F019, F020, F021, F022, F023, F024, F025, F026, F027, F028, F029, F030, F031, F032, F033, F034, F035, F038, F039, F040, F041, F042, F043, F044, F045, F046, U006, U007, F049, U009, U010, F050, U011, F051, U012, F053, F054, F055, F056, F057, F060, F061, F062, F063, U017, U018, F069, F070, F073, F074, F075, F076, F077, F078, F079, F080, F081, F082, F083, U019, U020, U021, F087, U022, F089, F090, F091, F092, F093, U023, F095, F096, F097, F098, U024, F100, F101, U025, F103, F104, F105, F106, F107, F108, F109, F110, F111, F112, F113, F114, F116, F117, F119, F120, F121, F122, U028, F125, U030, F127, F128, F129, U031, F133, F136, F137, F138, F140, F143, U037, U038, U039, F151, U040, F153, F154, F155, F156, F157, U041, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F178, F179, F180, F181, F182, F183, F184, F185, F186, F187, F188, F189, F190, F191, F192, F193, F194, F195, F197, F198, F199, F200, F201, F202, F203, F204, F205, F206, F207, F208, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F223, F224, U047 | F019, F020, F021, F022, F025, F026, F028, F029, F030, F032, F034, F035, F045, F046, F057, F061, F062, F070, F091, F092, F093, U023, F095, F096, F097, F098, F109, F110, F111, F112, F113, F114, F116, F117, F119, F127, F128, F129, U031, F133, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F180, F181, F182, F190, F191, F192, F195, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F224 | R-http-fixtures, R-openai-base, R-runtime, S1, S2, S3, S4a, S4b, S4c, S4d, S4e-deepseek, S5a, S5c, S7, S7-docs; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5c verified only F024, F025, F026, F027, F028, F029, F030, F031, F032, F033, F034, F035, F223, F224, see S5c validation; S7-docs verified only F049, F050, F051, U002, U003, U006, U007, U009, U010, U011, see S7-docs validation |
-| db3a94f08879eb7c5bf77ef283ef9b95ace74707 | feat(skills): add validated skill sources | F054, U017, U018, U047, U049, F231, F233, F234, F236, F237, F241, F242, F243, F245 | F237, F243, F245 | S1, S6a; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending) |
-| f3c304b0076d70fa8726f2a3ac125f9976b0ea88 | feat(skills): add catalogue and load tool | U049, F230, F232, F235, F238, F239, F240 | F238, F239, F240 | S1, S6a, S6c; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending); S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation |
-| ac2b5cfa17b749bdf135c5d9e2209e259197110d | test(skills): cover agent history carry-forward | U049, F244 | F244 | S1, S6c; pending; S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation |
-| 1e822f6267f8e9735aaad9ac72db77cc8f7f1a77 | docs(skills): document beta module publication | F001, F002, F005, F053, F228 | Slice regressions; assertion review pending | S7, S7-docs; pending; S7-docs verified only F228, see S7-docs validation |
-| 2605311ac14b669d694d791059526f750ab55dec | fix(skills): expose public API dependencies | U017, U018, U047, F226, F227, F228, U049, F234, F241, F243 | F243 | S1, S6a, S6c, S7-docs; pending; S6a assigned skills contracts verified by 111 JVM tests and retained public ABI (later slices remain pending); S6c assigned typed-load and consumer contracts verified by 119 JVM tests and consumer compilation; S7-docs verified only F228, see S7-docs validation |
-| 1e1316b98f93429b19489a350273e4b91abce953 | fix(release): support verified browser tag dispatch | F001, F005 | Slice regressions; assertion review pending | S7; pending |
-| d0af9baee80d5caf3f62f03079f79a2a7689a39e | fix(release): encode Central upload query directly | F001 | Slice regressions; assertion review pending | S7; pending |
-| bab8fc8403b507ad6a84cdc146902d927f8203dd | feat(models): add Gemini and Claude model profiles | F048, F071, F072, U020, F087, U022, U023, U024, F101, U025, F108, F111, F117, F121, U028, U029, U031, F131, F204, F219, F222 | F072, U023, F111, F117, U031, F131, F219, F222 | R-ktor, S2, S4b, S4c, S4d, S7-docs; pending; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; R-ktor verified, see S5b and R-ktor validation; S7-docs verified only F048, see S7-docs validation |
-| 43f2ddd6cc72609ad1262377ac28e9bfdd61bfd3 | chore(release): prepare 1.1.1-kroog.2 | F005, U012, F228 | Slice regressions; assertion review pending | S7, S7-docs; pending; S7-docs verified only F228, see S7-docs validation |
-| a9c11138657920b042a68e0b3f2276736ae14a02 | feat(bedrock): support xhigh reasoning effort | F005, U012, U024, F105, F113, F228 | F113 | S4d, S7, S7-docs; pending; S4d verified, see S4d validation; S7-docs verified only F228, see S7-docs validation |
-| bbd81cf927b175dabd924db30fcdfcef4ae5eaf8 | feat: add gemini 3.7 flash | F048, F071, F072, F121, U029, U031, F131, F204, F219, F222 | F072, U031, F131, F219, F222 | R-ktor, S2, S4c, S7-docs; pending; S4c verified, see S4c validation; R-ktor verified, see S5b and R-ktor validation; S7-docs verified only F048, see S7-docs validation |
-| 0569c91d7bd6d270ab553d264e7aeb89ce5ddc87 | fix(google): apply Gemini 3.7 request constraints | U028 | Slice regressions; assertion review pending | S4c; pending; S4c verified, see S4c validation |
-| e454dabb356b2f22c44a8909b9c0fa30c60addea | chore(release): prepare 1.1.1-kroog.4 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| e8a4f0037e0fe1d57a1651c1c22fd4dd8f1aca6e | feat(models): add Claude Fable 5.1 | F005, F048, U012, F083, U020, U022, U023, U024, U025, F111, F117, F204, F219, F222, F228 | U023, F111, F117, F219, F222 | S2, S4b, S4d, S7, S7-docs; pending; S4b verified, see S4b validation; S4d verified, see S4d validation; S7-docs verified only F048, F228, see S7-docs validation |
-| 6bddf26334f0f918a91beab1544e363b324ab9ee | feat(agents): add portable tiered history compaction | F006, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5b verified where assigned, see S5b and R-ktor validation; S7-docs verified only F047, see S7-docs validation |
-| dd0363f08074cfbe2f23ceab9475d3f562bd6c71 | chore(release): prepare 1.1.1-kroog.6 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 1f5e900e24af2384a87b6821a32e1a9502a3fe87 | chore(release): prepare 1.1.1-kroog.7 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 21157b96cf3e9f4fb10e7d3606c25b467920d8b3 | fix(agents): retain exact recent turns in tiered compaction | F012, F013, F018, U012 | F018 | S5b verified; see S5b and R-ktor validation |
-| a7bad9498655af865f6677a76b33b67e3f9a17ce | feat(openai): add GPT-6 Astra support | U038, F151, U040, F160, F164, F165, F171, F204, F219, F222 | F160, F164, F165, F171, F219, F222 | S2, S4a; pending |
-| fb086e6da9fa9bed234589d67795693d594c51b5 | fix(agents): reset execution containers during tiered compaction | F012, F018, U012 | F018 | S5b verified; see S5b and R-ktor validation |
-| 639a244c57ca563b9e4b5015680ff445b16c05d9 | feat(agents): improve tiered compaction handovers | F007, F012, F013, F017, F018, F047 | F018 | S1, S5b, S7-docs; pending; S5b verified where assigned, see S5b and R-ktor validation; S7-docs verified only F047, see S7-docs validation |
-| f263bd05af057032c46afef6001597cd7ec2a619 | feat(agents): bound history compaction and tool-result requests | F006, F010, F011, F012, F013, F018, F047 | F018 | S5a, S5b, S7-docs; pending; S5a and R-runtime verified where assigned, see S5a and R-runtime validation; S5b verified where assigned, see S5b and R-ktor validation; S7-docs verified only F047, see S7-docs validation |
-| 16861174d4371218d39f9fd8d14eb7d146e1ad4e | chore(release): prepare 1.1.1-kroog.10 | U012 | Slice regressions; assertion review pending | Provenance only; pending |
-| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | R-integration, R-openai-base, S2, S4a, S4b, S4c, S4d, S4e-deepseek, S4e-ollama, S5b, S5c; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation; S4b verified, see S4b validation; S4c verified, see S4c validation; S4d verified, see S4d validation; S4e-deepseek verified, see S4e-deepseek validation; S4e-ollama verified, see S4e-ollama validation; S5b verified where assigned, see S5b and R-ktor validation; S5c verified only F030, see S5c validation; R-integration preserves F064/F065/F066 and compiles them; live assertions unrun, see R-integration validation |
-| fc2a2f29c37296476dcef2866364374c7cec4a1f | fix(prompt): recover unavailable OpenAI containers with projected history (#4) | F141, U038, F148, F151, F153, F171 | F171 | S4a; pending |
-| e5114814b4c5c98eaad47a1017b2cfef95acbc03 | feat(openai): add standalone image generation and editing (#5) | F058, F059, F142, U038, F147, F149, F150, F155, F156, F163, F169 | F059, F163, F169 | S1, S3, S4a; pending; S3 transport/retry and unchanged prerequisites verified, other named slices remain pending; see S3 validation |
-| 324d5d8a0ac93df85cd796e2c19f666422293e74 | chore(release): prepare 1.1.1-kroog.11 (#6) | U012 | Slice regressions; assertion review pending | Provenance only; pending |
+| 6dc856d99389602a3f6340647c965b106f564927 | fix(openai): preserve streaming tool call identity | F151, F166 | F166 | S4a@cdcc00d13 |
+| 250ad21fc9ce7022e84799d6f756c594051ed067 | Merge pull request #1 from Kreoh/feat/tool-call-ids | F151, F166 | F166 | S4a@cdcc00d13 |
+| 37ddaf65f38c2851a3ff1148783ad21b14a77252 | build(publishing): configure Central snapshots | F005, F038, F039, F041, F043, F045, F049, U012, U047 | F045 | S1@73476b99c; S7-docs@da5107b65; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| 586e38a084ae184172abc5048980d9186c939e66 | ci(publishing): add manual snapshot workflow | F002, F005 | Assigned checkpoint validation; exact scope and limits below | S7@6ed6b6506 |
+| 2c56ea2fb6fabfa01f3e08760698af1543a2c816 | perf(publishing): optimise JVM snapshot workflow | F002 | Assigned checkpoint validation; exact scope and limits below | S7@6ed6b6506 |
+| 62039470c0ff15e85dfccb3be8fa6ed0ce085f82 | fix(openai): emit completed streaming text | F151, F166 | F166 | S4a@cdcc00d13 |
+| 5c1924af32b7ecab00ea78a5369e7c99c837a12a | feat(openai): support xhigh reasoning effort | F140, F173 | F173 | S3@c89258eff; S4a@cdcc00d13 |
+| 4ef675dc1d7941f13d7f3014854af27e92ead387 | fix(streaming): preserve parallel tool calls | F208, F213 | F213 | S2@e810bf846 |
+| 139d5e6d54e5009efc6910aeae5418e4ea8d4bb2 | feat(bedrock): expose runtime client injection | F101, F110 | F110 | S4d@e16c32cbb |
+| 3b49937cfe1540e646da00b0443ed9fb5c29cf73 | feat(bedrock): stream signed reasoning | U024, F103, F104, F105, F110, F113, F197, F198, F199, F208, F213 | F110, F113, F213 | S2@e810bf846; S4d@e16c32cbb; X-ABI retained H; no non-JVM validation |
+| 804d8f6c2185bc847229a70d445a96cf4dc0bf79 | fix(google): preserve streaming tool signatures | U028, U031 | U031 | S4c@f0aba52a3 |
+| 497725844dae84ccda2abcbafa2ed736f3018cfb | feat(google): add thinking levels | F120, F121, F122, U030, F133 | F133 | S4c@f0aba52a3; X-ABI retained H; no non-JVM validation |
+| 733a328b7b1b082812af09853b6947cdb02c99ca | fix(google): preserve thought signatures | U028, U031 | U031 | S4c@f0aba52a3 |
+| 0587101f0931d647106f7fec4b0aaaeec9907d89 | feat(anthropic): add Vertex client | F083, U019, U020, U021, F087, F089, F090, F091, F098 | F091, F098 | S4b@fbe99e6b5; X-ABI retained H; no non-JVM validation |
+| 3d8ab81907187bfe638a3c46cf473a303e829873 | feat(openai): add GPT-5.6 models | F136, F137, F138, F140, F143, U037, U038, U039, F151, U040, F160, F164, F165, F173, F174 | F160, F164, F165, F173, F174 | S3@c89258eff; S4a@cdcc00d13; X-ABI retained H; no non-JVM validation |
+| 967531a8cf6ea97be8030c1cafea3182605e98d1 | fix(anthropic): support anyOf tool schemas | F087, F097 | F097 | S4b@fbe99e6b5 |
+| 41d849f79aa90336c44f54c79dbac4a93c7b0c2e | fix(openai): accept streaming choices without delta | F140, F166 | F166 | S3@c89258eff; S4a@cdcc00d13 |
+| 4a1c37b1914b1529be96b4752807ca14ef8f591e | feat(models): add Claude Opus 4.8 | U019, U020, U021, U022, U023, U024, F100, U025, F111 | U023, F111 | S4b@fbe99e6b5; S4d@e16c32cbb; X-ABI retained H; no non-JVM validation |
+| 171c8a220f0913fc456b68071d9abc27a8e60880 | feat(openai): stream code interpreter responses | F004, F023, F024, F025, F027, F028, F031, F032, F033, F034, F051, F087, F093, F103, F107, F108, F112, F116, F117, U028, U038, F151, F153, U041, F166, F170, F176, F198, F203, F206, F207, F212, F223, F224 | F025, F028, F032, F034, F093, F112, F116, F117, F166, F170, F176, F212, F224 | S1@73476b99c; S2@e810bf846; S4a@cdcc00d13; S4b@fbe99e6b5; S4c@f0aba52a3; S4d@e16c32cbb; S5c@1f3756bf9; S7-docs@da5107b65; X-local retained H |
+| 2d5dbec84e11beff22533e47a30a70d178df2044 | feat(prompt): add provider replay primitives | F050, F180, F203, F206, F207, F208, F209 | F180, F209 | S2@e810bf846; S3@c89258eff; S7-docs@da5107b65 |
+| 250069ec648f647694ebfda9984bc589f98a3447 | feat(http): add provider resource APIs | F055, F056, F057, F060, F061, F062, F063, F151, F155, F166, F169 | F057, F061, F062, F166, F169 | S3@c89258eff; S4a@cdcc00d13 |
+| 8483123ee8ea6ccc7450a5de0213a171fdf405fa | feat(openai): unify responses execution | U038, F151, F153, F156, F159, F162, F166, F170, F171, F177 | F159, F162, F166, F170, F171, F177 | S4a@cdcc00d13 |
+| 4f955e20778361b4998195cf0b43d149b81d82b5 | feat(anthropic): preserve portable reasoning | U020, F087, F090, F095, F098, U024, F103, F106, F107, F108, F109, F113 | F095, F098, F109, F113 | S4b@fbe99e6b5; S4d@e16c32cbb |
+| 27150c03e269f5b71b947fd3528e441700d29a6c | feat(google): add Gemini hosted execution | F121, U028, F125, U030, F127, F128, F129 | F127, F128, F129 | S4c@f0aba52a3 |
+| 2575f1fafcb0acd3cb0a9271f6d7616cbfc72805 | feat(prompt): add caching and replay identity | F087, F092, F096, F098, F103, F112, F114, U038, F151, F153, F154, F167, F168, F180, F198, F200, F201, F210, F211 | F092, F096, F098, F112, F114, F167, F168, F180, F210, F211 | S2@e810bf846; S3@c89258eff; S4a@cdcc00d13; S4b@fbe99e6b5; S4d@e16c32cbb |
+| 727d293b5c8735c8623c71805483d1a0e1e173fb | fix(openai): correct code interpreter replay | F151, U041, F166, F171, F176 | F166, F171, F176 | S4a@cdcc00d13 |
+| faf94802d957ab99388c76f78dafdbc067b99a2f | fix(tokeniser): support hosted execution content | F223, F224 | F224 | S5c@1f3756bf9 |
+| 1a2f16e7d52f846bbe3aec2846701b030a03663e | fix(events): format hosted execution content | F027, F029, F030 | F029, F030 | S5c@1f3756bf9 |
+| 74f7b656e89c1507a6eb73b16bffb185b82c1979 | fix(telemetry): map hosted execution content | F031, F032 | F032 | S5c@1f3756bf9 |
+| 2ba1976f9454ac9291d58968a33cb897b638ca1f | fix(trace): format hosted execution content | F033, F035 | F035 | S5c@1f3756bf9 |
+| ca97c8a99370a617da24cc4061228e81c9d79b3c | feat(prompt): add model capability catalogue | F198, F204, F205, F219, F220, F222 | F219, F220, F222 | S2@e810bf846 |
+| 9a118180cd514be277058221a01014d735da675b | feat(agents): add managed execution framework | F006, F007, F008, F014, F015, F016, F019, F020, F021, U017, U018, F183, F184, F185, F191, F198, F205, F206, F207, F208, F220, F221, U047 | F019, F020, F021, F191, F220, F221 | S1@73476b99c; S2@e810bf846; S5a@1ce34406d |
+| 0d87359d9c36f72cce3a4df588dc04d7180e3710 | feat(vertex): add Agent Engine execution | F183, F184, F185, F187, F188, F189, F191, F192, F205, F220 | F191, F192, F220 | S1@73476b99c; S2@e810bf846; S5a@1ce34406d |
+| 4de26452cd162a9b42ef62aa298819a589ccfe60 | feat(bedrock): add AgentCore code execution | F183, F184, F185, F191, F193, F194, F195, F205, F220 | F191, F195, F220 | S1@73476b99c; S2@e810bf846; S5a@1ce34406d |
+| d4ef32ef661c15a0a49189677bed7d25247e2e4f | feat(agents): integrate managed execution replay | F006, F009, F014, F016, F021, F022, F087, F093, F101, F103, F108, F109, U028, F128, F151, F166, F183, F185, F186, F188, F190, F191, F193, F198, F202, F203, F204, F205, F206, F207, F216, F217, F220, F221 | F021, F022, F093, F109, F128, F166, F190, F191, F216, F217, F220, F221 | S2@e810bf846; S4a@cdcc00d13; S4b@fbe99e6b5; S4c@f0aba52a3; S4d@e16c32cbb; S5a@1ce34406d |
+| a9b1ecdbfca6656b71ca54188fa29c9e27798326 | feat(prompt): harden caching and retries | F081, F082, F087, F092, F098, F101, F103, F108, F110, F112, F117, F151, F153, F154, F166, F167, F178, F179, F181, F182, F198, F200, F211 | F092, F098, F110, F112, F117, F166, F167, F181, F182, F211 | S1@73476b99c; S2@e810bf846; S3@c89258eff; S4a@cdcc00d13; S4b@fbe99e6b5; S4d@e16c32cbb |
+| d9a3074bdf459695d37823ea77ca597cf89ef4ba | docs: document jvm snapshot closure | F005 | Assigned checkpoint validation; exact scope and limits below | S7@6ed6b6506 |
+| f46bc813b8b7c8f2cb5886a448ec6f5feba5bfc8 | ci: add Maven Central release workflow | F001, F005, F040, F041, F042, F044, F046 | F046 | S1@73476b99c; S7@6ed6b6506 |
+| 00ab8bd70ebb9a0a0666b9cf2fdbde70589b487c | fix: publish complete Kroog JVM catalogue | F001, F002, F005, F024, F025, F026, U012, F053 | F025, F026 | S5c@1f3756bf9; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| 70435302d4371aa4f5b2e7ff880191e42faca63c | fix: publish Spring AI BOMs in starter POMs | F005, U012, F073, F074, F075, F076, F077, F078, F079, F080 | Assigned checkpoint validation; exact scope and limits below | S1@73476b99c; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| ba7899a0e37df7d6cb7c9cf8d4fe777cd58983ed | feat(openai): pass through chat template kwargs | F003, F143, U038, F151, F153, F157, F161, F164, F173 | F161, F164, F173 | S4a@cdcc00d13; X-local retained H |
+| 68b632c3cdf6a1cc4bbff046b0dd23fdb1db84b8 | chore(release): prepare 1.0.0-kroog.5 | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+| 6843b0136f0a098c353163dcb8ae1364c53fa326 | chore(kroog): merge Koog 1.1.1 | F001, F002, F003, F004, U002, F005, U003, F006, F007, F008, F009, F014, F015, F016, F019, F020, F021, F022, F023, F024, F025, F026, F027, F028, F029, F030, F031, F032, F033, F034, F035, F038, F039, F040, F041, F042, F043, F044, F045, F046, U006, U007, F049, U009, U010, F050, U011, F051, U012, F053, F054, F055, F056, F057, F060, F061, F062, F063, U017, U018, F069, F070, F073, F074, F075, F076, F077, F078, F079, F080, F081, F082, F083, U019, U020, U021, F087, U022, F089, F090, F091, F092, F093, U023, F095, F096, F097, F098, U024, F100, F101, U025, F103, F104, F105, F106, F107, F108, F109, F110, F111, F112, F113, F114, F116, F117, F119, F120, F121, F122, U028, F125, U030, F127, F128, F129, U031, F133, F136, F137, F138, F140, F143, U037, U038, U039, F151, U040, F153, F154, F155, F156, F157, U041, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F178, F179, F180, F181, F182, F183, F184, F185, F186, F187, F188, F189, F190, F191, F192, F193, F194, F195, F197, F198, F199, F200, F201, F202, F203, F204, F205, F206, F207, F208, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F223, F224, U047 | F019, F020, F021, F022, F025, F026, F028, F029, F030, F032, F034, F035, F045, F046, F057, F061, F062, F070, F091, F092, F093, U023, F095, F096, F097, F098, F109, F110, F111, F112, F113, F114, F116, F117, F119, F127, F128, F129, U031, F133, F159, F160, F161, F162, F164, F165, F166, F167, F168, F169, F170, F171, F173, F174, F176, F177, F180, F181, F182, F190, F191, F192, F195, F209, F210, F211, F212, F213, F216, F217, F219, F220, F221, F222, F224 | S1@73476b99c; S2@e810bf846; S3@c89258eff; S4a@cdcc00d13; S4b@fbe99e6b5; S4c@f0aba52a3; S4d@e16c32cbb; S4e-deepseek@b7e79a1bd; S5a@1ce34406d; S5c@1f3756bf9; S7-docs@da5107b65; S7@6ed6b6506; X-ABI retained H; no non-JVM validation; X-local retained H; X-version retained H; S7 controls verified |
+| db3a94f08879eb7c5bf77ef283ef9b95ace74707 | feat(skills): add validated skill sources | F054, U017, U018, U047, U049, F231, F233, F234, F236, F237, F241, F242, F243, F245 | F237, F243, F245 | S1@73476b99c; S6a@4cff72896; S6b@ae192f266 |
+| f3c304b0076d70fa8726f2a3ac125f9976b0ea88 | feat(skills): add catalogue and load tool | U049, F230, F232, F235, F238, F239, F240 | F238, F239, F240 | S1@73476b99c; S6a@4cff72896; S6b@ae192f266; S6c@e683da58d |
+| ac2b5cfa17b749bdf135c5d9e2209e259197110d | test(skills): cover agent history carry-forward | U049, F244 | F244 | S1@73476b99c; S6c@e683da58d |
+| 1e822f6267f8e9735aaad9ac72db77cc8f7f1a77 | docs(skills): document beta module publication | F001, F002, F005, F053, F228 | Assigned checkpoint validation; exact scope and limits below | S7-docs@da5107b65; S7@6ed6b6506 |
+| 2605311ac14b669d694d791059526f750ab55dec | fix(skills): expose public API dependencies | U017, U018, U047, F226, F227, F228, U049, F234, F241, F243 | F243 | S1@73476b99c; S6a@4cff72896; S6b@ae192f266; S6c@e683da58d; S7-docs@da5107b65 |
+| 1e1316b98f93429b19489a350273e4b91abce953 | fix(release): support verified browser tag dispatch | F001, F005 | Assigned checkpoint validation; exact scope and limits below | S7@6ed6b6506 |
+| d0af9baee80d5caf3f62f03079f79a2a7689a39e | fix(release): encode Central upload query directly | F001 | Assigned checkpoint validation; exact scope and limits below | S7@6ed6b6506 |
+| bab8fc8403b507ad6a84cdc146902d927f8203dd | feat(models): add Gemini and Claude model profiles | F048, F071, F072, U020, F087, U022, U023, U024, F101, U025, F108, F111, F117, F121, U028, U029, U031, F131, F204, F219, F222 | F072, U023, F111, F117, U031, F131, F219, F222 | S2@e810bf846; S4b@fbe99e6b5; S4c@f0aba52a3; S4d@e16c32cbb; S5b@e1c63166c; S7-docs@da5107b65 |
+| 43f2ddd6cc72609ad1262377ac28e9bfdd61bfd3 | chore(release): prepare 1.1.1-kroog.2 | F005, U012, F228 | Assigned checkpoint validation; exact scope and limits below | S7-docs@da5107b65; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| a9c11138657920b042a68e0b3f2276736ae14a02 | feat(bedrock): support xhigh reasoning effort | F005, U012, U024, F105, F113, F228 | F113 | S4d@e16c32cbb; S7-docs@da5107b65; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| bbd81cf927b175dabd924db30fcdfcef4ae5eaf8 | feat: add gemini 3.7 flash | F048, F071, F072, F121, U029, U031, F131, F204, F219, F222 | F072, U031, F131, F219, F222 | S2@e810bf846; S4c@f0aba52a3; S5b@e1c63166c; S7-docs@da5107b65 |
+| 0569c91d7bd6d270ab553d264e7aeb89ce5ddc87 | fix(google): apply Gemini 3.7 request constraints | U028 | Assigned checkpoint validation; exact scope and limits below | S4c@f0aba52a3 |
+| e454dabb356b2f22c44a8909b9c0fa30c60addea | chore(release): prepare 1.1.1-kroog.4 | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+| e8a4f0037e0fe1d57a1651c1c22fd4dd8f1aca6e | feat(models): add Claude Fable 5.1 | F005, F048, U012, F083, U020, U022, U023, U024, U025, F111, F117, F204, F219, F222, F228 | U023, F111, F117, F219, F222 | S2@e810bf846; S4b@fbe99e6b5; S4d@e16c32cbb; S7-docs@da5107b65; S7@6ed6b6506; X-version retained H; S7 controls verified |
+| 6bddf26334f0f918a91beab1544e363b324ab9ee | feat(agents): add portable tiered history compaction | F006, F012, F013, F018, F047 | F018 | S5a@1ce34406d; S5b@e1c63166c; S7-docs@da5107b65 |
+| dd0363f08074cfbe2f23ceab9475d3f562bd6c71 | chore(release): prepare 1.1.1-kroog.6 | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+| 1f5e900e24af2384a87b6821a32e1a9502a3fe87 | chore(release): prepare 1.1.1-kroog.7 | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+| 21157b96cf3e9f4fb10e7d3606c25b467920d8b3 | fix(agents): retain exact recent turns in tiered compaction | F012, F013, F018, U012 | F018 | S5b@e1c63166c; X-version retained H; S7 controls verified |
+| a7bad9498655af865f6677a76b33b67e3f9a17ce | feat(openai): add GPT-6 Astra support | U038, F151, U040, F160, F164, F165, F171, F204, F219, F222 | F160, F164, F165, F171, F219, F222 | S2@e810bf846; S4a@cdcc00d13 |
+| fb086e6da9fa9bed234589d67795693d594c51b5 | fix(agents): reset execution containers during tiered compaction | F012, F018, U012 | F018 | S5b@e1c63166c; X-version retained H; S7 controls verified |
+| 639a244c57ca563b9e4b5015680ff445b16c05d9 | feat(agents): improve tiered compaction handovers | F007, F012, F013, F017, F018, F047 | F018 | S1@73476b99c; S5b@e1c63166c; S7-docs@da5107b65 |
+| f263bd05af057032c46afef6001597cd7ec2a619 | feat(agents): bound history compaction and tool-result requests | F006, F010, F011, F012, F013, F018, F047 | F018 | S5a@1ce34406d; S5b@e1c63166c; S7-docs@da5107b65 |
+| 16861174d4371218d39f9fd8d14eb7d146e1ad4e | chore(release): prepare 1.1.1-kroog.10 | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+| 99abf884244cb3783fba54127997339128435812 | fix(prompt)!: normalise provider token usage (#3) | F030, F036, F037, F064, F065, F066, F087, F095, F103, F115, F118, F119, U028, U030, U031, F132, F134, F135, F139, F151, U041, F171, F172, U042, F196, F198, F203, F211, F214, F215, F218 | F030, F037, F064, F065, F066, F095, F115, F119, U031, F132, F135, F171, F172, U042, F211, F214, F218 | S2@e810bf846; S3@c89258eff; S4a@cdcc00d13; S4b@fbe99e6b5; S4c@f0aba52a3; S4d@e16c32cbb; S4e-deepseek@b7e79a1bd; S4e-ollama@421f944ab; S5b@e1c63166c; S5c@1f3756bf9; R-integration@aaee6449b |
+| fc2a2f29c37296476dcef2866364374c7cec4a1f | fix(prompt): recover unavailable OpenAI containers with projected history (#4) | F141, U038, F148, F151, F153, F171 | F171 | S4a@cdcc00d13 |
+| e5114814b4c5c98eaad47a1017b2cfef95acbc03 | feat(openai): add standalone image generation and editing (#5) | F058, F059, F142, U038, F147, F149, F150, F155, F156, F163, F169 | F059, F163, F169 | S1@73476b99c; S3@c89258eff; S4a@cdcc00d13 |
+| 324d5d8a0ac93df85cd796e2c19f666422293e74 | chore(release): prepare 1.1.1-kroog.11 (#6) | U012 | Assigned checkpoint validation; exact scope and limits below | X-version retained H; S7 controls verified |
+
 
 ## Baseline-only ancestry effects
 
@@ -590,7 +593,7 @@ All other S1 paths retain H byte-for-byte. Source comparison against B and U pre
 
 Validation uses installed JDK 21 through JAVA_HOME. The default JDK 27 failed before configuration with Gradle reporting `27`; JDK 21 successfully configures the scoped JVM graph. Command: `./gradlew :skills:jvmTest :skills:generatePomFileForJvmPublication :koog-agents-additions:generatePomFileForJvmPublication :koog-agents:generatePomFileForJvmPublication :skills-api-consumer-test:compileKotlin --console=plain`, preceded by the same command with `--dry-run`. Only JVM compilation, JVM publication-coordinate tasks and JVM tests enter this graph. Generated POM inspection confirms public coroutine, serialisation-core, rag-base, tools and JSON dependencies; runtime SnakeYAML and logging; and the additions dependency `com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.11-SNAPSHOT`. The stable umbrella has no skills dependency. Existing version transformation is unchanged.
 
-The existing skills consumer compiles with these prerequisites. S6 must extend consumer source coverage to the upstream Skill, discovery and formatter API and rerun it after adaptation; that evidence remains pending. Integration-test dependency resolution and full umbrella artefact checks remain in R-integration and S7 respectively. No ABI dump changes are made by this dependency-only slice. Cached Kotlin 2.3.10 `abi-tools-api` exposes `AbiToolsV2.printJvmDump(Appendable, Iterable<File>, AbiFilters)` and the matching `abi-tools` implementation is present. Later source slices can use this JVM-only API against compiled classes and checked-in JVM dumps, with filters matched to the convention; it has not yet been exercised as a compatibility check.
+The S1 consumer compiled with these prerequisites. S6a and S6c subsequently extended and validated both APIs; R-integration compiled integration sources, and S7 validated full umbrella artefacts and an isolated published consumer. No ABI dump changes are made by this dependency-only slice. Cached Kotlin 2.3.10 `abi-tools-api` exposes `AbiToolsV2.printJvmDump(Appendable, Iterable<File>, AbiFilters)` and the matching `abi-tools` implementation is present. S2 and later source slices subsequently exercised this JVM-only API with filters matched to the convention; their exact comparisons and drift limitations are recorded below.
 
 S1 result: the inspected command passed in 1 minute 25 seconds (192 actionable tasks). Skills JVM tests: 73 passed, zero failures, errors or skipped tests across 7 suites. Existing consumer compilation and all three POM tasks passed. `git diff --check` passed. Compiler warnings came from unchanged prompt and agent sources; no warnings were suppressed. No S1 blocker remains.
 
@@ -629,7 +632,7 @@ The initial dry-run selected only JVM tasks. Prerequisites ran first:
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :http-client:http-client-test:compileKotlin :prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client-base:jvmTest --console=plain
 ```
 
-Result: BUILD SUCCESSFUL in 26 seconds, 49 actionable tasks, 16 executed and 33 up-to-date. OpenAI-base reports eight passing tests across three suites, with no failures, errors or skips. These tests exercise schema generation and tool descriptor conversion. Source inspection retains the base model's optional cache and reasoning counts, default empty streaming delta, inclusive token totals and unencoded tool argument replay. This run does not exercise provider cache keys or full replay requests; those remain S4 provider obligations. R-openai-base is accepted as an unchanged prerequisite, with those provider assertions still pending.
+Result: BUILD SUCCESSFUL in 26 seconds, 49 actionable tasks, 16 executed and 33 up-to-date. OpenAI-base reports eight passing tests across three suites, with no failures, errors or skips. These tests exercise schema generation and tool descriptor conversion. Source inspection retains the base model's optional cache and reasoning counts, default empty streaming delta, inclusive token totals and unencoded tool argument replay. This run does not exercise provider cache keys or full replay requests; those remain S4 provider obligations. R-openai-base is accepted as an unchanged prerequisite; S4a subsequently supplies the provider-specific assertion evidence.
 
 The HTTP and retry command was:
 
@@ -656,7 +659,7 @@ Assertion and implementation review confirms:
 - Deterministic observers record bounded 100, 200 and 300 millisecond delays, exact attempt numbers and typed reasons while excluding the sentinel prompt and credential text. Observer failures cannot change the result. Jitter endpoints and overflow stay bounded; invalid jitter fails before a second call. Incomplete streams retry before a first frame and propagate after it, with exactly one delegate call after emitted output.
 - StreamIdentityReplayTest passes all three assertions: UI, function-call and provider-item identities remain separate; internal indices never become provider identities; distinct provider items remain distinct despite equal function-call IDs. Retry source constructor references and legacy config copy usage remain exercised.
 
-No JVM ABI dump comparison was rerun for these unchanged modules. Source and relevant build-input identity establish that S3 introduces no new API change; they do not certify the accuracy of existing dumps or resolve S2's recorded dump drift. No aggregate ABI or non-JVM task ran. All tests use local fixtures or mocks; live-provider behaviour remains untested here. Existing Gradle deprecation and missing SLF4J-provider notices are retained. The Java default-task discovery trap and pending S4 provider assertions remain explicit residual risks. `git diff --check` passes. No source or test edits, ignored tests or warning suppressions were introduced.
+No JVM ABI dump comparison was rerun for these unchanged modules. Source and relevant build-input identity establish that S3 introduces no new API change; they do not certify the accuracy of existing dumps or resolve S2's recorded dump drift. No aggregate ABI or non-JVM task ran. All tests use local fixtures or mocks; live-provider behaviour remains untested here. Existing Gradle deprecation and missing SLF4J-provider notices are retained. The Java default-task discovery trap remains explicit; subsequent S4 sections record the provider assertions. `git diff --check` passes. No source or test edits, ignored tests or warning suppressions were introduced.
 
 ## S4a OpenAI adoption and preservation
 
@@ -1435,7 +1438,7 @@ S7-docs adopts all nine assigned upstream documentation paths from `3acc88cf8ce7
 
 Validation: `git diff --check` passes. A read-only `uv run --no-project --no-cache python` check validates all 17 relative Markdown links in the changed documentation, all 86 MkDocs navigation paths including skills, quickstart Maven XML, paired snippet markers and five byte-identical retained fork files. Source inspection checks discovery parameters, model fields, prompt inclusion flags, registry construction, renderer, filesystem constructors and tool merge signatures against the snippets. The existing S6c consumer and 119-test evidence covers the API shapes; no fresh compilation is claimed. The immutable ledger's 299 historical prefixes are checked separately after this audit edit. No artificial unit tests or Gradle tasks run for this documentation-only slice.
 
-Limits: a full MkDocs render was not run. Attempted YAML parsing through `uv run --no-project --no-cache python -c` could not import PyYAML; the dependency is not installed in that interpreter. Navigation and edited YAML scalars were inspected directly. External links were not fetched; release history is taken from the pinned source. Publication and published-artefact consumption remain S7 responsibilities.
+Limits: a full MkDocs render was not run. Attempted YAML parsing through `uv run --no-project --no-cache python -c` could not import PyYAML; the dependency is not installed in that interpreter. Navigation and edited YAML scalars were inspected directly. External links were not fetched; release history is taken from the pinned source. S7 subsequently completed local publication and published-artefact consumption checks, recorded below.
 
 ## S7 validation
 
@@ -1514,3 +1517,440 @@ user-managed upload guard. Real signing, signed release-bundle execution,
 remote upload and Central Portal validation are unrun. The signing convention
 tests exercise configuration, not cryptographic verification. No live-provider
 or new ABI checks are needed for this workflow and documentation slice.
+
+## S8 final accounting
+
+Accounting input C is `6ed6b6506e2ed67354d8d3c3cd0acc9f96b7c6bb`, the accepted
+S7 checkpoint. This S8 edit changes only this audit and the final paragraph of
+[the separately requested latest-model report](../latest-models-2026-09.md).
+All implementation slices are checkpointed. Whole-plan acceptance remains
+pending the required independent blind review; this accounting does not replace it.
+
+### Accepted checkpoint map
+
+These hashes identify accepted slice commits and their validation sections above.
+R-http-fixtures and R-openai-base were accepted with S3; R-runtime with S5a;
+R-ktor with S5b. S6b adds boundary tests to S6a ownership without adding original
+ledger rows. History cells use the unique nine-character hash prefixes below.
+They describe surviving contracts, not a rerun of every historical commit.
+
+| Slice | Accepted commit | Evidence |
+| --- | --- | --- |
+| S0 | `5255bc1a0297c57a6b69632cca790e0708ab33e1` | Immutable provenance and ownership |
+| S1 | `73476b99cf37bbe4a8a397e41bc3384aac6280a8` | Dependencies, beta versions and public POMs |
+| S2 | `e810bf8463223f3d670d26c277717980426fee4a` | 274 passed, 3 existing skips; prompt-model dump drift |
+| S3 | `c89258eff257c2de02e4c4a8821bead11276ca7a` | 149 distinct passed including OpenAI-base; Java jvmTest explicitly exercised |
+| S4a | `cdcc00d13827c19ba98f6fd01ea8201baf6a8334` | 319 passed; relative JVM ABI unchanged, checked-in drift |
+| S4b | `fbe99e6b518123742c6571f857dd66f12435b7df` | 77 passed; one additive JVM field and exact generated dump |
+| S4c | `f0aba52a302f6135e43a5849a91bcf9448777feb` | 65 passed; relative ABI unchanged, checked-in drift |
+| S4d | `e16c32cbba1c629b0b39e2c6ed052ba338a9c499` | 209 passed; two additive JVM fields |
+| S4e-dashscope | `7d1c78ed386c793304359d190ec052861c4d4302` | 30 passed; three additive JVM fields |
+| S4e-deepseek | `b7e79a1bde1b739fdd06122aa4c9b1fca57ad1fa` | 27 passed; one additive JVM field |
+| S4e-mistralai | `b5e8f5cdc79fe0046d98c0c6205b497eb3edde1c` | 21 passed; three additive JVM fields |
+| S4e-ollama | `421f944ab2322aec73286390d2d6f0a29b7caae7` | 48 passed; two additive JVM fields |
+| S4e-openrouter | `77263bec31c561660d691f078e431860733a359b` | 50 passed; eight additive JVM fields |
+| S5a | `1ce34406d355bcc503b026288a5e9c7b35ce757c` | 600 passed, 24 existing skips; managed execution and runtime |
+| S5b | `e1c63166ccb95e451da85ddc6476ea103935a290` | Reused S5a suites; 38 compaction, 1 usage, 13 fresh Ktor tests passed |
+| S5c | `1f3756bf9b4906e9bb72b98f294ff17d33e058fb` | 257 passed, 24 existing skips; Langfuse and hosted presentation |
+| S6a | `4cff72896963c3aeba38c1dd4037a7ad5fa89538` | 111 passed; all 48 old public blocks unchanged, 8 additions |
+| S6b | `ae192f266129e447905635d7da21d1622834859f` | 117 passed; secure discovery and budget boundaries |
+| S6c | `e683da58d09c50a43a43f06b47be3739cacd20db` | 119 passed; captured tool loading, formats and consumer |
+| R-integration | `aaee6449b134c594530dcb5b3ba193390412843a` | JVM classes compiled; one offline fixture test passed |
+| S7-docs | `da5107b65faccfef9895cc04c3a50b3a7ca5ce2f` | Pinned documentation adapted; 17 relative links and 86 navigation targets checked |
+| Latest-models | `6e3d7985966a7fc7026c5a7fa43777c981ca24bc` | Separate user-authorised overlay; 321 OpenAI, 80 Anthropic, 66 Google tests and 2 OpenAI live tests passed |
+| S7 | `6ed6b6506e2ed67354d8d3c3cd0acc9f96b7c6bb` | 87 local publications, 9 convention tests, isolated published skills consumer |
+
+The latest-model overlay is separately authorised work, not part of pinned U.
+Its 19 reviewed paths add five public model fields and associated profiles,
+constraints, tests and documentation. Accepted OpenAI, Anthropic and Google
+unit suites supersede the earlier provider counts for those changed modules;
+other slice results are reused at their recorded scope. The two OpenAI live
+tests cover authenticated retrieval, streaming, usage, Responses replay and
+Chat Completions tool calls. Anthropic and Gemini live cases compile but remain
+unrun because credentials were absent. No full token-window stress test ran.
+S7 staged the source tree after this overlay, so its published consumer evidence
+includes the final provider and skills dependency graph.
+
+### Regenerated tree closure
+
+`git diff --name-status --no-renames` and a separate `--find-renames` comparison
+produce the same counts. `git ls-tree -r` independently verifies every B, U and H
+blob in the 299 historical rows. No deletion, rename or missing ledger path is
+present. These counts include documentation, tests, fixtures and API dumps.
+
+| Comparison | Added | Modified | Deleted | Renamed | Total paths |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| B to U | 11 | 43 | 0 | 0 | 54 |
+| B to H | 107 | 138 | 0 | 0 | 245 |
+| H to C | 18 | 63 | 0 | 0 | 81 |
+| B to C | 125 | 163 | 0 | 0 | 288 |
+| U to C | 114 | 172 | 0 | 0 | 286 |
+
+The 54 upstream and 245 fork rows share 22 paths and cover 277 unique paths.
+Fifteen further paths changed after H, giving the 292-path inventory below.
+The two S8 documentation edits do not change these path-status counts. All
+70 B-to-H commits remain mapped in the history table; no stale pending gate
+remains there. Neither commit ancestry nor a count substitutes for the named
+behavioural evidence.
+
+For the 54 upstream rows, six final blobs equal U: U004, U013, U016, U027,
+U036 and U037. U037 is a retained non-JVM exemption that already equalled U at H.
+Ten other rows retain H, and 38 have reviewed adaptations. The row dispositions
+explain dependency changes, fork API and security preservation, capability
+constraints, regression additions, documentation coordinates and JVM ABI
+handling. The separately authorised latest-model overlay additionally changes
+its recorded provider paths. There is no unassigned upstream change.
+
+The eight upstream X-ABI rows are U019, U021, U033, U035, U037, U039, U043 and
+U045. All retain their exact H blob, with no regeneration or validation.
+The eleven fork X-ABI rows likewise retain H; overlapping rows represent the
+same physical file. X-version preserves `gradle.properties`, and X-local
+preserves `.gitignore` and `AGENTS.md`, all byte-identical to H. The final
+inventory includes these exemptions explicitly.
+
+### Final path and blob inventory
+
+The path is the actual final location. Full Git blob IDs identify the accepted
+C content, except the latest-model report which identifies its current S8
+wording. This audit is deliberately self-excluded from blob hashing: its final
+identity comes from the later review checkpoint, not a self-referential digest.
+`C=U` and `C=H` below denote byte identity, not test outcomes. An extra path's
+checkpoint identifies the last accepted edit before S8; its purpose is recorded
+in the corresponding validation section. Every path changed against U or B is
+covered, including all new tests and documentation.
+
+| Final path | Final blob | Historical rows or additional ownership | Identity |
+| --- | --- | --- | --- |
+| `.github/workflows/heavy-tests.yml` | a4bbad3ff321159651940d23e2307d8ff6f50440 | U001 | Adapted or added |
+| `.github/workflows/publish-maven-release.yml` | 2778206931f47d2e0fcbd2567ec7dcece836cc59 | F001 | C=H |
+| `.github/workflows/publish-maven-snapshot.yml` | 93472876740ccf31648e9186711589736ca66f23 | F002 | Adapted or added |
+| `.gitignore` | 8c8638a960b74fbeab4d7f5942a0c26135bd9901 | F003 | C=H |
+| `AGENTS.md` | 7b7f10ea21c924cab24f2b1836af527cb32ab301 | F004 | C=H |
+| `CHANGELOG.md` | d3d706e5fa3aac2a5505e8f1908535499d963f37 | U002 | Adapted or added |
+| `PUBLISHING.md` | abf29b14be1b933efae3c98ee574267fd8470322 | F005 | Adapted or added |
+| `README.md` | 78b4b6b87876a6e481fd685707b04f4ccf54d7a2 | U003 | Adapted or added |
+| `agents/agents-core/api/jvm/agents-core.api` | 652b0e52580bbfe9ac52ad2b142d607ba5529662 | F006 | C=H |
+| `agents/agents-core/build.gradle.kts` | 9c4ce1031dde859bfba32340a1d79b9ad67aece0 | F007 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/agent/tools/ManagedExecutionTool.kt` | 21e9a9df1970ad247b1cec98ab3456bc7efc7ff1 | F008 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/agent/tools/ServiceBackedManagedExecutionTool.kt` | 6cba2f86c26b973f43684fc29b053adaa70780b4 | F009 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/AIAgentNodes.kt` | b1d73d9929a3581220679412e686c9570650479d | F010 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/BudgetedHistoryCompressionStrategy.kt` | c85779be2b0dd01a543a906675d4ffcfbe894052 | F011 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/DefaultHistoryCompressionStrategies.kt` | 57c29e8b83eca7a68345c0ec427a6a8548736c01 | F012 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/dsl/extension/HistoryCompressionStrategy.kt` | a1cabbf14a0d786dd0bae6424faf6c3dd4fe3f5c | F013 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/ContextualAgentEnvironment.kt` | 03774f6901e7c66a6cd073627c6a89ee5328f833 | F014 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/GenericAgentEnvironment.kt` | 198fb15e1b65c0bd596f5e6493d67b576e305d9c | F015 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/environment/ManagedExecutionEventObserver.kt` | ec5acd3621c89dcd8e6ff6c638dcd7cb852ea5d3 | F016 | C=H |
+| `agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/prompt/Prompts.kt` | 6ea197cf30ae8b9f56d4b94ef1dfdd36323ffad3 | F017 | C=H |
+| `agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/dsl/extension/TieredHistoryCompressionStrategyTest.kt` | 0cfb4774e288359f4eccbb2e82e1633d35450c59 | F018 | C=H |
+| `agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/JvmLogCapture.kt` | dec348afa0e820ed288bdcacd22efcc3980b7edd | F019 | C=H |
+| `agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/ManagedExecutionPipelinePrivacyTest.kt` | 4b5faa1449c29da59385f68d6f2404d0ed749539 | F020 | C=H |
+| `agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/ManagedExecutionToolTest.kt` | 39720e5aa6f294bde9b37eeecb4bb95a5ddbe967 | F021 | C=H |
+| `agents/agents-core/src/jvmTest/kotlin/ai/koog/agents/core/environment/ServiceBackedManagedExecutionToolTest.kt` | 973bec87ef278f32b3a3b647cf3643ce9663bbe8 | F022 | C=H |
+| `agents/agents-features/agents-features-acp/build.gradle.kts` | 3add872c44bdfdce60c49ca5ed354be949c8ab1e | F023 | C=H |
+| `agents/agents-features/agents-features-acp/src/jvmMain/kotlin/ai/koog/agents/features/acp/MessageConverters.kt` | bd189d9e6e3a4616d14082e58629e4d71ff213e1 | F024 | C=H |
+| `agents/agents-features/agents-features-acp/src/jvmTest/kotlin/ai/koog/agents/features/acp/CodeExecutionMessageConvertersTest.kt` | db5ccbb48a9be9a0e821a649555afb0290fa159b | F025 | C=H |
+| `agents/agents-features/agents-features-acp/src/jvmTest/kotlin/ai/koog/agents/features/acp/HostedExecutionMessageConvertersTest.kt` | 65705683457f99969f046e1bc2da4c0b407a01ad | F026 | C=H |
+| `agents/agents-features/agents-features-event-handler/src/commonMain/kotlin/ai/koog/agents/features/eventHandler/messageFormat.kt` | d2836528c5299f2a244c4c32ccb517d41fca8a99 | F027 | C=H |
+| `agents/agents-features/agents-features-event-handler/src/commonTest/kotlin/ai/koog/agents/features/eventHandler/CodeExecutionMessageFormatTest.kt` | 5e8f53324ea620c25a561985ffe7b222c1221d26 | F028 | C=H |
+| `agents/agents-features/agents-features-event-handler/src/commonTest/kotlin/ai/koog/agents/features/eventHandler/HostedExecutionMessageFormatTest.kt` | ded342305d3c10000846cdbb56fff7229d065130 | F029 | C=H |
+| `agents/agents-features/agents-features-event-handler/src/jvmTest/kotlin/ai/koog/agents/features/eventHandler/feature/EventHandlerTest.kt` | 4255ca9cd4b6dc2bcbe052c12f2209008674a0c0 | F030 | C=H |
+| `agents/agents-features/agents-features-opentelemetry/src/commonMain/kotlin/ai/koog/agents/features/opentelemetry/attribute/GenAIAttributes.kt` | 957d3d6b1740e950f1cee648f960ad818e1ebff4 | F031 | C=H |
+| `agents/agents-features/agents-features-opentelemetry/src/commonMain/kotlin/ai/koog/agents/features/opentelemetry/integration/langfuse/LangfuseSpanAdapter.kt` | 7e57ca1c9f602437e393a02f5c6cd81167005732 | U004 | C=U |
+| `agents/agents-features/agents-features-opentelemetry/src/commonTest/kotlin/ai/koog/agents/features/opentelemetry/attribute/GenAIAttributesTest.kt` | 8c84a3b88892c9be83c1dced5d9a262822726301 | F032 | C=H |
+| `agents/agents-features/agents-features-opentelemetry/src/jvmTest/kotlin/ai/koog/agents/features/opentelemetry/integration/langfuse/LangfuseSpanAdapterTest.kt` | cba0e8180dd764b910e8a028ee83d2e375ef8c87 | U005 | Adapted or added |
+| `agents/agents-features/agents-features-trace/src/commonMain/kotlin/ai/koog/agents/features/tracing/messageFormat.kt` | 90cefe32ee2b15087ce69d0f1a86f31725caae48 | F033 | C=H |
+| `agents/agents-features/agents-features-trace/src/commonTest/kotlin/ai/koog/agents/features/tracing/CodeExecutionMessageFormatTest.kt` | cb70556375e8c2a69b1c470566dce5ea0c5c77ae | F034 | C=H |
+| `agents/agents-features/agents-features-trace/src/commonTest/kotlin/ai/koog/agents/features/tracing/HostedExecutionMessageFormatTest.kt` | b3b8d348032c9d0a159cfc70dece6dd06c1ad038 | F035 | C=H |
+| `agents/agents-test/src/commonMain/kotlin/ai/koog/agents/testing/tools/MockPromptExecutor.kt` | 61cc2f605f0c7ac52558bd20fe4f6becb0c0a200 | F036 | C=H |
+| `agents/agents-test/src/jvmTest/kotlin/ai/koog/agents/test/TokenUsagePreservationTest.kt` | 5ec056a4e15097ea0d0c1dbcbce0dc3a66a43ec9 | F037 | C=H |
+| `build.gradle.kts` | e474a745bd6222c10132c0ca18848dc6e2c46302 | F038 | C=H |
+| `convention-plugin-ai/build.gradle.kts` | 4087bca85a75ef95d02dd6bc59ace4e8081d986d | F039 | C=H |
+| `convention-plugin-ai/src/main/kotlin/ai.kotlin.jvm.publish.gradle.kts` | 401cea7b2e9c23ee19f4865ca0c60737d3795c37 | F040 | C=H |
+| `convention-plugin-ai/src/main/kotlin/ai.kotlin.multiplatform.gradle.kts` | 4849ee2459aaac9ce85fed5fc677989fe2ba1e84 | F041 | C=H |
+| `convention-plugin-ai/src/main/kotlin/ai.kotlin.multiplatform.server.gradle.kts` | 9bbf168081b94ecf4ac17f9f6ba7bde3fdc7bbfc | F042 | C=H |
+| `convention-plugin-ai/src/main/kotlin/ai/koog/gradle/publish/maven/Publishing.kt` | 4b2b5832a59d167891afaa02f6e6555601509005 | F043 | C=H |
+| `convention-plugin-ai/src/main/kotlin/ai/koog/gradle/publish/maven/Signing.kt` | 2469f60f18bdb5823bace148e91ccbbe56cdfc75 | F044 | C=H |
+| `convention-plugin-ai/src/test/kotlin/ai/koog/gradle/publish/maven/PublishingTest.kt` | d4ba4c242c036a14a6fc48f1d6df7191578a1c90 | F045 | C=H |
+| `convention-plugin-ai/src/test/kotlin/ai/koog/gradle/publish/maven/SigningTest.kt` | 6c705fcd51040b71e8b2aa1a59a50ebe8a6762e3 | F046 | C=H |
+| `docs/docs/features/chat-memory/chat-agent-with-memory.md` | b5edf150a10b20bd4e43a162dd0638a83874133e | U006 | Adapted or added |
+| `docs/docs/history-compression.md` | 25f4ec8e37fb752f595ae8ccca363189b0dd30d2 | F047 | C=H |
+| `docs/docs/model-capabilities.md` | 237049119cc7e6dc1c5ce20e56bc34db9c9d8bb6 | F048 | C=H |
+| `docs/docs/module-versioning.md` | a6df80451ba6b4b0477b8eae5a584e1221f47e63 | U007 | Adapted or added |
+| `docs/docs/quickstart.md` | 366ed4cb8e52b7064ce4673edca9e79fc3b12873 | F049 | C=H |
+| `docs/docs/skills.md` | fb523b06fc8b64447c503135d0c61f3b7b28a26f | U008 | Adapted or added |
+| `docs/docs/snippets/quickstart-snippets.md` | 4fefefc9cb4040651b71ccd35e56fcd9568790cd | U009 | Adapted or added |
+| `docs/docs/snippets/versioning-snippets.md` | 6c2534ff47b5d9e6f675ae9c739e0c9eb762300a | U010 | Adapted or added |
+| `docs/docs/streaming-api.md` | 2500debaf1b76e8bf580df6da1c47881217c8771 | F050 | C=H |
+| `docs/latest-models-2026-09.md` | 97ced3c38b5b1a9a82614189ee45451f0a91df8d | Latest-models@6e3d79859 | S8 final paragraph only |
+| `docs/mkdocs.yml` | 831fa766a2aa60446ef74dc5787d535289e92253 | U011 | Adapted or added |
+| `docs/upstream/koog-1.3.0-alignment.md` | self-excluded; review checkpoint supplies identity | S7@6ed6b6506 | Audit evidence |
+| `examples/simple-examples/src/main/kotlin/ai/koog/agents/example/streaming/StreamingAgentWithTools.kt` | f52c3cf7e6c82690e8bd63b244ca3b63f0f8bffc | F051 | C=H |
+| `gradle.properties` | 6199cccbc1158cc63586a6c48abc44cabdd24cad | U012, F052 | C=H |
+| `gradle/kroog-jvm-publications.txt` | e7dd7c2758b6644ac20ada6cab2f028767487955 | F053 | C=H |
+| `gradle/libs.versions.toml` | 70cca7d7f714c947417630a7967eebfadc058ee0 | F054 | C=H |
+| `http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/Exceptions.kt` | 27321c8e93bc49218d1f7a24dbf31872cfccb327 | F055 | C=H |
+| `http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/KoogHttpClient.kt` | fcd92fbbc8b49cc6da23a691812aaa4efa17d173 | F056 | C=H |
+| `http-client/http-client-core/src/jvmTest/kotlin/ai/koog/http/client/KoogHttpClientBinaryTest.kt` | 9be79e9077497bdb9be8ca8fc390b55225ec2554 | F057 | C=H |
+| `http-client/http-client-java/src/main/kotlin/ai/koog/http/client/java/JavaKoogHttpClient.kt` | fce79a2dcdaac1b2498f6fd27328d11b04f88a91 | F058 | C=H |
+| `http-client/http-client-java/src/test/kotlin/ai/koog/http/client/java/JavaKoogHttpClientSseTest.kt` | 3ebb74cc04cd25944a0e3c8d31a049c763a40819 | F059 | C=H |
+| `http-client/http-client-ktor/src/commonMain/kotlin/ai/koog/http/client/ktor/KtorKoogHttpClient.kt` | 5b3cdf0e9356adc826f1cfa75a20c24ffe58215c | F060 | C=H |
+| `http-client/http-client-ktor/src/jvmTest/kotlin/ai/koog/http/client/ktor/KtorKoogHttpClientTestBase.kt` | 17eb309ef3a04e4b936fd30fb10546248e8261ca | F061 | C=H |
+| `http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/BaseKoogHttpClientTest.kt` | e7f185b42e8512787d2cbf6df083d66b24053c24 | F062 | C=H |
+| `http-client/http-client-test/src/main/kotlin/ai/koog/http/client/test/MockWebServer.kt` | 572284cc718c82e96e239ed87f599498dc5b9c15 | F063 | C=H |
+| `integration-tests/build.gradle.kts` | 48be9f481449ee4c81b4d034902985e274a413d8 | U013 | C=U |
+| `integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/client/LatestModelsIntegrationTest.kt` | 8a2bb09ae5a32fa2af48d8f0e42d5dadd207b733 | Latest-models@6e3d79859 | Adapted or added |
+| `integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/AnthropicCacheControlIntegrationTest.kt` | c2b08fdf355e1d228a9b366ec55f1d1de2856504 | F064 | C=H |
+| `integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/BedrockConverseApiIntegrationTest.kt` | 8f9f6351b841619dc3d5dc6e7a85c05547292681 | F065 | C=H |
+| `integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/executor/ExecutorIntegrationTestBase.kt` | 0c8c9c503479f6f2839790e35366e3a3e92834a5 | F066 | C=H |
+| `integration-tests/src/jvmTest/kotlin/ai/koog/integration/tests/skills/AIAgentSkillsIntegrationTest.kt` | d661780c171fbe063f66444470600f17c8b2f179 | U014 | Adapted or added |
+| `integration-tests/src/jvmTest/resources/skills/arithmetic-evaluator/SKILL.md` | 9f25e1e1a6cd3f1401a900bd39806bfd874f527c | U015 | Adapted or added |
+| `integration-tests/src/jvmTest/resources/skills/weather-retrieval/SKILL.md` | 46fc551563ed0038ffc88217c1afb46c775941eb | U016 | C=U |
+| `koog-agents-additions/build.gradle.kts` | d834ff5f0d9232fb3077c1a3ce3f4fec5c9bb5dd | U017, F067 | Adapted or added |
+| `koog-agents/build.gradle.kts` | 13d3ba1c1746a5bc62d493fc52eb35c80221db9e | U018, F068 | Adapted or added |
+| `koog-bedrock-agentcore-runtime/build.gradle.kts` | dfc6b00d393c59263c76d2db0d501c1c4a2c9712 | F069 | C=H |
+| `koog-bedrock-agentcore-runtime/src/test/kotlin/ai/koog/agentcore/runtime/AgentCoreRuntimeTest.kt` | d9821c050a4511a570a7ccadf88854e2924beb5e | F070 | C=H |
+| `koog-ktor/src/commonMain/kotlin/ai/koog/ktor/utils/LLMModelParser.kt` | d12b086d44844a14f300ba770b176b2e07d843c4 | F071 | C=H |
+| `koog-ktor/src/commonTest/kotlin/ai/koog/ktor/ModelIdentifierParsingTest.kt` | 372eeb2ca83f809d143e795663a3aafb251c5f8e | F072 | C=H |
+| `koog-spring-ai-v2/koog-spring-ai-v2-starter-chat-memory/build.gradle.kts` | ad688adf35b25b96d83bcb3b9f385282413cf528 | F073 | C=H |
+| `koog-spring-ai-v2/koog-spring-ai-v2-starter-model-chat/build.gradle.kts` | 235b61385bb47dff69c8222877c5e8f2570d8537 | F074 | C=H |
+| `koog-spring-ai-v2/koog-spring-ai-v2-starter-model-embedding/build.gradle.kts` | 1b1f6c2a7eadd3a440301971196b2a7513debf81 | F075 | C=H |
+| `koog-spring-ai-v2/koog-spring-ai-v2-starter-vector-store/build.gradle.kts` | 83bc28ab75b9d2d29f3a24de13ee9cc881e69254 | F076 | C=H |
+| `koog-spring-ai/koog-spring-ai-starter-chat-memory/build.gradle.kts` | 2f0147625026802f001b838fae789ff6264f2012 | F077 | C=H |
+| `koog-spring-ai/koog-spring-ai-starter-model-chat/build.gradle.kts` | 3608b05e956f03fcea61cb3b5f529cb3f6f1d05d | F078 | C=H |
+| `koog-spring-ai/koog-spring-ai-starter-model-embedding/build.gradle.kts` | a60445b60e2f5b8f6749bf49c2efcdd6011ab94a | F079 | C=H |
+| `koog-spring-ai/koog-spring-ai-starter-vector-store/build.gradle.kts` | 0b896702cf53d40499d9db04a34de845eb66f811 | F080 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/api/jvm/prompt-executor-clients.api` | ca9db3dbcf6b6e892553f2c5be462db02560860d | F081 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/build.gradle.kts` | d4036aef4b1df8b2219ebbf39e5cb28dd750fb3b | F082 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/Module.md` | 380399e1ffe8cc74fc3622274b357013a77a7d8e | F083 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/api/android/prompt-executor-anthropic-client.api` | d5adcbae0693351c6d59d053da23c42c5feb3416 | U019, F084 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/api/jvm/prompt-executor-anthropic-client.api` | ce1198e121ad8414cf76df9301b0468d032bfd2b | U020, F085 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/api/prompt-executor-anthropic-client.klib.api` | 525a2ca1c8527eb620d6f3664ae8971c774a9c14 | U021, F086 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicLLMClient.kt` | 36af78132091c87e51be87209b669622001757a5 | F087 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt` | 25304c5398e8d4b264693a22b5427f41b106df6d | U022, F088 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicVertexLLMClient.kt` | 1cb1cf40d83e520c07b65af783260d073ef8742f | F089 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/models/AnthropicChatMessages.kt` | 95b369431d08b7ebd8012abb5fd05d229123167d | F090 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicSerializationTest.kt` | f0d8cee1d2cdf0dfcf4ddaa144199ca10f252fb1 | F091 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicCacheControlTest.kt` | 652c35d310a79d7cd48a698ee45d6a4fb67ef430 | F092 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicCodeExecutionReplayTest.kt` | 9bd834ceeb6e7d0ef4cb5630d0a2c436dc6504fe | F093 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModelsTest.kt` | d90a445335718dd2f164272106328d215342b388 | U023, F094 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicReasoningReplayTest.kt` | f19857dddb51b4e23da784ce1c17e23bac349b67 | F095 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicReplayIdentityTest.kt` | ad1885bf0f88c7778d20b0a3fb528f6b7a10d5ff | F096 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicToolSerializationTest.kt` | fe007db7a2fe9bbf9c588ecd34370c635c11985b | F097 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicVertexLLMClientTest.kt` | 7ac5fdf7b2e29761dee43749980a10b08c818d73 | F098 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/Module.md` | 8cada370d6c692f92a04c05900c735bd107451fd | S4d@e16c32cbb | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/api/jvm/prompt-executor-bedrock-client.api` | e34666ba12727265834031b13a045c2568c00517 | U024, F099 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/api/prompt-executor-bedrock-client.klib.api` | c0afbb7df4da5c48265ccee70c9d151af9402ed3 | F100 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockLLMClient.kt` | eb25f321e0294ea5ac62777d4f5c342dda0a2bf0 | F101 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt` | 9470afd75755a802f5bf8eb24ae4b2fc43edec65 | U025, F102 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockConverseConverters.kt` | 3ab4181cf911f9091254c6bf17ae75ca323d1218 | F103 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockConverseParams.kt` | 359ee2a480d4fdb765b09bad4b919c15ea772bf0 | F104 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockThinkingConfig.kt` | b76825059de7b8229b609cb230cb5ecac64ab7fc | F105 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/modelfamilies/BedrockDataClasses.kt` | 85d572c6f4fe0febdea1d19235b0a3d2878b32ce | F106 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/modelfamilies/amazon/BedrockAmazonNovaSerialization.kt` | 7b923141cb9f9dba592421c8c2bc6b6118fcc439 | F107 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/modelfamilies/anthropic/BedrockAnthropicClaudeSerialization.kt` | b05e0b82d4839dde489941388df51a53b70ea9f0 | F108 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockAnthropicReplayTest.kt` | 6adac2f3baf7c6c794482ec9341ad140dcadfe4b | F109 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockLLMClientTest.kt` | 4a39131a324ffff3f1160797ac166575094e9255 | F110 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModelsTest.kt` | ddbb8af87eb9c35f478334267450b330f22a79dd | F111 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockCacheControlTest.kt` | b2366123b8ee2f1a842acc2765bac5e67d90615f | F112 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockConverseReasoningTest.kt` | f6d30a5b3511927a6b6bea1224a32d009872a356 | F113 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockReplayIdentityTest.kt` | efa26cebf43a895b3f17417f5a293b334b9e4c6a | F114 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/converse/BedrockTokenUsageTest.kt` | d52070055ad9cc2ecbf45414ab5dbec855862374 | F115 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/modelfamilies/amazon/BedrockAmazonNovaSerializationTest.kt` | 72b529200c48c5c7eecbf099fe8f62436c31d33d | F116 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/bedrock/modelfamilies/anthropic/BedrockAnthropicClaudeSerializationTest.kt` | f92eb6fa872a0671e6f680e0410cbce0e1ee0d22 | F117 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/dashscope/DashscopeModels.kt` | 7cdaa0e75f2d86bdfcd8deaccd05ebb46a9d8782 | U026 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-dashscope-client/src/jvmTest/kotlin/dashscope/DashscopeModelsTest.kt` | ab33f5029ff38bdbafccf677e5ff034b2fd62e46 | S4e-dashscope@7d1c78ed3 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/deepseek/DeepSeekModels.kt` | 97cfb48ac329f8fe00758bb4d7d56f8ecd9de209 | U027 | C=U |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/deepseek/models/DeepSeekChatCompletion.kt` | c68acbbb048e2c378f96e854e68c5a19c82d37a8 | F118 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/jvmTest/kotlin/deepseek/DeepSeekLLMClientTest.kt` | b37a8ce1b3ec30698c3397124f4f920bebd4b2b6 | F119 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-deepseek-client/src/jvmTest/kotlin/deepseek/DeepSeekModelsTest.kt` | a34b745ec8913194b2c227a3eadab92dbcb5363e | S4e-deepseek@b7e79a1bd | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/Module.md` | 915ef07b900ebd5f0192e35dea067ed12023fdfa | Latest-models@6e3d79859 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/api/android/prompt-executor-google-client.api` | 05cf6b9ad5ae93cf37fe7b8c8dceb1a7c712818f | F120 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/api/jvm/prompt-executor-google-client.api` | 27179061d2f0108ee6f8d678fa5c43b1cf6a089f | F121 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/api/prompt-executor-google-client.klib.api` | ea663cbc2f2299bfb833ef15728251480d5eaded | F122 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClient.kt` | 72a873cea5db4783ed7bf6621443890b7d614428 | U028, F123 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt` | 587af6082299b3d024c1e9dadc516ef8c415e2c2 | U029, F124 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleParams.kt` | 792b43383974301c0be83a9845e3b2cdfdb24c4e | F125 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/models/GoogleGenerateContent.kt` | 8d7dede3c042e1f8acf8071de1055267678ab8d1 | U030, F126 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GeminiCodeExecutionTest.kt` | aab633e09dc4166525283c474d21e4c8d77a60a0 | F127 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GeminiReplayTest.kt` | dcd8fa9689f1dddad06fa82e7cb897a0c56b0c45 | F128 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GeminiStreamingTest.kt` | 8ef7fd10363477011e9742aefdb24554e3d8b316 | F129 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GoogleLLMClientTest.kt` | dbd72d685092375336642b6390572b376b17ec80 | U031, F130 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GoogleModelsTest.kt` | 47a00446731ff69d5bcebe3010f816f7cd04b16a | F131 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/GoogleTokenUsageTest.kt` | d6ac24a200e8f4cab9914eee6248ad1f9286f716 | F132 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/google/ThinkingConfigTest.kt` | 945a068815d2502376eafe3505e207ed2b9e584f | F133 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModels.kt` | efb41d5a68bb2adaeec99ad8101199446d197148 | U032 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-mistralai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/mistralai/MistralAIModelsTest.kt` | 8bf3c7216642e2c8bad2b07b04d7319b0d3cc13b | S4e-mistralai@b5e8f5cdc | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/android/prompt-executor-ollama-client.api` | 07e68087bc80355616e176c21a476425ceefd5eb | U033 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/jvm/prompt-executor-ollama-client.api` | 8337217eb7663a93aa176f5134756037e3238165 | U034 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/api/prompt-executor-ollama-client.klib.api` | 658700aa53fda45d9f4b5f913573f52eb840241b | U035 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/src/commonMain/kotlin/ai/koog/prompt/executor/ollama/client/OllamaClient.kt` | c2b260301d8f814fe9257f2e87b2c4d8f09cc712 | F134 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/src/commonMain/kotlin/ai/koog/prompt/executor/ollama/client/OllamaModels.kt` | e7f3316a0f05a283891dbad68095f8568d4de9f6 | U036 | C=U |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/src/commonTest/kotlin/ai/koog/prompt/executor/ollama/client/OllamaClientTest.kt` | 5db33e38544ae96cb38924ed3c9ac5a029d88eff | F135 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-ollama-client/src/jvmTest/kotlin/ai/koog/prompt/executor/ollama/client/OllamaModelsTest.kt` | f476897c54ce32b3f30624ecb2364a1f75285237 | S4e-ollama@421f944ab | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client-base/api/android/prompt-executor-openai-client-base.api` | 473eaf708916692db55d37b3e58c741455436e87 | F136 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client-base/api/jvm/prompt-executor-openai-client-base.api` | 473eaf708916692db55d37b3e58c741455436e87 | F137 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client-base/api/prompt-executor-openai-client-base.klib.api` | 092cacf4544834c09213d37052063bba9b249200 | F138 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client-base/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/base/AbstractOpenAILLMClient.kt` | 5a54ab23fb4ff966792509aaf5d07ba61c177610 | F139 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client-base/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/base/models/OpenAIDataModels.kt` | 441a3ceb66ff8fc616980c8fb23277fd639e8b6a | F140 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/CONTAINER_RECOVERY.md` | 5d4f7d117c4116298f77111b47e53eea0d4e4081 | F141 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/IMAGES.md` | 8316a32e14b80ac0186367be8e01827d33f4e898 | F142 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/Module.md` | d4258adbe5579b46c2162a4bb7b51b327a1db294 | F143 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/api/android/prompt-executor-openai-client.api` | 6f277bac1b2bf8e219f8253cecae5d77c2163549 | U037, F144 | C=U, C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/api/jvm/prompt-executor-openai-client.api` | 4b43f428a34fab4952544297a5625ed61d26fccb | U038, F145 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/api/prompt-executor-openai-client.klib.api` | a0dd44fc33b4596442e6806838fc86972ce673d6 | U039, F146 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/build.gradle.kts` | 8456a9816d295b8071916f7ea9c7938f395c0234 | F147 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableException.kt` | e239a483c6d07fd2a8dd8be70996408702d2bffa | F148 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIImages.kt` | f53dd527adc68a9984bb99b0b2464b0f5f242808 | F149 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIImagesClient.kt` | 97591f85bdb97cf69683e11f78cdd6990aac34d8 | F150 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAILLMClient.kt` | 20efaa4b9ac722e1e5e0d90bf2c99aee7241e163 | F151 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt` | cde2b5af6cc903c3cbd8c24e0d7f3cb468236e85 | U040, F152 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIParams.kt` | dbe502dae6a4b52aed89c38ac63c6823fb5a493c | F153 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheKey.kt` | e9ccb1a60288ffab3f5b5a9f3dd79590f80cfacf | F154 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIResources.kt` | 91061f038d9983f829301d01395a62ade89585e3 | F155 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/azure/Azure.kt` | fcf8a8c6857d699666ae96f819a076c9e51654cd | F156 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIChatCompletion.kt` | a3f2314b94f3f7076d1987626a2d81171d6aeff4 | F157 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPI.kt` | 3035a605a48d84d9eee42a430bfc53b47c65c604 | U041, F158 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/AzureResponsesTest.kt` | a8c2152552e8aae88588536a4cdb0411b14654ad | F159 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIChatCompletionLLMClientTest.kt` | 09925d16c83e22db804a53264545fe996f300177 | F160 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIChatParamsTest.kt` | c037e340ab01be8259c614858ffb26367349116a | F161 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAICompatibleTest.kt` | d4bc69b2557ea0a0936aef7dce1c55e56fb000fc | F162 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIImagesClientTest.kt` | 69f896c077e5622f79edb51870d9e54b84bc43c1 | F163 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAILLMClientTest.kt` | 0d8df0446513331521cac40db5f518e288ed668b | F164 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModelsTest.kt` | 3def4ad1f36f049cdd416a5669956bf17ac5b788 | F165 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIPrimaryConstructorTest.kt` | acafd8f43a14ee3389bf1c08d89d15772eccdd4c | F166 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheKeyTest.kt` | 2eacd58932696b41390ac0dc4b810c6d83e8f1d7 | F167 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIReplayIdentityTest.kt` | 2291f154400295d8c9d69fe9b728a237f283958e | F168 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIResourcesClientTest.kt` | c2314ed9af1614f206075625c66d9e077a0a619a | F169 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIResponsesParamsTest.kt` | 29816de4693c70ac4cd70724f1a4ae0e99fbde0d | F170 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIResponsesParityTest.kt` | 290225af65bbdc07021efb8844bef87927de3363 | F171 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/OpenAITokenUsageTest.kt` | 472490c21815596c6680702dd1887c1d31fe0180 | F172 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIRequestSnakeCaseSerializationTest.kt` | 76f74aae1913750ed7b4f8a4f923d7e8d026f3c7 | F173 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPIRequestSerializationTest.kt` | 2b5b36a8cb8b8248427057b7bb3e72abaeaad302 | F174 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIResponsesAPIResponseTest.kt` | 42f680d249a893565407a5ee383ef2a06a7a19e5 | U042, F175 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openai/models/OpenAIToolsTest.kt` | d7f5ebf942493846cd37b6b4b4ae35c218b7eb5d | F176 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/jvmTest/resources/ai/koog/prompt/executor/clients/openai/azure-responses-dated-preview-request.json` | b548328eb58cc696a33d46f4b36c750525976b37 | F177 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/android/prompt-executor-openrouter-client.api` | 8c81f44302b36e80eacfff9dd4580521dd7c6ba0 | U043 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/jvm/prompt-executor-openrouter-client.api` | 895b91f62cef6829a44851dce9618c1cb1a672ec | U044 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/api/prompt-executor-openrouter-client.klib.api` | cd67abc10278f55fba061090b636ca768902d636 | U045 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModels.kt` | 727ad74b43da79e6276dad51cbb025974dcfa056 | U046 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/prompt-executor-openrouter-client/src/jvmTest/kotlin/ai/koog/prompt/executor/clients/openrouter/OpenRouterModelsTest.kt` | 77c0266c3145af2880c7cc4f611a1b7e341c4ca1 | S4e-openrouter@77263bec3 | Adapted or added |
+| `prompt/prompt-executor/prompt-executor-clients/src/commonMain/kotlin/ai/koog/prompt/executor/clients/retry/RetryConfig.kt` | 1eae71e64a6d917d3a597fcf53030d67124d1b9e | F178 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/src/commonMain/kotlin/ai/koog/prompt/executor/clients/retry/RetryingLLMClient.kt` | 99545ecf6cbc532596a1ce417d0032bcf60dae88 | F179 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/src/commonTest/kotlin/ai/koog/prompt/executor/clients/StreamIdentityReplayTest.kt` | 2bac6e22d420c1645ed08ada835d76b71532a7a2 | F180 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/src/commonTest/kotlin/ai/koog/prompt/executor/clients/retry/RetryConfigTest.kt` | e6ffe41f8444b84762e1a60c0dcf10f6dd026650 | F181 | C=H |
+| `prompt/prompt-executor/prompt-executor-clients/src/commonTest/kotlin/ai/koog/prompt/executor/clients/retry/RetryingLLMClientTest.kt` | 95bc6d5761085796d0e0cdfcfd1b2fee431af4d0 | F182 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/api/jvm/prompt-executor-managed-execution.api` | e0993a1994e4d7d1ae3ee63c0d9fce109e61b155 | F183 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/build.gradle.kts` | fe50d2b41d98d4f0e827bc525276c9c52cd49fda | F184 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonMain/kotlin/ai/koog/prompt/executor/managed/ManagedExecution.kt` | c7851850a9c42646c321f62a3754890d15d4a1d5 | F185 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonMain/kotlin/ai/koog/prompt/executor/managed/ManagedExecutionPresentation.kt` | 5a2d2b7b213dfbac6cf552b00a873fa8415fa6ff | F186 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonMain/kotlin/ai/koog/prompt/executor/managed/Sha256.kt` | 5452fa1ed2fa66c134f8afe5ba0886d068ffb75f | F187 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonMain/kotlin/ai/koog/prompt/executor/managed/VertexAgentEngineManagedExecutionService.kt` | 4672d53014209afd031e06d7d988ac8a3df425c0 | F188 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonMain/kotlin/ai/koog/prompt/executor/managed/VertexAgentEngineModels.kt` | 4fdb2e56b5d2edda0da6c9989388a2116cd75c8e | F189 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonTest/kotlin/ai/koog/prompt/executor/managed/ManagedExecutionPresentationTest.kt` | f50b22533cb16fd446f5efa7dd8e2a045160e66c | F190 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonTest/kotlin/ai/koog/prompt/executor/managed/ManagedExecutionTest.kt` | 28272eee5b8d3c5fc152e79b5f14870ba33b88f4 | F191 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/commonTest/kotlin/ai/koog/prompt/executor/managed/VertexAgentEngineManagedExecutionServiceTest.kt` | ed8e9daa2e9693de30f4316f153e611167283e57 | F192 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/jvmMain/kotlin/ai/koog/prompt/executor/managed/BedrockAgentCoreManagedExecutionService.kt` | b1f9d90e6f1f9f1986a4b6b745507b6b1748e239 | F193 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/jvmMain/kotlin/ai/koog/prompt/executor/managed/BedrockAgentCoreModels.kt` | c19c4d50a158bbaba8ab58d0419a98a744a3a987 | F194 | C=H |
+| `prompt/prompt-executor/prompt-executor-managed-execution/src/jvmTest/kotlin/ai/koog/prompt/executor/managed/BedrockAgentCoreManagedExecutionServiceTest.kt` | 77d55bfd03a755632a989ac3df77561fe53f8df8 | F195 | C=H |
+| `prompt/prompt-model/Module.md` | e48053330402ae448f0c70d8fc48220d34738c93 | F196 | C=H |
+| `prompt/prompt-model/api/android/prompt-model.api` | 66f926703d0e9f11ed9e17eddf1431ff96e6c695 | F197 | C=H |
+| `prompt/prompt-model/api/jvm/prompt-model.api` | 48ef5fc305663f0a0a74e64fe42c18ca037db6e3 | F198 | C=H |
+| `prompt/prompt-model/api/prompt-model.klib.api` | 42793cb61c4375da0b0f324ef381a01be7b1da61 | F199 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt` | d7dce559801daa5e969b998a25c2f61ea97f435d | F200 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/message/CacheControl.kt` | 21be1c04577fdfe04334045010dc0e342e52c901 | F201 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/message/ManagedExecutionPresentation.kt` | eddaa1db76ee5d16ee7ec105f2557fbd75ba33d7 | F202 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/message/Message.kt` | b0d4d2fc3068ff1debcad9146e0b5c328898cbb3 | F203 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt` | 7203a52cffa539254e18f1e10da69f9fa3f761a7 | F204 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/provider/ProviderCapabilities.kt` | 3481eb88ff3a9b66adb1d794842c356ac5ce8ddf | F205 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/streaming/StreamFrame.kt` | 22bf3eeebbaeecaa15f81f7b5e26567947bb816c | F206 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/streaming/StreamFrameExt.kt` | 0f34ce6fddfb7c33e2066f39856d900a09368f92 | F207 | C=H |
+| `prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/streaming/StreamFrameFlowBuilder.kt` | bdf7767e3622375b5f4e2076666e3d3a508ad6b9 | F208 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/HostedExecutionPromptTest.kt` | 96b5b828bcc205a60799824f44d3385b013db5bd | F209 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/ProviderItemIdTest.kt` | 5e9ea40c7caf2a659152442e192d12df8c78d224 | F210 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/cache/PromptCachePolicyTest.kt` | bfafc2b91a88e3cd65314356c7fb32428aa6cf0f | F211 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/streaming/StreamFrameExtTest.kt` | 6c9130f0da64a45b52dd1546b917176fd8e35055 | F212 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/streaming/StreamFrameFlowBuilderTest.kt` | a3765fede1b8045525c895e3140b9af01c139ac0 | F213 | C=H |
+| `prompt/prompt-model/src/commonTest/kotlin/ai/koog/prompt/streaming/TokenUsageMetadataTest.kt` | 48b0b8f12bbf2fe4bd07ed8cfbcac4739d442a7a | F214 | C=H |
+| `prompt/prompt-model/src/jvmMain/kotlin/ai/koog/prompt/message/ResponseMetaInfoBuilder.kt` | 7ef138d53011da3e0add98ec38a668071c6ee869 | F215 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/LegacyDefaultArgumentAbiTest.kt` | 9427181e2e98b110fdfea203c4640e10c59d8e62 | F216 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/message/ManagedExecutionPresentationReplayTest.kt` | ef136cfa746903001ed612e3597949b113b25d71 | F217 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/message/TokenUsageBuilderTest.kt` | ff36e3f5280e452ae5fb6fe40ec14aac5774c30f | F218 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/models/ModelCatalogueTest.kt` | 09d209f5f52bdcc9d6abd53ffd7c16f8266de09d | F219 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/provider/ProviderCapabilityMatrixTest.kt` | 67a609c4aa2085da8323ea35870b9f0bd51e53ec | F220 | C=H |
+| `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/streaming/ManagedGeneratedFileFrameTest.kt` | 10f538c01bf188334b03a6ec704dc7fb874daf1f | F221 | C=H |
+| `prompt/prompt-model/src/jvmTest/resources/model-catalogue/krellm-model-catalogue.txt` | 6859a90a49d7e1ad95fa695953d0c56679fc8a69 | F222 | C=H |
+| `prompt/prompt-tokenizer/src/commonMain/kotlin/ai/koog/prompt/tokenizer/PromptTokenizer.kt` | 7d7f692b5c2c615581bbb666653bf2980f82b745 | F223 | C=H |
+| `prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt` | e442082adb31c7229bfb243ddb76c9338e7609b1 | F224 | C=H |
+| `settings.gradle.kts` | 47256fc64a231c1fe1cddb8d8c7a08d09a615ba8 | U047, F225 | C=H |
+| `skills-api-consumer-test/build.gradle.kts` | 054fcc7a08fabb4bfd4e088062ff36b7d161cc9d | F226 | C=H |
+| `skills-api-consumer-test/src/main/kotlin/ai/koog/skills/consumer/SkillsApiConsumer.kt` | cf8fe80e949a24682c7b40dec7fe387a80ae67e7 | F227 | Adapted or added |
+| `skills/Module.md` | bd06e8d85c79de38331c059a41993e78f064441d | U048 | Adapted or added |
+| `skills/README.md` | 2f3e29474c9f8654b375ee62fae84819c427c00a | F228 | Adapted or added |
+| `skills/build.gradle.kts` | 2aa2fd86601e0075f8ac2c1efe651c52a46bbbc0 | U049, F229 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/LoadSkillTool.kt` | c29d00c7e63135c314de6ef909236c3d9d531cb9 | F230 | C=H |
+| `skills/src/commonMain/kotlin/ai/koog/skills/Skill.kt` | 748f70b84ad8111c380f5cc6e61fe3ca0e27ea76 | F231 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/SkillCatalogue.kt` | 892eafab4dcd2ef304cdc2a7fccf6644ba33590f | F232 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/SkillError.kt` | 991bb8afd55587a9a9adf390c654cfce13083ab6 | F233 | C=H |
+| `skills/src/commonMain/kotlin/ai/koog/skills/SkillPolicy.kt` | fd4b981bc1a1076dd8a9931daf260aa6c4db5e0d | F234 | C=H |
+| `skills/src/commonMain/kotlin/ai/koog/skills/SkillRegistry.kt` | f62ea6ab796378ff236a22f59716ed7603ea6537 | F235 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/SkillSource.kt` | eb271143ec391f05d221af6d855a95690ce7a167 | F236 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/discovery/SkillDocumentParser.kt` | cac1188d4e8618b336b0bd85b1e8e73900cb6cc8 | S6a@4cff72896 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/discovery/SkillSnapshot.kt` | 786043e22a9e062e91ef7ce84cc3c4df101028b2 | S6a@4cff72896 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/discovery/SkillsDiscovery.kt` | e6e3455419d1d60667ecf177eefcac7f58253971 | U050 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/model/Skill.kt` | 6cae2a93e57215dcda32ad1e58ac4229294c3516 | U051 | Adapted or added |
+| `skills/src/commonMain/kotlin/ai/koog/skills/prompt/SkillsPrompt.kt` | f30c6361fc869b0f471fb0534f5122e1b32a63e8 | U052 | Adapted or added |
+| `skills/src/commonTest/kotlin/ai/koog/skills/InMemorySkillSourceTest.kt` | 822d7ccd3144b73d8485edcc5872ab5ab5cca4cf | F237 | C=H |
+| `skills/src/commonTest/kotlin/ai/koog/skills/LoadSkillToolTest.kt` | 132bfdca9b46de5210c4f309ddef3bc6884702a6 | F238 | C=H |
+| `skills/src/commonTest/kotlin/ai/koog/skills/SkillCatalogueTest.kt` | d7d9a058d0d424fbc49c43557d97a9f59a6793ce | F239 | C=H |
+| `skills/src/commonTest/kotlin/ai/koog/skills/SkillRegistryTest.kt` | be93e41588b9b331fcd7ae5c73a194bcd815221a | F240 | C=H |
+| `skills/src/commonTest/kotlin/prompt/SkillsPromptTest.kt` | 0c5726936fd9b3f67331f25a19b89230c6742c5c | U053 | Adapted or added |
+| `skills/src/jvmMain/kotlin/ai/koog/skills/JvmFileSystemSkillSource.kt` | d9e5ccc5b4b69166e1aadbded3521b107d737523 | F241 | Adapted or added |
+| `skills/src/jvmMain/kotlin/ai/koog/skills/SkillParser.kt` | ace2bdfa2116d1b850075fa758de6bbfff1c79c4 | F242 | Adapted or added |
+| `skills/src/jvmMain/kotlin/ai/koog/skills/discovery/SecureSkillFileSystemJvm.kt` | d5f5c40b944081b9bc02d778b9c76b100302cf83 | S6a@4cff72896 | Adapted or added |
+| `skills/src/jvmMain/kotlin/ai/koog/skills/discovery/SkillDocumentParserJvm.kt` | 9119e4704d390729efe5f2ddf3d2ed95694d2e2d | S6a@4cff72896 | Adapted or added |
+| `skills/src/jvmTest/kotlin/ai/koog/skills/JvmFileSystemSkillSourceTest.kt` | 02a6f8c2f957c216ac5b60d5ea77dcb511ffd19f | F243 | Adapted or added |
+| `skills/src/jvmTest/kotlin/ai/koog/skills/LoadSkillToolAgentIntegrationTest.kt` | d13b0a43ac72bac988c2ad49a109c8e6fdc7b813 | F244 | Adapted or added |
+| `skills/src/jvmTest/kotlin/ai/koog/skills/SkillParserTest.kt` | 4afb3836dcc4d107f4abcb90e0ca654ba1e9f7d8 | F245 | C=H |
+| `skills/src/jvmTest/kotlin/ai/koog/skills/discovery/SkillsCompatibilityTest.kt` | dd8ae941a130ec386b81c21c0777ad26000f730f | S6b@ae192f266 | Adapted or added |
+| `skills/src/jvmTest/kotlin/ai/koog/skills/discovery/SkillsDiscoveryTest.kt` | 14c2013fea7343e5274ec5b52e9814ce57f9cffa | U054 | Adapted or added |
+
+### Evidence reuse and remaining limits
+
+No new source, test, dependency, publication configuration or ABI dump changes
+in S8 invalidate the accepted checks. No broad build or provider rerun was
+performed for this documentation reconciliation. S7 already compiled the final
+JVM publication graph and isolated POM-only skills consumer. Mechanical checks
+verify the original 299 historical prefixes, all 70 commit identities and
+mappings, all 292 final paths, every immutable blob, exemption identity and the
+absence of deleted or renamed paths. `git diff --check` passes.
+
+The checked-in prompt-model dump remains stale (308 identical, 19 changed and
+17 added compiled class blocks at S2). OpenAI and Google also retain pre-existing
+dump differences, including the GoogleParams no-argument constructor discrepancy.
+Relative compiled comparisons preserve their earlier ABI and the latest overlay
+adds only its five model fields; those comparisons do not certify the stale
+repository dumps. Anthropic, Bedrock, Ollama and OpenRouter have reliably generated
+JVM dump evidence. Beta DashScope, DeepSeek, Mistral and skills intentionally lack
+checked-in JVM dumps; their accepted comparisons are against pre-edit compiled
+classes. Skills preserves all 48 old public class blocks and adds eight.
+Unchanged modules without a compiled dump comparison have only the explicitly
+recorded source identity and regression evidence, not whole-module ABI certification.
+
+Test counts belong to their recorded runs and must not be summed across reused
+or overlapping suites. Prompt-model has three existing skips; S5a has 24 and
+S5c has 24 in different reported suites. No new skip or warning suppression was
+introduced. Provider mocks, security race fixtures and cancellation tests prove
+their observed schedules, not every external service or host race. Secure JVM
+discovery still requires secure directory streams; arbitrary providers must use
+the supported immutable snapshot route. The documented GPT-5.6 reconstructed-alias
+limit and current profile constraints remain intentional adaptations.
+
+Local publication proves 87 coordinates, 609 primary files, 2,436 checksum
+sidecars, 251 internal POM edges, ten BOM imports and published skills API
+consumption. Real release signing, signed-bundle execution, remote publishing
+and Central Portal validation remain unrun. Original provider integration
+scenarios remain unrun apart from the offline fixture check and the separately
+requested two OpenAI live cases. Cross-platform compilation and all non-JVM ABI
+checks remain excluded. Documentation links were checked locally; a full MkDocs
+render was not performed. No new remediation gap was found by this mechanical
+accounting. Final blind review remains pending and may require a bounded fix.
