@@ -10,6 +10,7 @@ import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
+import ai.koog.prompt.executor.clients.anthropic.models.AnthropicCacheControl as AnthropicCacheControlBlock
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicMessage
@@ -53,6 +54,7 @@ import ai.koog.prompt.streaming.buildStreamFrameFlow
 import ai.koog.prompt.streaming.requireEndFrame
 import ai.koog.utils.time.KoogClock
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.jvm.JvmOverloads
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
@@ -64,10 +66,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import kotlin.jvm.JvmOverloads
-import ai.koog.prompt.executor.clients.anthropic.models.AnthropicCacheControl as AnthropicCacheControlBlock
 
 /**
  * Represents the settings for configuring an Anthropic client, including model mapping, base URL, and API version.
@@ -626,7 +628,33 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 mergedOutputConfig?.let { put("output_config", it) }
             }
 
-        return json.encodeToString(JsonObject.serializer(), requestDialect.transformRequestBody(mergedRequest))
+        return json.encodeToString(JsonObject.serializer(), requestDialect.transformRequestBody(normaliseClaude55Request(mergedRequest)))
+    }
+
+    // Validate the flattened payload so raw properties cannot bypass model restrictions.
+    private fun normaliseClaude55Request(request: JsonObject): JsonObject {
+        val modelId = request["model"]?.jsonPrimitive?.content
+        if (modelId !in setOf("claude-opus-5-5", "claude-sonnet-5-5")) return request
+        val thinking = request["thinking"]?.jsonObject
+        val thinkingType = thinking?.get("type")?.jsonPrimitive?.content
+        require(thinkingType == null || thinkingType == "adaptive" ||
+            (modelId == "claude-sonnet-5-5" && thinkingType == "between_tools")) {
+            "$modelId requires adaptive thinking; Sonnet also supports between_tools."
+        }
+        require(thinking == null || "budget_tokens" !in thinking) { "$modelId rejects manual thinking budgets." }
+        if (thinkingType == "between_tools") {
+            require(thinking.keys == setOf("type")) { "Sonnet between_tools thinking accepts only the type field." }
+            val effort = request["output_config"]?.jsonObject?.get("effort")?.jsonPrimitive?.content
+            require(effort == null || effort in setOf("low", "medium", "high")) {
+                "Sonnet between_tools thinking requires high effort or below."
+            }
+        }
+        val choice = request["tool_choice"]?.jsonObject?.get("type")?.jsonPrimitive?.content
+        require(choice == null || choice in setOf("auto", "none")) { "$modelId rejects forced tool choice." }
+        require(request["messages"]?.jsonArray?.lastOrNull()?.jsonObject?.get("role")?.jsonPrimitive?.content != "assistant") {
+            "$modelId rejects assistant prefill."
+        }
+        return JsonObject(request.filterKeys { it !in setOf("temperature", "top_p", "top_k") })
     }
 
     private fun modelVersion(model: LLModel): String =

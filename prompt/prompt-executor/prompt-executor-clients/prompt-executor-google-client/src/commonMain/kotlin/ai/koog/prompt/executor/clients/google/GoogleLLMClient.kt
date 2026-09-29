@@ -53,6 +53,9 @@ import ai.koog.prompt.streaming.requireEndFrame
 import ai.koog.prompt.structure.annotations.InternalStructuredOutputApi
 import ai.koog.utils.time.KoogClock
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.jvm.JvmOverloads
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
@@ -62,11 +65,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import kotlin.jvm.JvmOverloads
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 /**
  * Configuration settings for the Google AI client.
@@ -141,6 +143,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "gemini-3.5-flash-lite",
             "gemini-3.6-flash",
             "gemini-3.7-flash",
+            "gemini-3.8-flash",
         )
         private val UNSUPPORTED_SAMPLING_PROPERTY_NAMES = setOf(
             "temperature",
@@ -606,6 +609,23 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
+        if (model.id == GoogleModels.Gemini3_8Flash.id) {
+            require(googleParams.thinkingConfig?.thinkingBudget == null) {
+                "Gemini 3.8 Flash requires thinkingLevel instead of thinkingBudget."
+            }
+            require(googleParams.thinkingConfig?.thinkingLevel !=
+                ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel.MINIMAL) {
+                "Gemini 3.8 Flash supports low, medium and high thinking; minimal is unsupported."
+            }
+            val rawThinking = googleParams.additionalProperties?.get("thinkingConfig")
+                ?: googleParams.additionalProperties?.get("thinking_config")
+            rawThinking?.jsonObject?.let { thinking ->
+                require("thinkingBudget" !in thinking && "thinking_budget" !in thinking &&
+                    (thinking["thinkingLevel"] ?: thinking["thinking_level"])?.jsonPrimitive?.content?.lowercase() != "minimal") {
+                    "Gemini 3.8 Flash requires low, medium or high thinkingLevel without a manual budget."
+                }
+            }
+        }
         val supportsCustomSampling = model.id !in FIXED_SAMPLING_MODEL_IDS
         val generationConfig = GoogleGenerationConfig(
             responseMimeType = responseFormat?.responseMimeType,

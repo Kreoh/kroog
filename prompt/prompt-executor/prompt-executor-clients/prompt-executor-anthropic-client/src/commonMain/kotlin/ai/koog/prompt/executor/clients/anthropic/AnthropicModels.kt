@@ -11,10 +11,12 @@ import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_4_6
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_4_7
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_4_8
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_5
+import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_5_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_4_6
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_5
+import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Sonnet_5_5
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -445,6 +447,32 @@ public object AnthropicModels : LLModelDefinitions {
     )
 
     /**
+     * Claude Opus 5.5 supports a 1,000,000-token context and 128,000 output tokens.
+     * Uses adaptive thinking and rejects forced tool choice, assistant prefill and custom sampling.
+     * Thinking is always on; the default effort is medium.
+     *
+     * @see <a href="https://platform.claude.com/docs/en/models/opus-5-5/overview">Model page</a>
+     */
+    @JvmField
+    public val Opus_5_5: LLModel = Opus_5.copy(
+        id = "claude-opus-5-5",
+        capabilities = Opus_5.capabilities.orEmpty().filterNot { it == LLMCapability.ToolChoice },
+    )
+
+    /**
+     * Claude Sonnet 5.5 supports a 1,000,000-token context and 128,000 output tokens.
+     * Uses adaptive thinking and rejects forced tool choice, assistant prefill and custom sampling.
+     * Default effort is high. Use raw thinking type `between_tools` to disable up-front thinking.
+     *
+     * @see <a href="https://platform.claude.com/docs/en/models/sonnet-5-5/overview">Model page</a>
+     */
+    @JvmField
+    public val Sonnet_5_5: LLModel = Opus_5.copy(
+        id = "claude-sonnet-5-5",
+        capabilities = Opus_5.capabilities.orEmpty().filterNot { it == LLMCapability.ToolChoice },
+    )
+
+    /**
      * List of the supported models by the Anthropic provider.
      */
     private val supportedModels: List<LLModel> = listOf(
@@ -461,6 +489,8 @@ public object AnthropicModels : LLModelDefinitions {
         Opus_4_7,
         Opus_4_8,
         Opus_5,
+        Opus_5_5,
+        Sonnet_5_5,
         Haiku_4_5
     )
 
@@ -493,4 +523,6 @@ internal val DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP: Map<LLModel, String> = mapOf(
     Opus_4_7 to "claude-opus-4-7",
     Opus_4_8 to "claude-opus-4-8",
     Opus_5 to "claude-opus-5",
+    Opus_5_5 to "claude-opus-5-5",
+    Sonnet_5_5 to "claude-sonnet-5-5",
 )

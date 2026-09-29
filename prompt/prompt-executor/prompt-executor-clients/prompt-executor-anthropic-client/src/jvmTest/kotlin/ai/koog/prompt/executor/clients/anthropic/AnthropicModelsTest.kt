@@ -11,6 +11,8 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.params.LLMParams
 import io.kotest.matchers.collections.shouldContain
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -145,6 +147,94 @@ class AnthropicModelsTest {
         assertTrue(model.supports(LLMCapability.Vision.Image))
         assertTrue(model.supports(LLMCapability.Tools))
         assertTrue(model.supports(LLMCapability.ToolChoice))
+    }
+
+    @Test
+    fun testClaude55ProfilesAndCompatibleRequests() {
+        val client = AnthropicLLMClient(apiKey = "unused")
+        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5).forEach { model ->
+            assertEquals(1_000_000, model.contextLength)
+            assertEquals(128_000, model.maxOutputTokens)
+            assertEquals(model.id, DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+            assertTrue(model in AnthropicModels.models)
+            assertTrue(model.supports(LLMCapability.Tools))
+            assertTrue(model.supports(LLMCapability.Thinking))
+            assertFalse(model.supports(LLMCapability.ToolChoice))
+            assertFalse(model.supports(LLMCapability.Temperature))
+            listOf(false, true).forEach { stream ->
+                val body = Json.parseToJsonElement(client.createAnthropicRequest(
+                    prompt = prompt("claude-55", params = AnthropicParams(
+                        temperature = 0.7, topP = 0.8, topK = 10,
+                        thinking = AnthropicThinking.Adaptive(AnthropicThinkingDisplay.SUMMARIZED, AnthropicEffort.HIGH),
+                        additionalProperties = mapOf("top_p" to JsonPrimitive(0.9), "custom" to JsonPrimitive(true)),
+                    )) { user("Hello") }, tools = emptyList(), model = model, stream = stream,
+                )).jsonObject
+                listOf("temperature", "top_p", "top_k").forEach { assertFalse(it in body) }
+                assertEquals(JsonPrimitive(model.id), body["model"])
+                assertEquals(JsonPrimitive(true), body["custom"])
+                assertEquals(JsonPrimitive("high"), body["output_config"]?.jsonObject?.get("effort"))
+            }
+        }
+        assertEquals("claude-opus-5-5", AnthropicModels.Opus_5_5.id)
+        assertEquals("claude-sonnet-5-5", AnthropicModels.Sonnet_5_5.id)
+    }
+
+    @Test
+    fun testClaude55RejectsUnsupportedTypedAndRawRequests() {
+        val client = AnthropicLLMClient(apiKey = "unused")
+        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5).forEach { model ->
+            val invalid = listOf(
+                AnthropicParams(thinking = AnthropicThinking.Disabled()),
+                AnthropicParams(thinking = AnthropicThinking.Enabled(1024)),
+                AnthropicParams(toolChoice = LLMParams.ToolChoice.Required),
+                AnthropicParams(toolChoice = LLMParams.ToolChoice.Named("lookup")),
+                AnthropicParams(additionalProperties = mapOf("thinking" to buildJsonObject {
+                    put("type", JsonPrimitive("disabled"))
+                })),
+                AnthropicParams(additionalProperties = mapOf("tool_choice" to buildJsonObject {
+                    put("type", JsonPrimitive("any"))
+                })),
+            )
+            invalid.forEach { params ->
+                assertFailsWith<IllegalArgumentException> {
+                    client.createAnthropicRequest(prompt("invalid", params = params) { user("Hello") }, emptyList(), model, false)
+                }
+            }
+            assertFailsWith<IllegalArgumentException> {
+                client.createAnthropicRequest(prompt("prefill") { user("Hello"); assistant("The answer is") }, emptyList(), model, false)
+            }
+            listOf(LLMParams.ToolChoice.Auto, LLMParams.ToolChoice.None).forEach { choice ->
+                client.createAnthropicRequest(prompt("valid", params = AnthropicParams(toolChoice = choice)) {
+                    user("Hello")
+                }, emptyList(), model, false)
+            }
+        }
+    }
+
+    @Test
+    fun testSonnet55BetweenToolsThinkingAndEffortLimit() {
+        val client = AnthropicLLMClient(apiKey = "unused")
+        listOf("display", "budget_tokens", "block_binding").forEach { key ->
+            assertFailsWith<IllegalArgumentException> {
+                client.createAnthropicRequest(prompt("invalid-between-tools", params = AnthropicParams(
+                    additionalProperties = mapOf("thinking" to buildJsonObject {
+                        put("type", JsonPrimitive("between_tools"))
+                        put(key, JsonPrimitive("unsupported"))
+                    }),
+                )) { user("Hello") }, emptyList(), AnthropicModels.Sonnet_5_5, false)
+            }
+        }
+        listOf("low", "medium", "high", "xhigh", "max").forEach { effort ->
+            val params = AnthropicParams(additionalProperties = mapOf(
+                "thinking" to buildJsonObject { put("type", JsonPrimitive("between_tools")) },
+                "output_config" to buildJsonObject { put("effort", JsonPrimitive(effort)) },
+            ))
+            val request = { client.createAnthropicRequest(prompt("between-tools", params = params) {
+                user("Hello")
+            }, emptyList(), AnthropicModels.Sonnet_5_5, false) }
+            if (effort in listOf("xhigh", "max")) assertFailsWith<IllegalArgumentException> { request() }
+            else assertTrue(request().contains("between_tools"))
+        }
     }
 
     @Test

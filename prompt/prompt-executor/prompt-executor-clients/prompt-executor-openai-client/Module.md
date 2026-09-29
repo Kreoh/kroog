@@ -11,6 +11,12 @@ requirements.
 
 ### Supported Models
 
+### GPT-6 Sol and Luna
+
+`OpenAIModels.Chat.GPT6Sol` and `GPT6Luna` have a 1,050,000-token context window, a 922,000-token input limit and a 128,000-token output limit. They default to Responses. Explicit Chat Completions supports function calling with `ReasoningEffort.NONE`; reasoning with tools requires Responses. Both support `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH` and `MAX`. Sampling controls are retained with `NONE` and omitted otherwise. Deployment aliases created with `model.copy(id = deploymentId)` retain these rules.
+
+See the [Sol specification](https://developers.openai.com/api/docs/models/gpt-6-sol), [Luna specification](https://developers.openai.com/api/docs/models/gpt-6-luna) and [migration guidance](https://developers.openai.com/api/docs/guides/latest-model). `gpt-6-terra` has no verified public profile and is not added.
+
 #### Reasoning Models
 
 | Model   | Speed   | Context | Input Support       | Output Support | Pricing (per 1M tokens) | APIs Support    |

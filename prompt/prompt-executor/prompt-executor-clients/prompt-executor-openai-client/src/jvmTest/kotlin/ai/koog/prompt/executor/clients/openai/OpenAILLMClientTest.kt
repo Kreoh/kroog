@@ -30,11 +30,80 @@ import kotlin.test.assertIs
 class OpenAILLMClientTest {
 
     @Test
+    fun testSolAndLunaProfilesRoutingAndReasoningRestrictions() {
+        listOf(OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna).forEach { original ->
+            original.contextLength shouldBe 1_050_000
+            original.maxOutputTokens shouldBe 128_000
+            OpenAIModels.models.contains(original) shouldBe true
+            listOf(
+                original,
+                original.copy(id = "deployment-${original.id}"),
+                original.copy(id = "rebuilt-${original.id}", capabilities = original.capabilities.orEmpty().toList()),
+            ).forEach { model ->
+                assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
+                assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
+                listOf(null, ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH,
+                    ReasoningEffort.XHIGH, ReasoningEffort.MAX, ReasoningEffort.NONE).forEach { effort ->
+                    val params = OpenAIChatParams(reasoningEffort = effort, temperature = 0.4)
+                    val chat = chatRequest(model, params)
+                    val responses = responsesRequest(model, OpenAIResponsesParams(
+                        reasoning = effort?.let { ReasoningConfig(effort = it) }, temperature = 0.4,
+                    ))
+                    chat["reasoning_effort"]?.jsonPrimitive?.content shouldBe effort?.name?.lowercase()
+                    responses["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content shouldBe
+                        effort?.name?.lowercase()
+                    listOf(chat, responses).forEach {
+                        it.containsKey("temperature") shouldBe (effort == ReasoningEffort.NONE)
+                    }
+                }
+                assertFailsWith<IllegalArgumentException> {
+                    chatRequest(model, OpenAIChatParams(reasoningEffort = ReasoningEffort.MINIMAL))
+                }
+                assertFailsWith<IllegalArgumentException> {
+                    responsesRequest(model, OpenAIResponsesParams(reasoning = ReasoningConfig(effort = ReasoningEffort.MINIMAL)))
+                }
+            }
+        }
+        OpenAIModels.Chat.GPT6Sol.id shouldBe "gpt-6-sol"
+        OpenAIModels.Chat.GPT6Luna.id shouldBe "gpt-6-luna"
+    }
+
+    @Test
+    fun testSolAndLunaRawToolAndSamplingControlsObeyEffectiveEffort() {
+        val tools = Json.parseToJsonElement("""[{"type":"function","function":{"name":"lookup"}}]""")
+        listOf(OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna).forEach { model ->
+            val raw = mapOf("tools" to tools, "top_p" to JsonPrimitive(0.8), "logprobs" to JsonPrimitive(true))
+            val accepted = chatRequest(model, OpenAIChatParams(
+                additionalProperties = raw + ("reasoning_effort" to JsonPrimitive("none")),
+            ))
+            accepted["tools"] shouldBe tools
+            accepted["top_p"] shouldBe JsonPrimitive(0.8)
+            accepted["logprobs"] shouldBe JsonPrimitive(true)
+            listOf(null, "low", "max").forEach { effort ->
+                assertFailsWith<IllegalArgumentException> {
+                    chatRequest(model, OpenAIChatParams(additionalProperties = raw +
+                        (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())))
+                }
+            }
+            val response = responsesRequest(model, OpenAIResponsesParams(
+                additionalProperties = mapOf("top_p" to JsonPrimitive(0.8)),
+                include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL),
+            ))
+            response.containsKey("top_p") shouldBe false
+            response["include"]?.jsonArray?.map { it.jsonPrimitive.content } shouldBe
+                listOf("message.input_image.image_url")
+        }
+    }
+
+    @Test
     fun testAstraDefaultsToResponsesAndHonoursExplicitChat() {
         val model = OpenAIModels.Chat.GPT6Astra
         assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
         assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
         assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model.copy(id = "astra-deployment")))
+        assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model.copy(
+            id = "rebuilt-astra", capabilities = model.capabilities.orEmpty().toList(),
+        )))
     }
 
     @Test
@@ -54,7 +123,13 @@ class OpenAILLMClientTest {
             "logprobs" to JsonPrimitive(true),
             "custom_option" to JsonPrimitive("preserved"),
         )
-        listOf(OpenAIModels.Chat.GPT6Astra, OpenAIModels.Chat.GPT6Astra.copy(id = "astra-deployment"))
+        listOf(
+            OpenAIModels.Chat.GPT6Astra,
+            OpenAIModels.Chat.GPT6Astra.copy(id = "astra-deployment"),
+            OpenAIModels.Chat.GPT6Astra.copy(
+                id = "rebuilt-astra", capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().toList(),
+            ),
+        )
             .forEach { model ->
                 efforts.forEach { effort ->
                     val chat = chatRequest(

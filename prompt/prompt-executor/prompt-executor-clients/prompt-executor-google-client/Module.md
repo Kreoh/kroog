@@ -10,6 +10,12 @@ Google's API requirements. This client offers the most comprehensive multimodal 
 
 ### Supported Models
 
+### Gemini 3.8 Flash
+
+`GoogleModels.Gemini3_8Flash` supports 1,048,576 input tokens and 65,536 output tokens. It accepts text, images, audio, video and documents, with text output, tools and structured output. Use `GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.LOW)` or `MEDIUM` (the default) or `HIGH`. The client rejects minimal thinking and manual budgets, omits sampling controls and multiple candidates, and rejects assistant prefill.
+
+See the [model specification](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
+
 | Name                       | Speed     | Context | Input Support                    | Output Support | Pricing (per 1M tokens)      |
 |----------------------------|-----------|---------|----------------------------------|----------------|------------------------------|
 | Gemini 2.0 Flash           | Fast      | 1M      | Audio, Image, Video, Text, Tools | Text, Tools    | $0.10-$0.70 / $0.40          |

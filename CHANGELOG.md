@@ -2,6 +2,10 @@
 
 This source line incorporates upstream Koog 1.3.0 changes while retaining Kroog version `1.1.1-kroog.11`. No Kroog release or tag is created by this alignment. The entries and publication dates below describe upstream releases. See the [alignment audit](docs/upstream/koog-1.3.0-alignment.md) for retained fork contracts and adaptations.
 
+## Unreleased Kroog additions
+
+- Added GPT-6 Sol and Luna, Claude Opus 5.5 and Sonnet 5.5, and Gemini 3.8 Flash profiles with verified token limits and request compatibility checks. See the [validation record](docs/latest-models-2026-09.md).
+
 # 1.3.0
 > Published 23 September 2026
 

@@ -266,6 +266,22 @@ public object GoogleModels : LLModelDefinitions {
     )
 
     /**
+     * Gemini 3.8 Flash is a generally available multimodal reasoning model for coding and agents.
+     * Its default thinking level is medium and it supports low, medium, and high thinking.
+     * Minimal thinking, custom temperature, top-p, top-k, and multiple candidates are unsupported.
+     *
+     * @see <a href="https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash">
+     */
+    @JvmField
+    public val Gemini3_8Flash: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-3.8-flash",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 65_536,
+    )
+
+    /**
      * Models for generating text embeddings.
      */
     public object Embeddings {
@@ -301,6 +317,7 @@ public object GoogleModels : LLModelDefinitions {
         Gemini3_5FlashLite,
         Gemini3_6Flash,
         Gemini3_7Flash,
+        Gemini3_8Flash,
         Embeddings.GeminiEmbedding001,
     )
 

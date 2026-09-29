@@ -978,6 +978,34 @@ public object OpenAIModels : LLModelDefinitions {
             maxOutputTokens = 128_000,
         )
 
+        /**
+         * GPT-6 Sol supports 1,050,000 context tokens, with up to 922,000 input and 128,000 output tokens.
+         * Defaults to Responses. Chat Completions supports tools only with reasoning effort `none`.
+         * Supports `none`, `low`, `medium` (default), `high`, `xhigh` and `max` reasoning.
+         * Sampling controls are available only with `none` reasoning.
+         *
+         * @see <a href="https://developers.openai.com/api/docs/models/gpt-6-sol">Model page</a>
+         */
+        @JvmField
+        public val GPT6Sol: LLModel = GPT6Astra.copy(
+            id = "gpt-6-sol",
+            capabilities = GPT6Astra.capabilities.orEmpty() + LLMCapability.Temperature,
+        )
+
+        /**
+         * GPT-6 Luna supports 1,050,000 context tokens, with up to 922,000 input and 128,000 output tokens.
+         * Defaults to Responses. Chat Completions supports tools only with reasoning effort `none`.
+         * Supports `none`, `low`, `medium` (default), `high`, `xhigh` and `max` reasoning.
+         * Sampling controls are available only with `none` reasoning.
+         *
+         * @see <a href="https://developers.openai.com/api/docs/models/gpt-6-luna">Model page</a>
+         */
+        @JvmField
+        public val GPT6Luna: LLModel = GPT6Astra.copy(
+            id = "gpt-6-luna",
+            capabilities = GPT6Astra.capabilities.orEmpty() + LLMCapability.Temperature,
+        )
+
         private val gpt5_6Capabilities: List<LLMCapability> = listOf(
             LLMCapability.Completion,
             LLMCapability.Speculation,
@@ -1269,6 +1297,8 @@ public object OpenAIModels : LLModelDefinitions {
             Chat.GPT5_6Terra,
             Chat.GPT5_6Luna,
             Chat.GPT6Astra,
+            Chat.GPT6Sol,
+            Chat.GPT6Luna,
             Chat.GPT5Mini,
 
             // Audio Models

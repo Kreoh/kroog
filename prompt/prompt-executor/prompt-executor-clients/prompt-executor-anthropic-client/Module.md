@@ -10,6 +10,14 @@ It handles authentication, request formatting, response parsing, multimodal cont
 
 ### Supported Models
 
+### Claude Opus 5.5 and Sonnet 5.5
+
+`AnthropicModels.Opus_5_5` and `Sonnet_5_5` support a 1,000,000-token context and 128,000 output tokens. Both support tools with automatic selection, vision, documents, structured output and prompt caching. They reject forced tool choice, assistant prefill and manual thinking budgets. The client omits custom sampling controls and validates thinking and tool-choice settings before sending requests.
+
+Opus uses adaptive thinking with medium effort by default. Sonnet defaults to high effort and also accepts `additionalProperties["thinking"] = JsonObject(mapOf("type" to JsonPrimitive("between_tools")))` at high effort or below. This object accepts only `type`. Keep replayed thinking blocks and their conversation prefix unchanged.
+
+See the [Opus specification](https://platform.claude.com/docs/en/models/opus-5-5/overview) and [Sonnet specification](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).
+
 | Model              | Speed           | Context | Input Support     | Output Support                | Pricing (per 1M tokens) |
 |--------------------|-----------------|---------|-------------------|-------------------------------|-------------------------|
 | Claude Fable 5.1   | Moderate        | 1M      | Text, Images, PDF | Text, Tools, Structured (JSON)| See provider pricing    |
