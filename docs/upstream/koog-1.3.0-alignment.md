@@ -171,11 +171,11 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 
 | ID | Change | Old path | New and proposed final path | B blob | U blob | H blob | Slice | Disposition and evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| F001 | A | absent | .github/workflows/publish-maven-release.yml | absent | absent | 2778206931f47d2e0fcbd2567ec7dcece836cc59 | S7 | Pending regression evidence: retain fork extension; B=U |
-| F002 | A | absent | .github/workflows/publish-maven-snapshot.yml | absent | absent | dd0b442ff854908efebf371cdca9b18d0ded4cbf | S7 | Pending regression evidence: retain fork extension; B=U |
+| F001 | A | absent | .github/workflows/publish-maven-release.yml | absent | absent | 2778206931f47d2e0fcbd2567ec7dcece836cc59 | S7 | Retained byte-for-byte; release guards reviewed, signing and snapshot opt-in tests pass; signed release execution remains unrun; see S7 validation |
+| F002 | A | absent | .github/workflows/publish-maven-snapshot.yml | absent | absent | dd0b442ff854908efebf371cdca9b18d0ded4cbf | S7 | Corrected proven local snapshot closure from 1392 to 3045 files; required-file and checksum guards pass positive and tamper checks; remote controls retained; see S7 validation |
 | F003 | M | .gitignore | .gitignore | 5285c98f106ae52c7447598cad3ca53af01e6beb | 5285c98f106ae52c7447598cad3ca53af01e6beb | 8c8638a960b74fbeab4d7f5942a0c26135bd9901 | X-local | Explicit exemption: retain local repository guidance; B=U |
 | F004 | M | AGENTS.md | AGENTS.md | 483589d9aa8d56ef84892c88af9972fa65231869 | 483589d9aa8d56ef84892c88af9972fa65231869 | 7b7f10ea21c924cab24f2b1836af527cb32ab301 | X-local | Explicit exemption: retain local repository guidance; B=U |
-| F005 | A | absent | PUBLISHING.md | absent | absent | e6e800df1f0fa880537331bdc9d5b33b240397e6 | S7 | Pending regression evidence: retain fork extension; B=U |
+| F005 | A | absent | PUBLISHING.md | absent | absent | e6e800df1f0fa880537331bdc9d5b33b240397e6 | S7 | Corrected skills additions inclusion, actual JVM AWS coordinates and distinct snapshot/release closure counts; see S7 validation |
 | F006 | M | agents/agents-core/api/jvm/agents-core.api | agents/agents-core/api/jvm/agents-core.api | fc041121a3c36659e1cde90fccf72a58431d1d9d | fc041121a3c36659e1cde90fccf72a58431d1d9d | 652b0e52580bbfe9ac52ad2b142d607ba5529662 | S5a | Retained JVM dump exactly from H; no slice API change; compiled dump comparison not run; see S5a and R-runtime validation |
 | F007 | M | agents/agents-core/build.gradle.kts | agents/agents-core/build.gradle.kts | 9e2d621e390481187a089e25dd4a798d0dec7eb8 | 9e2d621e390481187a089e25dd4a798d0dec7eb8 | 9c4ce1031dde859bfba32340a1d79b9ad67aece0 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F008 | A | absent | agents/agents-core/src/commonMain/kotlin/ai/koog/agents/core/agent/tools/ManagedExecutionTool.kt | absent | absent | 21e9a9df1970ad247b1cec98ab3456bc7efc7ff1 | S5a | Retained exactly from H; B=U; managed execution, privacy and replay regressions pass; see S5a and R-runtime validation |
@@ -223,7 +223,7 @@ Regression names below are evidence anchors, not passing results. Remaining exec
 | F050 | M | docs/docs/streaming-api.md | docs/docs/streaming-api.md | cd555c36c10fc189bbd68d7d01d03761292d76cc | cd555c36c10fc189bbd68d7d01d03761292d76cc | 2500debaf1b76e8bf580df6da1c47881217c8771 | S7-docs | Adapted with retained Kroog contract: fork documentation and streaming example retained byte-identically; source and prior slice evidence inspected; see S7-docs validation |
 | F051 | M | examples/simple-examples/src/main/kotlin/ai/koog/agents/example/streaming/StreamingAgentWithTools.kt | examples/simple-examples/src/main/kotlin/ai/koog/agents/example/streaming/StreamingAgentWithTools.kt | 99e125bde1d99ba0337aeaff9501efeac4d0cc5c | 99e125bde1d99ba0337aeaff9501efeac4d0cc5c | f52c3cf7e6c82690e8bd63b244ca3b63f0f8bffc | S7-docs | Adapted with retained Kroog contract: fork documentation and streaming example retained byte-identically; source and prior slice evidence inspected; see S7-docs validation |
 | F052 | M | gradle.properties | gradle.properties | 7916e8236aa4119b69fe2fa1564f77b5d6c693a4 | 5c9c232e3b522560a96ed970806ec346b32eca72 | 6199cccbc1158cc63586a6c48abc44cabdd24cad | X-version | Explicit exemption: retain Kroog version and coordinates; diverged |
-| F053 | A | absent | gradle/kroog-jvm-publications.txt | absent | absent | e7dd7c2758b6644ac20ada6cab2f028767487955 | S7 | Pending regression evidence: retain fork extension; B=U |
+| F053 | A | absent | gradle/kroog-jvm-publications.txt | absent | absent | e7dd7c2758b6644ac20ada6cab2f028767487955 | S7 | Retained byte-for-byte; all 69 JVM and 18 Maven entries staged and exact coordinate/POM dependency closure verified; see S7 validation |
 | F054 | M | gradle/libs.versions.toml | gradle/libs.versions.toml | db6f11b4aaac12e96878b2d911edfea16d975b6e | db6f11b4aaac12e96878b2d911edfea16d975b6e | 70cca7d7f714c947417630a7967eebfadc058ee0 | S1 | Adapted with retained Kroog build contract; B=U, H preserved byte-for-byte; S1 source evidence, runtime regression gate in owning slice |
 | F055 | M | http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/Exceptions.kt | http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/Exceptions.kt | 751ce63de09f4ab7b6bc8cf3594ac21a17de2e41 | 751ce63de09f4ab7b6bc8cf3594ac21a17de2e41 | 27321c8e93bc49218d1f7a24dbf31872cfccb327 | S3 | Retained exactly from H; B=U. HTTP, SSE, retry and replay assertions pass; see S3 validation |
 | F056 | M | http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/KoogHttpClient.kt | http-client/http-client-core/src/commonMain/kotlin/ai/koog/http/client/KoogHttpClient.kt | c37fb047cbd4b5ec610a1887df92bc0498f677ab | c37fb047cbd4b5ec610a1887df92bc0498f677ab | fcd92fbbc8b49cc6da23a691812aaa4efa17d173 | S3 | Retained exactly from H; B=U. HTTP, SSE, retry and replay assertions pass; see S3 validation |
@@ -1436,3 +1436,81 @@ S7-docs adopts all nine assigned upstream documentation paths from `3acc88cf8ce7
 Validation: `git diff --check` passes. A read-only `uv run --no-project --no-cache python` check validates all 17 relative Markdown links in the changed documentation, all 86 MkDocs navigation paths including skills, quickstart Maven XML, paired snippet markers and five byte-identical retained fork files. Source inspection checks discovery parameters, model fields, prompt inclusion flags, registry construction, renderer, filesystem constructors and tool merge signatures against the snippets. The existing S6c consumer and 119-test evidence covers the API shapes; no fresh compilation is claimed. The immutable ledger's 299 historical prefixes are checked separately after this audit edit. No artificial unit tests or Gradle tasks run for this documentation-only slice.
 
 Limits: a full MkDocs render was not run. Attempted YAML parsing through `uv run --no-project --no-cache python -c` could not import PyYAML; the dependency is not installed in that interpreter. Navigation and edited YAML scalars were inspected directly. External links were not fetched; release history is taken from the pinned source. Publication and published-artefact consumption remain S7 responsibilities.
+
+## S7 validation
+
+Source input: `6e3d7985966a7fc7026c5a7fa43777c981ca24bc`. The inventory remains
+69 JVM and 18 Maven publications. No coordinate, version, source API, release
+workflow or non-JVM ABI file changes occur in this slice. `PUBLISHING.md` now
+records that skills is excluded from the stable umbrella and included in the
+additions JVM umbrella. Both AWS JVM POM transitives use the `-jvm` suffix and
+version `1.6.72`.
+
+The local `ArtifactsRepository` resolves to `build/artifacts/maven` by default.
+A temporary Gradle init script redirects only that repository to the initially
+absent `/tmp/kroog-s7-local/maven`; existing staged artefacts cannot contribute.
+The script leaves release signing signals unset, using the convention's normal
+unsigned mode. No signing key or remote publication credentials are used.
+All Gradle commands use Java 21, `--no-parallel --no-daemon --console=plain`.
+
+Validation:
+
+- Generate exactly 87 module-qualified `publishJvmPublicationToArtifactsRepository`
+  or `publishMavenPublicationToArtifactsRepository` tasks from
+  `gradle/kroog-jvm-publications.txt`. Run them with
+  `--init-script /tmp/kroog-s7-local/staging.init.gradle --dry-run`, then without
+  `--dry-run`. The 1,230-task dry-run graph has exactly 87 local publication
+  tasks and no non-JVM compilation, aggregate build, legacy ABI, remote
+  publication or signing task. Staging succeeds in 1 minute 35 seconds:
+  820 actionable tasks, 570 executed and 250 up-to-date.
+- `./gradlew :convention-plugin-ai:test :skills:jvmJar
+  :skills:generatePomFileForJvmPublication :koog-agents:jvmJar
+  :koog-agents:generatePomFileForJvmPublication :koog-agents-additions:jvmJar
+  :koog-agents-additions:generatePomFileForJvmPublication` succeeds. All nine
+  convention tests pass, with no failures, errors or skips. These cover lazy
+  signing, explicit signing signals and precedence, snapshot repository opt-in
+  and rejection of stable versions by the snapshot guard. The explicit run
+  reuses the test result produced during included-build task graph inspection.
+- `uv run --no-project --no-cache python /tmp/kroog-s7-local/verify.py` verifies
+  exactly 87 current POM coordinates, 609 non-empty primary files, 2,436 matching
+  checksum sidecars and 3,045 total files. All binary, sources and Javadoc JARs
+  pass ZIP integrity checks. All 251 internal POM dependency edges resolve to
+  the staged coordinate and exact version. Ten Spring AI BOM imports are
+  correct: eight starter and two common modules, using catalogue versions
+  `1.1.6` and `2.0.0`. Umbrella skills inclusion and both AWS transitives match
+  the documentation. Snapshot generation is `20260929.102340-1`; all versions
+  are `1.1.1-kroog.11-SNAPSHOT` or `1.1.1-beta-kroog.11-SNAPSHOT`.
+- The fresh unsigned snapshot proves the old 1,392-file snapshot guard was
+  incorrect. The snapshot workflow now requires 3,045 files and checks each of
+  the seven required primary files per coordinate plus all four checksum
+  sidecars. `uv run --no-project --no-cache python
+  /tmp/kroog-s7-local/check-workflow.py` runs the exact extracted shell block:
+  valid repository accepted, missing required checksum rejected despite an
+  unrelated replacement preserving total count, corrupt checksum rejected,
+  restored repository accepted. `bash -n` passes for that block.
+- `./gradlew -p /tmp/kroog-s7-local/consumer verifyPublishedSkills` succeeds in
+  48 seconds. The standalone build copies the existing
+  `skills-api-consumer-test` source unchanged and has only
+  `com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.11-SNAPSHOT` as a direct library
+  dependency. It uses `mavenPom()`, `artifact()` and
+  `ignoreGradleMetadataRedirection()`, restricts every `com.kreoh.kroog`
+  resolution to the fresh local repository, and rejects project components.
+  Compilation exercises legacy and upstream public APIs with eight resolved
+  Kroog JVM components from the fresh snapshot generation. No project
+  substitution or direct supporting dependency masks a POM defect.
+
+Host evidence is under `/tmp/kroog-s7-local/`: `graph.log`, `stage.log`,
+`checks-graph.log`, `checks.log`, `consumer.log`, `verification.log`,
+`workflow-tests.log`, temporary validation scripts and `manifest.json`.
+The manifest records the source commit, relative primary-file paths, non-zero
+sizes and SHA-256 hashes. These temporary artefacts are not committed.
+
+The release workflow remains byte-identical. Its 1,392-file bundle guard counts
+87 coordinates times four primary files times four entries (primary, signature,
+MD5 and SHA-1), and remains correct. Source review confirms annotated immutable
+tag verification, stable-version checks, explicit release signing, required
+credentials, detached-signature verification, checksum verification and the
+user-managed upload guard. Real signing, signed release-bundle execution,
+remote upload and Central Portal validation are unrun. The signing convention
+tests exercise configuration, not cryptographic verification. No live-provider
+or new ABI checks are needed for this workflow and documentation slice.

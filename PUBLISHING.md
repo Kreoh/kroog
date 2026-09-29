@@ -24,19 +24,22 @@ maven :serialization:serialization-jackson
 Both workflows reject malformed lines and require exactly 69 `jvm` entries and
 18 `maven` entries. This prevents aggregate publication selectors from adding
 Kotlin Multiplatform root, Android, JavaScript, Wasm, Native or iOS artefacts.
-Snapshot staging requires exactly 87 POMs and 1,392 files. The release bundle
-requires exactly 87 coordinate entries and the same 1,392-file signed and
-checksummed closure.
+Snapshot staging requires exactly 87 POMs and 3,045 files: seven primary files
+per coordinate, each accompanied by MD5, SHA-1, SHA-256 and SHA-512 checksums.
+The snapshot workflow checks every required file and checksum. The release
+bundle requires exactly 87 coordinate entries and 1,392 files: four primary
+files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
 snapshot version is `1.1.1-beta-kroog.11-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.11`. It remains excluded from `koog-agents` and
-`koog-agents-additions`; publication is deferred to the normal release
-workflow.
+`1.1.1-beta-kroog.11`. It remains excluded from the stable `koog-agents`
+umbrella and is included in the JVM publication of `koog-agents-additions`.
+Remote publication remains
+part of the normal release workflow.
 
 `prompt-executor-managed-execution-jvm` exports
-`aws.sdk.kotlin:bedrockagentcore:1.6.72`. The Bedrock client exports
-`aws.sdk.kotlin:bedrockruntime:1.6.72`. Consumers must retain both transitives
+`aws.sdk.kotlin:bedrockagentcore-jvm:1.6.72` in its JVM POM. The Bedrock
+client exports `aws.sdk.kotlin:bedrockruntime-jvm:1.6.72`. Consumers must retain both transitives
 unless their build has verified an intentional exclusion.
 
 ## Validate the local publication
@@ -57,8 +60,12 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew \
   --no-parallel --no-daemon
 ```
 
-The repository is written to `build/artifacts/maven`. Require one non-empty
-binary JAR, POM, Gradle module file and Maven metadata file for every coordinate.
+The repository is written to `build/artifacts/maven`. Use a fresh destination
+for each validation so old snapshots cannot contribute to the closure counts.
+Ordinary local staging is unsigned; leave `TEAMCITY_VERSION` and
+`KOOG_GITHUB_RELEASE` unset. Release signing is checked separately.
+Require non-empty binary, sources and Javadoc JARs, a POM, a Gradle module file,
+and both version and coordinate Maven metadata files for every coordinate.
 Record the source commit, logical coordinate, resolved snapshot filenames,
 sizes and SHA-256 checksums in a machine-readable manifest.
 
