@@ -1,4 +1,40 @@
-# 1.1.1
+# Kroog alignment notes
+
+This source line incorporates upstream Koog 1.3.0 changes while retaining Kroog version `1.1.1-kroog.11`. No Kroog release or tag is created by this alignment. The entries and publication dates below describe upstream releases. See the [alignment audit](docs/upstream/koog-1.3.0-alignment.md) for retained fork contracts and adaptations.
+
+# 1.3.0
+> Published 23 September 2026
+
+## Improvements
+
+- **Newest models from every provider**: Added ready-made `LLModel` definitions with capabilities, context windows and pricing for the latest models, so they no longer have to be hand-written: Anthropic (`Sonnet_5`, `Opus_5`, `Opus_4_8`), OpenAI (`GPT5_6Sol`, `GPT5_6Terra`, `GPT5_6Luna`), Google (`Gemini3_5FlashLite`, `Gemini3_6Flash`, `Gemini3_7Flash`), Bedrock (Claude 5 Opus and Sonnet, Claude 4.8 Opus, Amazon Nova 2 Lite), DashScope (`QWEN3_5_PLUS`, `QWEN3_7_MAX`, `QWEN3_8_MAX`), DeepSeek (`DeepSeekV4FlashVisionExp`), Mistral (Ministral 3B, 8B and 14B), Ollama (`QWEN_3_6_27B`, `QWEN_3_8_27B`), and OpenRouter (new Claude, GPT-5.6, and Gemini 3 entries) (#2230)
+
+## Bug Fixes
+
+- **Google prompt-cache token counts**: `GoogleUsageMetadata` now reads `cachedContentTokenCount` and carries it into `ResponseMetaInfo.metadata` in both the streaming and non-streaming paths, so cache hits are no longer invisible and cost calculations on top of Koog stop counting cached prompt tokens as fresh ones. Like the Anthropic and Bedrock cache counts, the value also reaches the OpenTelemetry `gen_ai.response.metadata` attribute (#2249)
+- **Empty assistant content in Langfuse traces**: `LangfuseSpanAdapter` now skips reasoning parts that carry no content and writes `finish_reason` on every branch, so Gemini responses, which send a signature-only reasoning part next to the real text, are no longer traced as `{"role": "assistant", "content": ""}` (#2248)
+
+# 1.2.0
+> Published 27 August 2026
+
+## Major Features
+
+**Agent Skills**
+- **New `skills` module**: Support for the [Agent Skills specification](https://agentskills.io/specification): discover skill repositories (`SkillsDiscovery`), model them as `Skill` objects, and generate skills-catalogue prompts for progressive disclosure and activation. The catalogue formatter emits XML, YAML, or JSON. Documented in `docs/docs/skills.md` (#1383, #2160)
+
+**Amazon Bedrock AgentCore Runtime**
+- **New `koog-bedrock-agentcore-runtime` module**: Run a Koog agent as an Amazon Bedrock AgentCore Runtime entry point, with request and response mapping between the Bedrock Runtime protocol and Koog agents ([KG-602](https://youtrack.jetbrains.com/issue/KG-602), #2154)
+
+## Bug Fixes
+
+- **OpenAI Responses API `instructions` as a plain string**: `OpenAIResponsesAPIResponse.instructions` accepts a plain string or an item array through its serializer, retaining the nullable item-list API ([KG-898](https://youtrack.jetbrains.com/issue/KG-898), #2220)
+- **Reasoning content in OpenAI streaming deltas**: `OpenAIStreamDelta` now models `reasoning_content` and `reasoning`, so reasoning from models like DeepSeek reaches `MessagePart.Reasoning` and is replayed to the provider on subsequent requests ([KG-866](https://youtrack.jetbrains.com/issue/KG-866), #2190)
+
+## Examples
+
+- **Bedrock AgentCore deployment**: New example illustrating Koog agent deployment to Amazon Bedrock AgentCore, with tests covering different kinds of content (#2189)
+
+# 1.1.0
 > Published 17 July 2026
 
 ## Major Features

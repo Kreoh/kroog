@@ -1,7 +1,6 @@
-# Koog
+# Kroog
 
 [![Kotlin Stable](https://kotl.in/badges/stable.svg)](https://kotlinlang.org/docs/components-stability.html)
-[![Maven Central](https://img.shields.io/maven-central/v/ai.koog/koog-agents)](https://search.maven.org/artifact/ai.koog/koog-agents)
 [![JetBrains incubator project](https://jb.gg/badges/incubator.svg)](https://github.com/JetBrains#jetbrains-on-github)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.2-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![CI status](https://img.shields.io/github/checks-status/JetBrains/koog/main)](https://github.com/JetBrains/koog/actions?query=branch%3Amain)
@@ -20,6 +19,10 @@ Useful links:
 * [Slack channel](https://docs.koog.ai/koog-slack-channel/)
 * [Issue tracker](https://youtrack.jetbrains.com/issues/KG)
 
+Kroog is the JVM-focused Kreoh fork of Koog. This source line aligns with upstream Koog 1.3.0 while retaining version `1.1.1-kroog.11`. Alignment does not create a release or tag.
+
+Use `com.kreoh.kroog` coordinates; Kotlin packages remain `ai.koog`. For snapshots and JVM POM-based resolution, see [publishing](PUBLISHING.md). The badges and external documentation below refer to upstream Koog.
+
 ## Overview
 
 Koog is a Kotlin-based framework designed to build and run AI agents entirely in idiomatic Kotlin and Java API. It lets you create agents that can interact with tools, handle complex workflows, and communicate with users.
@@ -30,17 +33,17 @@ Key features of Koog include:
 
 - **Multiplatform development**: Deploy agents across JVM, JS, WasmJS, Android, and iOS targets using Kotlin Multiplatform.
 - **Reliability and fault-tolerance**: Handle failures with built-in retries and restore the agent state at specific points during execution with the agent persistence feature.
-- **Intelligent history compression**: Optimize token usage while maintaining context in long-running conversations using advanced built-in history compression techniques.
-- **Enterprise-ready integrations**: Utilize integration with popular JVM frameworks such as Spring Boot and Ktor to embed Koog into your applications.
+- **Intelligent history compression**: Optimise token usage while maintaining context in long-running conversations using advanced built-in history compression techniques.
+- **Enterprise-ready integrations**: Use integration with popular JVM frameworks such as Spring Boot and Ktor to embed Koog into your applications.
 - **Observability with OpenTelemetry exporters**: Monitor and debug applications with built-in support for popular observability providers (W&B Weave, Langfuse).
 - **LLM switching and seamless history adaptation**: Switch to a different LLM at any point without losing the existing conversation history, or reroute between multiple LLM providers.
 - **Integration with JVM and Kotlin applications**: Build AI agents with an idiomatic, type-safe Kotlin DSL designed specifically for JVM and Kotlin developers.
 - **Model Context Protocol integration**: Use Model Context Protocol (MCP) tools in AI agents.
-- **Agent Client Protocol integration**: Build ACP-compliant agents that can communicate with standardized client applications using the Agent Client Protocol (ACP).
+- **Agent Client Protocol integration**: Build ACP-compliant agents that can communicate with standardised client applications using the Agent Client Protocol (ACP).
 - **Knowledge retrieval and memory**: Retain and retrieve knowledge across conversations using vector embeddings and RAG.
 - **Powerful Streaming API**: Process responses in real-time with streaming support and parallel tool calls.
-- **Modular feature system**: Customize agent capabilities through a composable architecture.
-- **Flexible graph workflows**: Design complex agent behaviors using intuitive graph-based workflows.
+- **Modular feature system**: Customise agent capabilities through a composable architecture.
+- **Flexible graph workflows**: Design complex agent behaviours using intuitive graph-based workflows.
 - **Custom tool creation**: Enhance your agents with tools that access external systems and APIs.
 - **Comprehensive tracing**: Debug and monitor agent execution with detailed, configurable tracing.
 
@@ -80,7 +83,7 @@ fun main() = runBlocking {
 
 ### Supported targets
 
-Currently, the framework supports the JVM, JS, WasmJS and iOS targets.
+Kroog currently builds, validates and publishes JVM targets only. Upstream Koog also supports JS, WasmJS and iOS.
 
 ### Requirements
 
@@ -93,39 +96,39 @@ Currently, the framework supports the JVM, JS, WasmJS and iOS targets.
 
     ```
     dependencies {
-        implementation("ai.koog:koog-agents:1.1.1")
-        implementation("ai.koog:koog-agents-additions:1.1.1-beta")
+        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11")
+        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11")
     }
     ```
-2. Make sure that you have `mavenCentral()` in the list of repositories.
+2. Configure the repository and POM-based JVM resolution described in [PUBLISHING.md](PUBLISHING.md).
 ### Gradle (Groovy)
 
 1. Add dependencies to the `build.gradle` file:
 
     ```
     dependencies {
-        implementation 'ai.koog:koog-agents:1.1.1'
-        implementation 'ai.koog:koog-agents-additions:1.1.1-beta'
+        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11'
+        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11'
     }
     ```
-2. Make sure that you have `mavenCentral()` in the list of repositories.
+2. Configure the repository and POM-based JVM resolution described in [PUBLISHING.md](PUBLISHING.md).
 ### Maven
 
 1. Add dependencies to the `pom.xml` file:
 
     ```
     <dependency>
-        <groupId>ai.koog</groupId>
+        <groupId>com.kreoh.kroog</groupId>
         <artifactId>koog-agents-jvm</artifactId>
-        <version>1.1.1</version>
+        <version>1.1.1-kroog.11</version>
     </dependency>
     <dependency>
-        <groupId>ai.koog</groupId>
+        <groupId>com.kreoh.kroog</groupId>
         <artifactId>koog-agents-additions-jvm</artifactId>
-        <version>1.1.1-beta</version>
+        <version>1.1.1-beta-kroog.11</version>
     </dependency>
     ```
-2. Make sure that you have `mavenCentral` in the list of repositories.
+2. Configure the release or snapshot repository described in [PUBLISHING.md](PUBLISHING.md).
 ## Versioning
 
 Koog framework is stable and follows semantic versioning. See [VERSIONING.md](VERSIONING.md) for details.
