@@ -38,7 +38,7 @@ This source line incorporates upstream Koog 1.3.0 changes while retaining Kroog 
 
 - **Bedrock AgentCore deployment**: New example illustrating Koog agent deployment to Amazon Bedrock AgentCore, with tests covering different kinds of content (#2189)
 
-# 1.1.0
+# 1.1.1
 > Published 17 July 2026
 
 ## Major Features

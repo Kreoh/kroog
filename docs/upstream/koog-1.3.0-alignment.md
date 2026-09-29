@@ -1954,3 +1954,91 @@ requested two OpenAI live cases. Cross-platform compilation and all non-JVM ABI
 checks remain excluded. Documentation links were checked locally; a full MkDocs
 render was not performed. No new remediation gap was found by this mechanical
 accounting. Final blind review remains pending and may require a bounded fix.
+
+
+## Actual upstream merge reconciliation, 29 September 2026
+
+The earlier slices imported content without making upstream an ancestor. This
+follow-up performs an actual normal two-parent merge of `upstream/develop`.
+It supersedes the earlier slice-only synchronisation guidance; the immutable
+historical ledgers and their test evidence remain unchanged.
+
+| Reference | Commit |
+| --- | --- |
+| First parent (pre-merge Kroog) | `d58c696c82f68ed18a916cc986319a257ce1af89` |
+| Second parent (fetched upstream/develop) | `16d83270f8a7f25358ae0165466f14e70416c428` |
+| Merge base | `10bba89b67929bab3617047a6a7c8d8cf3ff9185` |
+| Previously imported upstream U | `3acc88cf8ce70b87d8afbd3cf184844a50aa504e` |
+
+`git merge --no-commit --no-ff upstream/develop` produced 33 conflicted paths
+and seven automatic modifications relative to the first parent. The normal
+merge retains its second parent for the reviewed merge commit. The full U-to-second-parent
+tree difference contains only U002's historical release heading and U006's
+three dependency versions. Every other upstream path has exactly the U blob
+already accounted for above. The heading correction is adopted; the dependency
+examples keep the corresponding Kroog JVM coordinates and version.
+
+The following table records every conflict and automatic modification. U row
+identifiers resolve to exact paths in the immutable ledger above. Each retained
+first-parent file was compared with the upstream delta and its recorded adoption
+or exemption; the merge used no blanket merge strategy.
+
+| Ledger path | Initial merge result | Resolution |
+| --- | --- | --- |
+| U001 | Conflict | Keep required ubuntu-latest OS on the imported skills matrix entry. |
+| U002 | Conflict | Keep Kroog notes and adapted release text; adopt upstream historical heading correction from 1.1.0 to 1.1.1. |
+| U003 | Conflict | Keep Kroog JVM coordinates and publication guidance. |
+| U005 | Conflict | Keep imported reasoning regressions and additional populated-reasoning coverage. |
+| U006 | Conflict | Keep Kroog JVM coordinates in all examples; upstream three 0.7.0 to 1.2.0 replacements are superseded by 1.1.1-kroog.11. |
+| U007 | Conflict | Keep Kroog versions, stable and beta partition, and JVM publication scope. |
+| U008 | Conflict | Keep adopted APIs with strict parsing, secure discovery, snapshots and typed legacy loading documentation. |
+| U009 | Conflict | Keep Kroog JVM coordinates and corrected Maven dependencies wrapper. |
+| U010 | Conflict | Keep Kroog beta version, relative link and corrected end marker. |
+| U011 | Conflict | Keep Kroog version descriptions and repository punctuation. |
+| U012 | Conflict | Keep com.kreoh.kroog and 1.1.1-kroog.11 under X-version. |
+| U014 | Conflict | Keep imported integration scenarios, corrected weather JSON, conventional test names and offline fixture regression. |
+| U015 | Conflict | Keep British English maths fixture wording. |
+| U019 | Conflict | Retain existing Android dump under X-ABI; no non-JVM adoption or validation. |
+| U020 | Conflict | Keep generated JVM dump including later Opus_5_5 and Sonnet_5_5 fields. |
+| U021 | Conflict | Retain existing KLIB dump under X-ABI; no non-JVM adoption or validation. |
+| U022 | Conflict | Keep upstream models alongside later profiles and evidenced Opus sampling restrictions. |
+| U025 | Conflict | Keep imported Bedrock models, retained profiles and adapted KDoc. |
+| U026 | Conflict | Keep imported Qwen profiles and repository KDoc punctuation. |
+| U028 | Conflict | Keep shared cache metadata conversion, inclusive usage, partial streaming snapshots and hosted execution. |
+| U029 | Conflict | Keep all imported profiles, fixed sampling restrictions and later Gemini3_8Flash. |
+| U030 | Automatic modification | Remove automatic duplicate cachedContentTokenCount declaration and KDoc; existing nullable field already implements U. |
+| U031 | Automatic modification | Remove automatic redundant cache test; GoogleTokenUsageTest already checks metadata and structured counts across both transports, including zero and missing values (S4c). |
+| U032 | Conflict | Keep imported Mistral profiles and repository KDoc punctuation. |
+| U033 | Automatic modification | Remove automatic Android dump additions under X-ABI. |
+| U035 | Automatic modification | Remove automatic KLIB dump additions under X-ABI. |
+| U038 | Conflict | Keep fork JVM API and later GPT6Astra, GPT6Sol and GPT6Luna fields. |
+| U040 | Conflict | Keep GPT-5.6 profiles with shared equivalent capabilities, later GPT-6 profiles and catalogue membership. |
+| U042 | Conflict | Keep adopted string and array regressions, conventional names and added null, missing, empty and serialisation coverage. |
+| U043 | Automatic modification | Remove automatic Android dump additions under X-ABI. |
+| U045 | Automatic modification | Remove automatic KLIB dump additions under X-ABI. |
+| U046 | Conflict | Keep all imported OpenRouter profiles and repository KDoc punctuation. |
+| U047 | Automatic modification | Remove automatic duplicate skills include; original module graph already includes skills. |
+| U048 | Conflict | Keep upstream module description and Kroog secure discovery and coordinate details. |
+| U049 | Conflict | Keep JVM server convention, upstream dependencies, public tools and JSON APIs, strict parser and test dependencies. |
+| U050 | Conflict | Keep adopted discovery API with canonical strict parser, secure sessions, immutable snapshots, bounded traversal and cancellation. |
+| U051 | Conflict | Keep seven-field upstream model with British English licence KDoc. |
+| U052 | Conflict | Keep adopted formats through shared structured projection, full JSON escaping, YAML key quoting and XML validity checks. |
+| U053 | Conflict | Keep imported golden tests with British English fixtures and added empty-format and XML rejection coverage. |
+| U054 | Conflict | Keep imported discovery tests adapted to strict directory equality, redacted diagnostics and narrowing name patterns. |
+
+All other automatic results equal the first-parent blobs, including the imported
+Langfuse implementation, umbrella dependencies, Anthropic tests, Bedrock and
+Ollama JVM dumps, OpenAI response serializer and skills weather fixture. No fork
+source or test is removed. The latest model profiles, request restrictions and
+live-test sources remain byte-for-byte unchanged.
+
+Validation: `git ls-files -u` is empty; `git diff --check` and
+`git diff --cached --check` pass. Comparing every staged path and blob against
+the first parent leaves exactly `CHANGELOG.md` and this audit changed. Production,
+tests, build configuration, JVM dumps and all non-JVM dumps are identical to the
+first parent. No Gradle rerun is needed for this documentation and ancestry
+correction; the accepted JVM evidence above remains applicable. No new runtime
+or binary compatibility claim is made. Existing ABI drift, live-provider coverage
+limits and excluded non-JVM validation remain as recorded above. The merge is
+prepared for review and commit; this text does not claim that an uncommitted
+merge has already changed branch ancestry.
