@@ -8,12 +8,12 @@ Use the local snapshot while developing against this Kroog line:
 
 ```kotlin
 dependencies {
-    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.5-SNAPSHOT")
+    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.11-SNAPSHOT")
 }
 ```
 
 The corresponding release coordinate is
-`com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.5`. Publication is deferred to
+`com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.11`. Publication is deferred to
 Kroog's normal release workflow.
 
 ## Skill documents
@@ -131,3 +131,72 @@ Consumers own skill roots and content, catalogue placement, prompt wording and
 ordering, instruction precedence, authorisation, tool exposure, startup
 strictness, reload timing, audit integration, diagnostic disclosure and any
 runtime or user-interface exposure. Keep those choices outside this module.
+
+## Upstream discovery and prompt compatibility
+
+The module also exposes Koog 1.3.0's `ai.koog.skills.model.Skill`,
+`ai.koog.skills.discovery.discoverSkills` and
+`ai.koog.skills.prompt.generateSkillsPrompt`. The upstream model retains its
+seven fields: `name`, `description`, `location`, `license`, `compatibility`,
+`metadata` and `allowedTools`. Its serialised form has no instruction body.
+The legacy `ai.koog.skills.Skill(name, description, instructions)` remains a
+separate loadable value with its existing constructors and components.
+
+```kotlin
+val discovered = discoverSkills(
+    JVMFileSystemProvider.ReadOnly,
+    listOf(Path.of("configured-skills").toAbsolutePath().toString()),
+)
+val prompt = generateSkillsPrompt(discovered, SkillsPromptFormat.JSON)
+```
+
+Import the discovery and prompt functions from the packages above, and
+`JVMFileSystemProvider` from `ai.koog.rag.base.files`. Discovery includes each
+configured root, traverses breadth-first to depth 4 by default, skips `.git`
+and `node_modules`, and selects the last discovered name on collision.
+`SkillCollisionPrecedence.FIRST_FOUND` selects the first instead. The default
+2,000-directory budget also bounds directory listings; the remaining default
+`SkillLimits` apply to roots, documents, YAML, descriptions, bodies and the
+number of candidates before deduplication. A custom name pattern can further
+restrict the mandatory ASCII name rules.
+
+Both APIs share a strict document parser, complete metadata-and-body records,
+a scoped discovery engine and duplicate selection. The upstream profile accepts
+its documented optional frontmatter fields, requires string values (including
+metadata keys and values), and allows an empty body for metadata discovery.
+Legacy loading requires a non-blank body. Duplicate keys, YAML aliases,
+directory-name mismatches and malformed names are rejected. Upstream discovery
+reports malformed documents and exhausted traversal budgets through redacted
+warnings. File-byte limits and secure filesystem failures remain fatal.
+
+On the JVM, generic discovery accepts the standard `JVMFileSystemProvider.ReadOnly`
+through a secure descriptor session. It rejects arbitrary providers, including
+wrappers around the JVM provider, before invoking them. There is no unrestricted
+`readBytes` fallback. Use the bounded, copied in-memory provider for generic
+memory-backed discovery:
+
+```kotlin
+val memory = SkillFileSystemSnapshot(
+    mapOf("/skills/example/SKILL.md" to
+        "---\nname: example\ndescription: Example skill\n---\nInstructions".encodeToByteArray()),
+)
+val discovered = discoverSkills(memory, listOf("/skills"))
+```
+
+Import `SkillFileSystemSnapshot` from `ai.koog.skills.discovery`. Paths must be
+absolute and normalised; parent directories are inferred. Construction checks
+entry, per-file and aggregate byte budgets and copies every byte array.
+Discovery never accesses the host filesystem through this provider.
+
+`SkillsPromptFormat.XML`, `JSON` and `YML` retain the upstream envelopes and
+non-null empty output. Location is included by default; optional fields have
+explicit inclusion flags. All formats share the same structured catalogue;
+JSON uses complete control-character escaping. YAML quotes control characters,
+unsafe metadata keys and reserved scalar keys such as `true`, `false` and `null`,
+preserving string keys and their case. XML escapes entities and preserves valid
+Unicode and whitespace. XML generation throws `IllegalArgumentException` for
+included values containing XML 1.0 forbidden characters or unpaired UTF-16
+surrogates; excluded fields are not checked. Legacy rendering uses its
+metadata-only compact array projection, still returns `null` when empty and
+still enforces its final encoded code-point limit. Registry and tool lookups
+use captured bodies and never read a descriptor a second time.

@@ -11,6 +11,12 @@ requirements.
 
 ### Supported Models
 
+### GPT-6 Sol and Luna
+
+`OpenAIModels.Chat.GPT6Sol` and `GPT6Luna` have a 1,050,000-token context window, a 922,000-token input limit and a 128,000-token output limit. They default to Responses. Explicit Chat Completions supports function calling with `ReasoningEffort.NONE`; reasoning with tools requires Responses. Both support `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH` and `MAX`. Sampling controls are retained with `NONE` and omitted otherwise. Deployment aliases created with `model.copy(id = deploymentId)` retain these rules.
+
+See the [Sol specification](https://developers.openai.com/api/docs/models/gpt-6-sol), [Luna specification](https://developers.openai.com/api/docs/models/gpt-6-luna) and [migration guidance](https://developers.openai.com/api/docs/guides/latest-model). `gpt-6-terra` has no verified public profile and is not added.
+
 #### Reasoning Models
 
 | Model   | Speed   | Context | Input Support       | Output Support | Pricing (per 1M tokens) | APIs Support    |
@@ -33,9 +39,9 @@ requirements.
 | GPT-5 Codex | Medium    | 400K    | Text, Images, Documents        | Text, Tools    | $1.25-$10               | Responses       |
 | GPT-5.5     | Fast      | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | $5-$30                  | Chat, Responses |
 | GPT-5.5 pro | Slowest   | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | $30-$180                | Responses only  |
-| GPT-5.6 Sol | Fast      | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
-| GPT-5.6 Terra | Fast    | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
-| GPT-5.6 Luna | Fast     | 1.05M   | Text, Images, Tools            | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Sol | Fast      | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Terra | Fast    | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
+| GPT-5.6 Luna | Fast     | 1.05M   | Text, Images, Tools, Documents | Text, Tools    | Varies                   | Chat, Responses |
 
 #### Audio Models
 
@@ -130,7 +136,10 @@ GPT-5.6 Sol, Terra and Luna support `ReasoningEffort.MAX`. Responses API request
 requests map `MAX` to `XHIGH`, which is the highest Chat value for these models. Positive GPT-5.6 reasoning effort
 omits temperature on both endpoints; `ReasoningEffort.NONE` keeps the configured temperature. A copied model keeps
 these capabilities and limits while its copied `id` remains the request wire model, which supports named deployment
-IDs without changing GPT-5.6 request behaviour.
+IDs without changing GPT-5.6 request behaviour. Create deployment aliases with `model.copy(id = deploymentId)`
+and retain the catalogue capability list. Canonical model IDs are recognised independently of that list;
+reconstructing an alias from serialised metadata loses its family identity because GPT-5.5 and GPT-5.6 share
+capability values and token limits.
 
 ### API Endpoints Support
 

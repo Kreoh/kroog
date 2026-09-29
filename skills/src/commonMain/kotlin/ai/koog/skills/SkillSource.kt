@@ -1,5 +1,8 @@
 package ai.koog.skills
 
+import ai.koog.skills.discovery.SkillSnapshot
+import ai.koog.skills.discovery.asRecord
+
 public fun interface SkillSource {
     public suspend fun load(): SkillSourceResult
 }
@@ -19,25 +22,12 @@ public class InMemorySkillSource(
         if (snapshot.size > policy.limits.maxSkills) {
             throw SkillException(SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong()), policy.diagnosticPaths)
         }
-        val selected: MutableMap<String, Skill> = linkedMapOf()
-        val diagnostics: MutableList<SkillDiagnostic> = mutableListOf()
+        val selected = SkillSnapshot(policy)
         snapshot.sortedWith(compareBy<Skill>({ it.name }, { it.description }, { it.instructions })).forEach { skill ->
             SkillValidation.validate(skill, policy.limits)
-            if (skill.name !in selected) {
-                selected[skill.name] = skill
-            } else {
-                val error: SkillError = SkillError.DuplicateName(skill.name)
-                when (policy.duplicateSkill) {
-                    DuplicateSkillPolicy.FAIL -> throw SkillException(error, policy.diagnosticPaths)
-                    DuplicateSkillPolicy.KEEP_FIRST -> diagnostics += SkillDiagnostic(error)
-                    DuplicateSkillPolicy.KEEP_LAST -> {
-                        selected[skill.name] = skill
-                        diagnostics += SkillDiagnostic(error)
-                    }
-                }
-            }
+            selected.add(skill.asRecord())
         }
-        return SkillSourceResult(selected.values.sortedBy { it.name }, diagnostics)
+        return SkillSourceResult(selected.records.map { it.toLegacy() }.sortedBy { it.name }, selected.diagnostics)
     }
 }
 

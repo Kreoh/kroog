@@ -53,8 +53,8 @@ graph TB
     
         ```kotlin title="build.gradle.kts"
         dependencies {
-            implementation("ai.koog:koog-agents:1.1.1")
-            implementation("ai.koog:agents-features-memory:1.1.1")
+            implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11")
+            implementation("com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.11")
         }
         ```
     
@@ -62,8 +62,8 @@ graph TB
     
         ```groovy title="build.gradle"
         dependencies {
-            implementation 'ai.koog:koog-agents:1.1.1'
-            implementation 'ai.koog:agents-features-memory:1.1.1'
+            implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11'
+            implementation 'com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.11'
         }
         ```
     
@@ -71,14 +71,14 @@ graph TB
     
         ```xml title="pom.xml"
         <dependency>
-            <groupId>ai.koog</groupId>
+            <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
-            <version>1.1.1</version>
+            <version>1.1.1-kroog.11</version>
         </dependency>
         <dependency>
-            <groupId>ai.koog</groupId>
+            <groupId>com.kreoh.kroog</groupId>
             <artifactId>agents-features-memory-jvm</artifactId>
-            <version>1.1.1</version>
+            <version>1.1.1-kroog.11</version>
         </dependency>
         ```
 
@@ -180,8 +180,8 @@ Without this, the prompt size can grow beyond the context limit.
 You: My name is Alice.
 Assistant: Nice to meet you, Alice! How can I help you today?
 
-You: What's my favorite color? It's blue.
-Assistant: Got it — your favorite color is blue!
+You: What's my favourite colour? It's blue.
+Assistant: Got it: your favourite colour is blue!
 
 You: What's my name?
 Assistant: Your name is Alice!

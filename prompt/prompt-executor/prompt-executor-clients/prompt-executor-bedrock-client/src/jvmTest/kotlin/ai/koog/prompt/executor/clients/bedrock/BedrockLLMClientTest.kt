@@ -58,6 +58,7 @@ import aws.sdk.kotlin.services.bedrockruntime.model.StartAsyncInvokeResponse
 import aws.sdk.kotlin.services.bedrockruntime.model.StopReason
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeAll
@@ -683,6 +684,29 @@ class BedrockLLMClientTest {
         client.close()
 
         assertEquals(1, closeCount, "Closing the owning LLM client must close the injected runtime")
+    }
+
+    @Test
+    fun testInjectedRuntimePropagatesConverseCancellation() = runTest {
+        val cancellation = CancellationException("cancelled by caller")
+        val runtime = createMockBedrockClient(
+            onConverse = { throw cancellation },
+            onConverseStream = { throw cancellation },
+        )
+        val client = BedrockLLMClient(runtime, apiMethod = BedrockAPIMethod.Converse)
+        val prompt = Prompt.build("cancelled-runtime") { user("Hello") }
+        val model = BedrockModels.AnthropicClaude5Sonnet
+
+        try {
+            assertEquals(cancellation.message, assertFailsWith<CancellationException> {
+                client.execute(prompt, model, emptyList())
+            }.message)
+            assertEquals(cancellation.message, assertFailsWith<CancellationException> {
+                client.executeStreaming(prompt, model, emptyList()).toList()
+            }.message)
+        } finally {
+            client.close()
+        }
     }
 
     @Test

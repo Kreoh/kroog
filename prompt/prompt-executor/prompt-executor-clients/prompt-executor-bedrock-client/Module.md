@@ -12,7 +12,7 @@ and comprehensive error handling across multiple model providers via both the In
 
 ## Supported Models
 
-Models are organized by provider. All models support both the InvokeModel and Converse APIs unless noted.
+Models are organised by provider. All models support both the InvokeModel and Converse APIs unless noted.
 Models marked **Converse-only** require `BedrockClientSettings(apiMethod = BedrockAPIMethod.Converse)`.
 
 ### Anthropic Claude Models
@@ -32,6 +32,9 @@ All Claude models support text, images, documents, and tool calling.
 | Claude 4.5 Haiku         | 200K    | Yes   | Yes    | Yes               | Fast, cost-effective        |
 | Claude 3 Haiku (deprecated) | 200K | Yes   | Yes    | -                 | Use Claude 4.5 Haiku instead |
 
+`BedrockModels.AnthropicClaude5Sonnet` exposes the Sonnet 5 profile with the default
+`us.anthropic.claude-sonnet-5` inference ID and the capabilities and limits of `AnthropicModels.Sonnet_5`.
+
 ### Amazon Nova Models
 
 | Model         | Context | Tools | Vision | Notes                          |
@@ -40,6 +43,9 @@ All Claude models support text, images, documents, and tool calling.
 | Nova Lite     | 300K    | Yes   | -      | Balanced performance and cost  |
 | Nova Pro      | 300K    | Yes   | -      | Complex reasoning              |
 | Nova Premier  | 1M      | Yes   | -      | Most capable Amazon model      |
+
+`BedrockModels.AmazonNova2Lite` exposes `us.amazon.nova-2-lite-v1:0`, a one-million-token
+context, image and video capabilities, and thinking support. Both new profiles appear in `BedrockModels.models`.
 
 ### Meta Llama Models
 

@@ -119,6 +119,7 @@ class GoogleModelsTest {
             GoogleModels.Gemini3_5FlashLite,
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
+            GoogleModels.Gemini3_8Flash,
         ).forEach { model ->
             assertEquals(LLMProvider.Google, model.provider)
             assertEquals(1_048_576, model.contextLength)
@@ -139,6 +140,7 @@ class GoogleModelsTest {
         assertEquals("gemini-3.5-flash-lite", GoogleModels.Gemini3_5FlashLite.id)
         assertEquals("gemini-3.6-flash", GoogleModels.Gemini3_6Flash.id)
         assertEquals("gemini-3.7-flash", GoogleModels.Gemini3_7Flash.id)
+        assertEquals("gemini-3.8-flash", GoogleModels.Gemini3_8Flash.id)
     }
 
     @Test

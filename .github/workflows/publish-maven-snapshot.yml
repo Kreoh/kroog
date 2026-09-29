@@ -74,7 +74,24 @@ jobs:
             find "$staged_root" -mindepth 3 -maxdepth 3 -type f -name '*.pom' -print0 | sort -z
           )
           [[ "${#staged_poms[@]}" -eq 87 ]]
-          [[ "$(find "$staged_root" -type f | wc -l)" -eq 1392 ]]
+          # Seven primary files per coordinate, each with four checksum sidecars.
+          for pom in "${staged_poms[@]}"; do
+            stem="${pom%.pom}"
+            version_directory="$(dirname "$pom")"
+            artifact_directory="$(dirname "$version_directory")"
+            for primary in \
+              "$stem.jar" "$stem-sources.jar" "$stem-javadoc.jar" \
+              "$pom" "$stem.module" \
+              "$version_directory/maven-metadata.xml" "$artifact_directory/maven-metadata.xml"
+            do
+              test -s "$primary"
+              for algorithm in md5 sha1 sha256 sha512; do
+                test -s "$primary.$algorithm"
+                [[ "$(cat "$primary.$algorithm")" == "$("${algorithm}sum" "$primary" | cut -d ' ' -f 1)" ]]
+              done
+            done
+          done
+          [[ "$(find "$staged_root" -type f | wc -l)" -eq 3045 ]]
 
       - name: Verify Central Portal credentials
         env:

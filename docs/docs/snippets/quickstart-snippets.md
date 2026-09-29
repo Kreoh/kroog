@@ -12,17 +12,17 @@ Ensure your environment and project meet the following requirements:
 # --8<-- [end:prerequisites]
 
 # --8<-- [start:dependencies]
-Add the [Koog package](https://central.sonatype.com/artifact/ai.koog/koog-agents/) as a dependency:
+Add the Kroog JVM dependencies below. These source-line versions do not imply a new release. For snapshot repositories and POM-based Gradle resolution, follow the Kroog snapshot note in [Quickstart](../quickstart.md).
 
 === "Gradle (Kotlin)"
 
     ``` kotlin title="build.gradle.kts"
     dependencies {
         // Stable
-        implementation("ai.koog:koog-agents:1.1.1")
+        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11")
 
         // Beta
-        implementation("ai.koog:koog-agents-additions:1.1.1-beta")
+        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11")
     }
     ```
 
@@ -31,31 +31,31 @@ Add the [Koog package](https://central.sonatype.com/artifact/ai.koog/koog-agents
     ``` groovy title="build.gradle"
     dependencies {
         // Stable
-        implementation 'ai.koog:koog-agents:1.1.1'
+        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11'
 
         // Beta
-        implementation 'ai.koog:koog-agents-additions:1.1.1-beta'
+        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11'
     }
     ```
 
 === "Maven"
 
     ```xml title="pom.xml"
-    <dependency>
+    <dependencies>
         <!-- Stable -->
         <dependency>
-            <groupId>ai.koog</groupId>
+            <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
-            <version>1.1.1</version>
+            <version>1.1.1-kroog.11</version>
         </dependency>
 
         <!-- Beta -->
         <dependency>
-            <groupId>ai.koog</groupId>
+            <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-additions-jvm</artifactId>
-            <version>1.1.1-beta</version>
+            <version>1.1.1-beta-kroog.11</version>
         </dependency>
-    </dependency>
+    </dependencies>
     ```
 # --8<-- [end:dependencies]
 

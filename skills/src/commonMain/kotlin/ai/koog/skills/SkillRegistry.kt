@@ -1,5 +1,8 @@
 package ai.koog.skills
 
+import ai.koog.skills.discovery.SkillSnapshot
+import ai.koog.skills.discovery.asRecord
+
 /**
  * An immutable, deterministically ordered snapshot of validated skills.
  *
@@ -50,45 +53,29 @@ public class SkillRegistry private constructor(
             sources: List<SkillSource>,
             policy: SkillLoadPolicy = SkillLoadPolicy(),
         ): SkillRegistry {
-            val selected: MutableMap<String, Skill> = linkedMapOf()
-            val diagnostics: MutableList<SkillDiagnostic> = mutableListOf()
-            var loadedSkillCount = 0
-
+            val snapshot = SkillSnapshot(policy)
+            val diagnostics = mutableListOf<SkillDiagnostic>()
+            var loadedSkillCount = 0L
+            var diagnosticCount = 0
             sources.forEach { source ->
-                val result: SkillSourceResult = source.load()
+                val result = source.load()
                 diagnostics += result.diagnostics
-
                 loadedSkillCount += result.skills.size
-                if (loadedSkillCount > policy.limits.maxSkills) {
-                    throw SkillException(
-                        SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong()),
-                        policy.diagnosticPaths,
-                    )
-                }
-
-                result.skills
-                    .sortedWith(compareBy<Skill>({ it.name }, { it.description }, { it.instructions }))
+                if (loadedSkillCount > policy.limits.maxSkills) throw SkillException(
+                    SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong()), policy.diagnosticPaths,
+                )
+                result.skills.sortedWith(compareBy<Skill>({ it.name }, { it.description }, { it.instructions }))
                     .forEach { skill ->
                         SkillValidation.validate(skill, policy.limits)
-                        val previous: Skill? = selected[skill.name]
-                        if (previous == null) {
-                            selected[skill.name] = skill
-                        } else {
-                            val error: SkillError = SkillError.DuplicateName(skill.name)
-                            when (policy.duplicateSkill) {
-                                DuplicateSkillPolicy.FAIL -> throw SkillException(error, policy.diagnosticPaths)
-                                DuplicateSkillPolicy.KEEP_FIRST -> diagnostics += SkillDiagnostic(error)
-                                DuplicateSkillPolicy.KEEP_LAST -> {
-                                    selected[skill.name] = skill
-                                    diagnostics += SkillDiagnostic(error)
-                                }
-                            }
-                        }
+                        snapshot.add(skill.asRecord())
                     }
+                val currentDiagnostics = snapshot.diagnostics
+                diagnostics += currentDiagnostics.drop(diagnosticCount)
+                diagnosticCount = currentDiagnostics.size
             }
 
             return SkillRegistry(
-                skills = selected.values.sortedBy { it.name },
+                skills = snapshot.records.map { it.toLegacy() }.sortedBy { it.name },
                 diagnostics = diagnostics,
                 policy = policy,
             )

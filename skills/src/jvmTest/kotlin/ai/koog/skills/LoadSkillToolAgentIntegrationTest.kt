@@ -15,6 +15,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,6 +27,9 @@ import kotlin.test.assertTrue
 
 /** Credential-free integration proof for ordinary agent-history carry-forward. */
 class LoadSkillToolAgentIntegrationTest {
+    @TempDir
+    lateinit var tempDir: Path
+
     @Test
     fun `real load skill result is carried into the next agent turn`() = runTest {
         val source = CountingInMemorySkillSource(
@@ -35,7 +41,35 @@ class LoadSkillToolAgentIntegrationTest {
         )
         val registry = SkillRegistry.build(listOf(source))
         assertEquals(1, source.loadCount)
+        assertAgentCarriesCapturedInstructions(registry)
+        assertEquals(1, source.loadCount)
+    }
 
+    @Test
+    fun testSecureFilesystemSnapshotCarriesInstructionsAfterSourceDeletion() = runTest {
+        val directory = Files.createDirectory(tempDir.resolve(SKILL_NAME))
+        val document = directory.resolve("SKILL.md")
+        Files.writeString(
+            document,
+            "---\nname: $SKILL_NAME\ndescription: $SKILL_DESCRIPTION\n---\n$SKILL_INSTRUCTIONS",
+        )
+        var loads = 0
+        val filesystemSource = JvmFileSystemSkillSource(listOf(tempDir))
+        val source = SkillSource {
+            loads++
+            check(loads == 1) { "Source accessed after snapshot capture" }
+            filesystemSource.load()
+        }
+        val registry = SkillRegistry.build(listOf(source))
+        assertEquals(1, loads)
+        Files.delete(document)
+        Files.delete(directory)
+
+        assertAgentCarriesCapturedInstructions(registry)
+        assertEquals(1, loads)
+    }
+
+    private suspend fun assertAgentCarriesCapturedInstructions(registry: SkillRegistry) {
         val catalogue = assertNotNull(SkillCatalogueRenderer.render(registry))
         assertEquals("""[{"name":"$SKILL_NAME","description":"$SKILL_DESCRIPTION"}]""", catalogue)
         assertFalse(catalogue.contains(SKILL_INSTRUCTIONS))
@@ -102,7 +136,6 @@ class LoadSkillToolAgentIntegrationTest {
         assertEquals(tokenizer.count(request), firstInputTokens)
         assertEquals(tokenizer.count(toolResult.output), secondInputTokens)
         assertTrue(secondInputTokens > firstInputTokens)
-        assertEquals(1, source.loadCount)
     }
 
     private class CountingInMemorySkillSource(skill: Skill) : SkillSource {

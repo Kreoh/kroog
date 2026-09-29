@@ -10,6 +10,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.headersOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -39,6 +40,7 @@ class GoogleTokenUsageTest {
                 streamingClient.executeStreaming(prompt, model).toList().filterIsInstance<StreamFrame.End>().single().metaInfo!!
             )
             metas.forEach { meta ->
+                assertEquals(expected[3]?.let(::JsonPrimitive), meta.metadata?.get("cachedContentTokenCount"))
                 assertEquals(
                     expected,
                     listOf(
@@ -50,6 +52,28 @@ class GoogleTokenUsageTest {
                     )
                 )
             }
+        }
+    }
+
+    @Test
+    fun testCumulativeCacheSnapshotsReplaceAndPreserveExplicitZero() = runTest {
+        for (cached in listOf(25, 0)) {
+            val chunks = listOf(
+                """{"candidates":[],"usageMetadata":{"promptTokenCount":100,"cachedContentTokenCount":40,"candidatesTokenCount":10,"totalTokenCount":110}}""",
+                """{"candidates":[],"usageMetadata":{"cachedContentTokenCount":$cached}}""",
+                """{"candidates":[],"usageMetadata":{"cachedContentTokenCount":$cached}}""",
+                """{"candidates":[],"usageMetadata":{}}""",
+                """{"candidates":[{"finishReason":"STOP"}]}""",
+            )
+            val model = GoogleModels.Gemini2_5Pro
+            val client = GoogleLLMClient(httpClient = googleStreamingTransport(model.id, chunks))
+            val meta = client.executeStreaming(Prompt.build("usage") { user("hello") }, model)
+                .toList().filterIsInstance<StreamFrame.End>().single().metaInfo!!
+            assertEquals(cached, meta.cacheReadTokensCount)
+            assertEquals(JsonPrimitive(cached), meta.metadata?.get("cachedContentTokenCount"))
+            assertEquals(100, meta.inputTokensCount)
+            assertEquals(10, meta.outputTokensCount)
+            assertEquals(110, meta.totalTokensCount)
         }
     }
 
@@ -69,6 +93,7 @@ class GoogleTokenUsageTest {
         assertEquals(35, meta.outputTokensCount)
         assertEquals(135, meta.totalTokensCount)
         assertEquals(40, meta.cacheReadTokensCount)
+        assertEquals(JsonPrimitive(40), meta.metadata?.get("cachedContentTokenCount"))
         assertEquals(20, meta.reasoningTokensCount)
     }
 }

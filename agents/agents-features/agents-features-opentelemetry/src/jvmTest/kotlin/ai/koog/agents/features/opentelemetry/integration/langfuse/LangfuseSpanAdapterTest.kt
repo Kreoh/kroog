@@ -21,6 +21,7 @@ import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class LangfuseSpanAdapterTest {
@@ -188,6 +189,68 @@ class LangfuseSpanAdapterTest {
             GenAIAttributes.Response.FinishReasonType.ToolCalls.id,
             attributes.requireValue("gen_ai.completion.1.finish_reason"),
         )
+    }
+
+    @Test
+    fun `onBeforeSpanFinished uses text content when reasoning part carries no content`() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+
+        val provider = MockLLMProvider()
+        val inferenceSpan = createInferenceSpan(provider)
+
+        // Mirrors the Google client: a signature-only Reasoning part (empty content) alongside
+        // the real Text part of the same message. The empty reasoning part must not suppress
+        // the text content or the finish reason.
+        val assistantAnswer = "It's sunny in Rome."
+        val assistantMessage = Message.Assistant(
+            parts = listOf(
+                MessagePart.Reasoning(content = emptyList(), encrypted = "signature"),
+                MessagePart.Text(assistantAnswer),
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+            finishReason = "stop",
+        )
+        inferenceSpan.addAttribute(GenAIAttributes.Output.Messages(listOf(assistantMessage)))
+
+        adapter.onBeforeSpanFinished(inferenceSpan)
+
+        val attributes = inferenceSpan.attributes
+
+        val actualContent = attributes.requireValue("gen_ai.completion.0.content")
+        assertIs<HiddenString>(actualContent)
+        assertEquals(assistantAnswer, actualContent.value)
+        assertEquals("stop", attributes.requireValue("gen_ai.completion.0.finish_reason"))
+    }
+
+    @Test
+    fun testPopulatedReasoningRetainsContentFinishReasonAndHiddenString() {
+        for (finishReason in listOf("stop", "length", null)) {
+            val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+            val inferenceSpan = createInferenceSpan(MockLLMProvider())
+            val message = Message.Assistant(
+                parts = listOf(
+                    MessagePart.Reasoning(content = emptyList(), encrypted = "signature"),
+                    MessagePart.Reasoning(content = listOf("First thought", "Second thought")),
+                    MessagePart.Text("Final answer"),
+                    MessagePart.Reasoning(content = listOf("Third thought")),
+                ),
+                metaInfo = ResponseMetaInfo.Empty,
+                finishReason = finishReason,
+            )
+            inferenceSpan.addAttribute(GenAIAttributes.Output.Messages(listOf(message)))
+
+            adapter.onBeforeSpanFinished(inferenceSpan)
+
+            val attributes = inferenceSpan.attributes
+            val content = assertIs<HiddenString>(attributes.requireValue("gen_ai.completion.0.content"))
+            assertEquals("First thought\nSecond thought\nThird thought", content.value)
+            assertEquals("assistant", attributes.requireValue("gen_ai.completion.0.role"))
+            if (finishReason == null) {
+                assertFalse(attributes.any { it.key == "gen_ai.completion.0.finish_reason" })
+            } else {
+                assertEquals(finishReason, attributes.requireValue("gen_ai.completion.0.finish_reason"))
+            }
+        }
     }
 
     @Test

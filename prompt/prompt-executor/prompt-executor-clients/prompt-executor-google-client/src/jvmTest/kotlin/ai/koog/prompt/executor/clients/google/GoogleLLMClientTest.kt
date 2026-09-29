@@ -12,6 +12,7 @@ import ai.koog.prompt.executor.clients.google.models.GoogleData
 import ai.koog.prompt.executor.clients.google.models.GoogleFunctionCallingMode
 import ai.koog.prompt.executor.clients.google.models.GooglePart
 import ai.koog.prompt.executor.clients.google.models.GoogleRequest
+import ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel
 import ai.koog.prompt.executor.clients.google.models.GoogleThinkingConfig
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
@@ -44,6 +45,29 @@ import kotlin.test.assertFailsWith
 import kotlin.time.Instant
 
 class GoogleLLMClientTest {
+
+    @Test
+    fun testGemini38ThinkingLevelsAndBudgetRestrictions() {
+        val client = GoogleLLMClient(apiKey = "unused")
+        fun request(params: GoogleParams) = client.createGoogleRequest(
+            Prompt(messages = emptyList(), id = "thinking", params = params), GoogleModels.Gemini3_8Flash, emptyList(),
+        )
+        listOf(GoogleThinkingLevel.LOW, GoogleThinkingLevel.MEDIUM, GoogleThinkingLevel.HIGH).forEach { level ->
+            request(GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = level)))
+                .generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe level
+        }
+        listOf(
+            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.MINIMAL)),
+            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingBudget = 1024)),
+            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                put("thinkingLevel", JsonPrimitive("minimal"))
+            })),
+            GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
+                put("thinking_budget", JsonPrimitive(1024))
+            })),
+        ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
+    }
+
 
     @Test
     fun `createGoogleRequest should use null maxTokens if unspecified`() {
@@ -291,6 +315,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_5FlashLite,
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
+            GoogleModels.Gemini3_8Flash,
         ).forEach { model ->
             val config = client.createGoogleRequest(
                 prompt = Prompt(messages = emptyList(), id = "id", params = params),
@@ -314,6 +339,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_5FlashLite,
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
+            GoogleModels.Gemini3_8Flash,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.createGoogleRequest(
@@ -346,6 +372,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_5FlashLite,
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
+            GoogleModels.Gemini3_8Flash,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.executeMultipleChoices(
