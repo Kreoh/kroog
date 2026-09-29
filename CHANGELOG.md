@@ -1,10 +1,23 @@
-# Kroog alignment notes
+# Kroog 1.1.1-kroog.12
 
-This source line incorporates upstream Koog 1.3.0 changes while retaining Kroog version `1.1.1-kroog.11`. No Kroog release or tag is created by this alignment. The entries and publication dates below describe upstream releases. See the [alignment audit](docs/upstream/koog-1.3.0-alignment.md) for retained fork contracts and adaptations.
+Release preparation incorporating upstream Koog 1.3.0. Kroog keeps its independent version sequence. These notes do not announce Maven Central publication.
 
-## Unreleased Kroog additions
+## Changes
 
+- Incorporated upstream Koog 1.2.0 and 1.3.0, including skills discovery and catalogue prompts, Bedrock AgentCore Runtime support, Google cache token accounting, Langfuse reasoning traces and OpenAI response parsing fixes. See the [alignment audit](docs/upstream/koog-1.3.0-alignment.md) for the retained fork contracts and adaptations.
+- Preserved Kroog skills validation, immutable registries, typed loading and secure JVM filesystem discovery. The beta `skills-jvm` module is included in `koog-agents-additions-jvm` and remains separately consumable.
 - Added GPT-6 Sol and Luna, Claude Opus 5.5 and Sonnet 5.5, and Gemini 3.8 Flash profiles with verified token limits and request compatibility checks. See the [validation record](docs/latest-models-2026-09.md).
+- Added `OpenAILiveTranscriptionClient` for server-side setup of OpenAI Realtime transcription-only WebRTC sessions, with caller-supplied options and HTTP transport. The browser owns audio, transcript events and connection cleanup.
+- Fixed Ktor request header merging so explicit request headers override defaults without duplicate values, preserving multipart content types.
+- Kept JVM publication scoped to the exact 87-coordinate inventory. Stable modules use `1.1.1-kroog.12`; beta modules use `1.1.1-beta-kroog.12`.
+
+## Validation limits
+
+The live transcription and header changes passed 354 focused JVM tests (26 Ktor and 328 OpenAI) before the release version change. Their tested source tree is identical to the merged feature tree. Release preparation changes the configured version and documentation only. Provider integration coverage and ABI evidence retain the limits recorded in the alignment audit, including existing prompt-model, OpenAI and Google JVM dump drift. This release does not certify compatibility against those stale dumps. Non-JVM targets remain outside Kroog's validation scope. Release signing, remote publication and Central Portal validation require the separate release workflow.
+
+# Upstream release history
+
+The entries and publication dates below describe upstream Koog releases.
 
 # 1.3.0
 > Published 23 September 2026

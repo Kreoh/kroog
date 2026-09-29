@@ -53,8 +53,8 @@ graph TB
     
         ```kotlin title="build.gradle.kts"
         dependencies {
-            implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11")
-            implementation("com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.11")
+            implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.12")
+            implementation("com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.12")
         }
         ```
     
@@ -62,8 +62,8 @@ graph TB
     
         ```groovy title="build.gradle"
         dependencies {
-            implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11'
-            implementation 'com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.11'
+            implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.12'
+            implementation 'com.kreoh.kroog:agents-features-memory-jvm:1.1.1-kroog.12'
         }
         ```
     
@@ -73,12 +73,12 @@ graph TB
         <dependency>
             <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
-            <version>1.1.1-kroog.11</version>
+            <version>1.1.1-kroog.12</version>
         </dependency>
         <dependency>
             <groupId>com.kreoh.kroog</groupId>
             <artifactId>agents-features-memory-jvm</artifactId>
-            <version>1.1.1-kroog.11</version>
+            <version>1.1.1-kroog.12</version>
         </dependency>
         ```
 

@@ -19,10 +19,10 @@ Add the Kroog JVM dependencies below. These source-line versions do not imply a 
     ``` kotlin title="build.gradle.kts"
     dependencies {
         // Stable
-        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11")
+        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.12")
 
         // Beta
-        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11")
+        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.12")
     }
     ```
 
@@ -31,10 +31,10 @@ Add the Kroog JVM dependencies below. These source-line versions do not imply a 
     ``` groovy title="build.gradle"
     dependencies {
         // Stable
-        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.11'
+        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.12'
 
         // Beta
-        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.11'
+        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.12'
     }
     ```
 
@@ -46,14 +46,14 @@ Add the Kroog JVM dependencies below. These source-line versions do not imply a 
         <dependency>
             <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
-            <version>1.1.1-kroog.11</version>
+            <version>1.1.1-kroog.12</version>
         </dependency>
 
         <!-- Beta -->
         <dependency>
             <groupId>com.kreoh.kroog</groupId>
             <artifactId>koog-agents-additions-jvm</artifactId>
-            <version>1.1.1-beta-kroog.11</version>
+            <version>1.1.1-beta-kroog.12</version>
         </dependency>
     </dependencies>
     ```

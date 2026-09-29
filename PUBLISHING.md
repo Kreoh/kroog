@@ -1,14 +1,42 @@
-# Publishing Kroog JVM snapshots
+# Publishing Kroog JVM releases and snapshots
 
-Kroog snapshots use Maven coordinates under `com.kreoh.kroog`. Kotlin packages
+Kroog releases and snapshots use Maven coordinates under `com.kreoh.kroog`. Kotlin packages
 remain under `ai.koog` for compatibility with JetBrains Koog.
 
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.1.1-kroog.11`; modules which apply a beta version transform
+stable version is `1.1.1-kroog.12`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
+
+## Kroog version numbering
+
+Kroog maintains its own release sequence, independently of upstream Koog.
+Merging an upstream release does not change the Kroog version or reset its
+revision. Record the upstream version in the release notes and alignment audit.
+Change the Kroog base version only through an explicit Kroog release decision.
+
+`gradle.properties` is the source of truth for the stable version. On the
+current release line, increment the numeric `kroog` revision for each new
+release: `1.1.1-kroog.11` is followed by `1.1.1-kroog.12`, including when the
+release incorporates upstream Koog 1.3.0. Do not infer `1.3.0-kroog.1` from
+that upstream update.
+
+For a release configured as `1.1.1-kroog.12`, the version forms are:
+
+| Purpose | Version or tag |
+|---------|----------------|
+| Stable modules | `1.1.1-kroog.12` |
+| Beta modules, derived automatically | `1.1.1-beta-kroog.12` |
+| Stable module snapshots | `1.1.1-kroog.12-SNAPSHOT` |
+| Beta module snapshots | `1.1.1-beta-kroog.12-SNAPSHOT` |
+| Annotated release tag | `1.1.1-kroog.12` |
+
+The release tag exactly matches the stable version, with no `v` prefix.
+Beta modules share that release tag; they do not need separate tags. These
+forms describe the configured release revision. Local preparation does not
+publish artefacts to Maven Central.
 
 ## Exact target closure
 
@@ -31,8 +59,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.1.1-beta-kroog.11-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.11`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.1.1-beta-kroog.12-SNAPSHOT`, and its release version is
+`1.1.1-beta-kroog.12`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.
@@ -149,6 +177,36 @@ After a new remote snapshot generation appears, consumers must refresh their
 dependency locks and dependency-verification checksums from that generation.
 
 ## Stable releases
+
+### Release preparation
+
+1. Merge the intended feature and fix PRs into `master`, including any branch
+   refreshes. Choose the exact source commit to prepare for release.
+2. Check existing release tags and choose the next unused Kroog revision. Update
+   `version` in `gradle.properties`, current dependency examples and version
+   documentation. Keep historical release notes and audit evidence unchanged.
+3. Add Kroog release notes covering user-visible features, fixes, compatibility
+   changes and the incorporated upstream version. Review the release commit.
+4. Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
+   failing CI checks and document any existing limitations before release.
+   Validate all 87 publications from a clean archive of the exact release commit
+   using the local publication procedure above and a fresh output directory.
+5. Merge the reviewed release preparation into `master`. If the final commit
+   changes the validated source, repeat the affected checks. Check out the exact
+   release commit with a clean working tree before creating its annotated tag.
+6. Push the tag and verify its object on origin, then manually dispatch the
+   release workflow with that exact tag, as described below.
+7. Inspect the signed bundle and Central Portal validation results. Approve
+   publication in Central Portal only after validation succeeds. Create the
+   GitHub release against the same tag with the reviewed release notes, then
+   update consumers once the artefacts are available from Central.
+
+Pushing a tag or creating a GitHub release does not trigger Maven publication.
+The CI workflow is manually dispatched and uploads a deployment for human
+approval in Central Portal. Never reuse or move a tag after a failed release;
+prepare a new Kroog revision and tag for the corrected release.
+
+### Tagging and CI dispatch
 
 Stable releases use the separate, manually dispatched `Publish Maven release`
 workflow. The configured version in `gradle.properties` must be stable. Create

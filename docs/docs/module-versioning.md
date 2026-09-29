@@ -1,8 +1,16 @@
 # Versioning
 
-Kroog retains base version `1.1.1-kroog.11` while adopting upstream Koog 1.3.0. This alignment is not a release. Coordinates use `com.kreoh.kroog`; Kotlin JVM publications append `-jvm` to the module name. Pure JVM publications keep the module name.
+Kroog versions advance independently of upstream Koog. On the current release
+line, revision `1.1.1-kroog.12` follows `1.1.1-kroog.11`. Incorporating
+upstream Koog 1.3.0 does not change the Kroog base version or reset the revision.
+The configured stable version comes from `gradle.properties`; its annotated
+release tag must match exactly, without a `v` prefix. See
+[Publishing Kroog](https://github.com/Kreoh/kroog/blob/master/PUBLISHING.md)
+for release preparation, tagging, CI dispatch and Central Portal approval.
 
-The beta transform inserts `-beta` before the fork suffix: `1.1.1-beta-kroog.11`. Snapshot builds append `-SNAPSHOT` to both versions. The policies below describe upstream semantic versioning; the module table gives the corresponding Kroog source-line versions. See the repository's `PUBLISHING.md` for the publication inventory and POM-based resolution.
+The configured Kroog release version is `1.1.1-kroog.12`, incorporating upstream Koog 1.3.0. Maven Central publication is a separate release step. Coordinates use `com.kreoh.kroog`; Kotlin JVM publications append `-jvm` to the module name. Pure JVM publications keep the module name.
+
+The beta transform inserts `-beta` before the fork suffix: `1.1.1-beta-kroog.12`. Snapshot builds append `-SNAPSHOT` to both versions. The policies below describe upstream semantic versioning; the module table gives the corresponding Kroog source-line versions. See the repository's `PUBLISHING.md` for the publication inventory and POM-based resolution.
 
 Upstream Koog follows [Semantic Versioning](https://semver.org/) with the format `X.Y.Z` (e.g., `1.3.0`).
 
@@ -43,7 +51,7 @@ Deprecation warnings will indicate the recommended replacement.
 
 ## Stable and Beta Modules
 
-Some modules are considered experimental and published with a `-beta` version suffix (e.g., `1.1.1-beta-kroog.11`) rather than the standard `X.Y.Z`. A module may be beta for one of several reasons:
+Some modules are considered experimental and published with a `-beta` version suffix (e.g., `1.1.1-beta-kroog.12`) rather than the standard `X.Y.Z`. A module may be beta for one of several reasons:
 
 - **External integrations**: the underlying LLM provider API or external framework (e.g., Spring AI) may itself be unstable or subject to frequent or expected change.
 - **Experimental functionality**: the feature area is still being explored and the API shape may evolve (e.g., GOAP planning strategies).
@@ -57,113 +65,113 @@ A stable module at version `X.Y.Z` is always compatible with a beta module at ve
 
 | Module | Version      | Contents |
 |--------|--------------|----------|
-| `koog-agents` | `1.1.1-kroog.11`      | All stable modules (transitive): recommended starting point |
-| `koog-agents-additions` | `1.1.1-beta-kroog.11` | Most beta/experimental modules (except standalone external integrations) |
+| `koog-agents` | `1.1.1-kroog.12`      | All stable modules (transitive): recommended starting point |
+| `koog-agents-additions` | `1.1.1-beta-kroog.12` | Most beta/experimental modules (except standalone external integrations) |
 
 ### Module Versions
 
 This upstream module catalogue includes modules outside Kroog's JVM publication set. The exact publishable JVM modules are listed in `gradle/kroog-jvm-publications.txt` in the repository.
 
-=== "Stable Modules (`1.1.1-kroog.11`)"
+=== "Stable Modules (`1.1.1-kroog.12`)"
     
     | Module | Version |
     |--------|---------|
-    | `agents` | `1.1.1-kroog.11` |
-    | `agents-core` | `1.1.1-kroog.11` |
-    | `agents-features` | `1.1.1-kroog.11` |
-    | `agents-features-chat-history-jdbc` | `1.1.1-kroog.11` |
-    | `agents-features-chat-memory-sql` | `1.1.1-kroog.11` |
-    | `agents-features-event-handler` | `1.1.1-kroog.11` |
-    | `agents-features-memory` | `1.1.1-kroog.11` |
-    | `agents-features-opentelemetry` | `1.1.1-kroog.11` |
-    | `agents-features-persistence-jdbc` | `1.1.1-kroog.11` |
-    | `agents-features-snapshot` | `1.1.1-kroog.11` |
-    | `agents-features-sql` | `1.1.1-kroog.11` |
-    | `agents-features-tokenizer` | `1.1.1-kroog.11` |
-    | `agents-features-trace` | `1.1.1-kroog.11` |
-    | `agents-mcp-metadata` | `1.1.1-kroog.11` |
-    | `agents-test` | `1.1.1-kroog.11` |
-    | `agents-tools` | `1.1.1-kroog.11` |
-    | `agents-utils` | `1.1.1-kroog.11` |
-    | `embeddings` | `1.1.1-kroog.11` |
-    | `embeddings-base` | `1.1.1-kroog.11` |
-    | `embeddings-llm` | `1.1.1-kroog.11` |
-    | `http-client` | `1.1.1-kroog.11` |
-    | `http-client-core` | `1.1.1-kroog.11` |
-    | `http-client-java` | `1.1.1-kroog.11` |
-    | `http-client-ktor` | `1.1.1-kroog.11` |
-    | `http-client-okhttp` | `1.1.1-kroog.11` |
-    | `http-client-test` | `1.1.1-kroog.11` |
-    | `koog-agents` | `1.1.1-kroog.11` |
-    | `koog-spring-ai` | `1.1.1-kroog.11` |
-    | `prompt` | `1.1.1-kroog.11` |
-    | `prompt-cache` | `1.1.1-kroog.11` |
-    | `prompt-cache-files` | `1.1.1-kroog.11` |
-    | `prompt-cache-model` | `1.1.1-kroog.11` |
-    | `prompt-executor` | `1.1.1-kroog.11` |
-    | `prompt-executor-anthropic-client` | `1.1.1-kroog.11` |
-    | `prompt-executor-bedrock-client` | `1.1.1-kroog.11` |
-    | `prompt-executor-cached` | `1.1.1-kroog.11` |
-    | `prompt-executor-clients` | `1.1.1-kroog.11` |
-    | `prompt-executor-model` | `1.1.1-kroog.11` |
-    | `prompt-executor-ollama-client` | `1.1.1-kroog.11` |
-    | `prompt-executor-openai-client` | `1.1.1-kroog.11` |
-    | `prompt-executor-openai-client-base` | `1.1.1-kroog.11` |
-    | `prompt-executor-openrouter-client` | `1.1.1-kroog.11` |
-    | `prompt-llm` | `1.1.1-kroog.11` |
-    | `prompt-markdown` | `1.1.1-kroog.11` |
-    | `prompt-model` | `1.1.1-kroog.11` |
-    | `prompt-processor` | `1.1.1-kroog.11` |
-    | `prompt-structure` | `1.1.1-kroog.11` |
-    | `prompt-tokenizer` | `1.1.1-kroog.11` |
-    | `prompt-xml` | `1.1.1-kroog.11` |
-    | `rag-base` | `1.1.1-kroog.11` |
-    | `serialization` | `1.1.1-kroog.11` |
-    | `serialization-core` | `1.1.1-kroog.11` |
-    | `serialization-jackson` | `1.1.1-kroog.11` |
-    | `serialization-test` | `1.1.1-kroog.11` |
-    | `test-tck` | `1.1.1-kroog.11` |
-    | `test-utils` | `1.1.1-kroog.11` |
-    | `utils` | `1.1.1-kroog.11` |
+    | `agents` | `1.1.1-kroog.12` |
+    | `agents-core` | `1.1.1-kroog.12` |
+    | `agents-features` | `1.1.1-kroog.12` |
+    | `agents-features-chat-history-jdbc` | `1.1.1-kroog.12` |
+    | `agents-features-chat-memory-sql` | `1.1.1-kroog.12` |
+    | `agents-features-event-handler` | `1.1.1-kroog.12` |
+    | `agents-features-memory` | `1.1.1-kroog.12` |
+    | `agents-features-opentelemetry` | `1.1.1-kroog.12` |
+    | `agents-features-persistence-jdbc` | `1.1.1-kroog.12` |
+    | `agents-features-snapshot` | `1.1.1-kroog.12` |
+    | `agents-features-sql` | `1.1.1-kroog.12` |
+    | `agents-features-tokenizer` | `1.1.1-kroog.12` |
+    | `agents-features-trace` | `1.1.1-kroog.12` |
+    | `agents-mcp-metadata` | `1.1.1-kroog.12` |
+    | `agents-test` | `1.1.1-kroog.12` |
+    | `agents-tools` | `1.1.1-kroog.12` |
+    | `agents-utils` | `1.1.1-kroog.12` |
+    | `embeddings` | `1.1.1-kroog.12` |
+    | `embeddings-base` | `1.1.1-kroog.12` |
+    | `embeddings-llm` | `1.1.1-kroog.12` |
+    | `http-client` | `1.1.1-kroog.12` |
+    | `http-client-core` | `1.1.1-kroog.12` |
+    | `http-client-java` | `1.1.1-kroog.12` |
+    | `http-client-ktor` | `1.1.1-kroog.12` |
+    | `http-client-okhttp` | `1.1.1-kroog.12` |
+    | `http-client-test` | `1.1.1-kroog.12` |
+    | `koog-agents` | `1.1.1-kroog.12` |
+    | `koog-spring-ai` | `1.1.1-kroog.12` |
+    | `prompt` | `1.1.1-kroog.12` |
+    | `prompt-cache` | `1.1.1-kroog.12` |
+    | `prompt-cache-files` | `1.1.1-kroog.12` |
+    | `prompt-cache-model` | `1.1.1-kroog.12` |
+    | `prompt-executor` | `1.1.1-kroog.12` |
+    | `prompt-executor-anthropic-client` | `1.1.1-kroog.12` |
+    | `prompt-executor-bedrock-client` | `1.1.1-kroog.12` |
+    | `prompt-executor-cached` | `1.1.1-kroog.12` |
+    | `prompt-executor-clients` | `1.1.1-kroog.12` |
+    | `prompt-executor-model` | `1.1.1-kroog.12` |
+    | `prompt-executor-ollama-client` | `1.1.1-kroog.12` |
+    | `prompt-executor-openai-client` | `1.1.1-kroog.12` |
+    | `prompt-executor-openai-client-base` | `1.1.1-kroog.12` |
+    | `prompt-executor-openrouter-client` | `1.1.1-kroog.12` |
+    | `prompt-llm` | `1.1.1-kroog.12` |
+    | `prompt-markdown` | `1.1.1-kroog.12` |
+    | `prompt-model` | `1.1.1-kroog.12` |
+    | `prompt-processor` | `1.1.1-kroog.12` |
+    | `prompt-structure` | `1.1.1-kroog.12` |
+    | `prompt-tokenizer` | `1.1.1-kroog.12` |
+    | `prompt-xml` | `1.1.1-kroog.12` |
+    | `rag-base` | `1.1.1-kroog.12` |
+    | `serialization` | `1.1.1-kroog.12` |
+    | `serialization-core` | `1.1.1-kroog.12` |
+    | `serialization-jackson` | `1.1.1-kroog.12` |
+    | `serialization-test` | `1.1.1-kroog.12` |
+    | `test-tck` | `1.1.1-kroog.12` |
+    | `test-utils` | `1.1.1-kroog.12` |
+    | `utils` | `1.1.1-kroog.12` |
 
-=== "Beta Modules (`1.1.1-beta-kroog.11`)"
+=== "Beta Modules (`1.1.1-beta-kroog.12`)"
     
     | Module | Version |
     |--------|---------|
-    | `a2a-client` | `1.1.1-beta-kroog.11` |
-    | `a2a-core` | `1.1.1-beta-kroog.11` |
-    | `a2a-server` | `1.1.1-beta-kroog.11` |
-    | `a2a-test` | `1.1.1-beta-kroog.11` |
-    | `a2a-test-server-tck` | `1.1.1-beta-kroog.11` |
-    | `a2a-transport-client-jsonrpc-http` | `1.1.1-beta-kroog.11` |
-    | `a2a-transport-core-jsonrpc` | `1.1.1-beta-kroog.11` |
-    | `a2a-transport-server-jsonrpc-http` | `1.1.1-beta-kroog.11` |
-    | `agents-ext` | `1.1.1-beta-kroog.11` |
-    | `agents-features-a2a-client` | `1.1.1-beta-kroog.11` |
-    | `agents-features-a2a-core` | `1.1.1-beta-kroog.11` |
-    | `agents-features-a2a-server` | `1.1.1-beta-kroog.11` |
-    | `agents-features-acp` | `1.1.1-beta-kroog.11` |
-    | `agents-features-chat-history-aws` | `1.1.1-beta-kroog.11` |
-    | `agents-features-longterm-memory` | `1.1.1-beta-kroog.11` |
-    | `agents-features-longterm-memory-aws` | `1.1.1-beta-kroog.11` |
-    | `agents-mcp` | `1.1.1-beta-kroog.11` |
-    | `agents-mcp-server` | `1.1.1-beta-kroog.11` |
-    | `agents-planner` | `1.1.1-beta-kroog.11` |
-    | `koog-agents-additions` | `1.1.1-beta-kroog.11` |
-    | `koog-ktor` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-ai-common` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-ai-starter-chat-memory` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-ai-starter-model-chat` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-ai-starter-model-embedding` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-ai-starter-vector-store` | `1.1.1-beta-kroog.11` |
-    | `koog-spring-boot-starter` | `1.1.1-beta-kroog.11` |
-    | `prompt-cache-redis` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-dashscope-client` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-deepseek-client` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-google-client` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-litert-client` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-llms-all` | `1.1.1-beta-kroog.11` |
-    | `prompt-executor-mistralai-client` | `1.1.1-beta-kroog.11` |
-    | `rag-vector` | `1.1.1-beta-kroog.11` |
+    | `a2a-client` | `1.1.1-beta-kroog.12` |
+    | `a2a-core` | `1.1.1-beta-kroog.12` |
+    | `a2a-server` | `1.1.1-beta-kroog.12` |
+    | `a2a-test` | `1.1.1-beta-kroog.12` |
+    | `a2a-test-server-tck` | `1.1.1-beta-kroog.12` |
+    | `a2a-transport-client-jsonrpc-http` | `1.1.1-beta-kroog.12` |
+    | `a2a-transport-core-jsonrpc` | `1.1.1-beta-kroog.12` |
+    | `a2a-transport-server-jsonrpc-http` | `1.1.1-beta-kroog.12` |
+    | `agents-ext` | `1.1.1-beta-kroog.12` |
+    | `agents-features-a2a-client` | `1.1.1-beta-kroog.12` |
+    | `agents-features-a2a-core` | `1.1.1-beta-kroog.12` |
+    | `agents-features-a2a-server` | `1.1.1-beta-kroog.12` |
+    | `agents-features-acp` | `1.1.1-beta-kroog.12` |
+    | `agents-features-chat-history-aws` | `1.1.1-beta-kroog.12` |
+    | `agents-features-longterm-memory` | `1.1.1-beta-kroog.12` |
+    | `agents-features-longterm-memory-aws` | `1.1.1-beta-kroog.12` |
+    | `agents-mcp` | `1.1.1-beta-kroog.12` |
+    | `agents-mcp-server` | `1.1.1-beta-kroog.12` |
+    | `agents-planner` | `1.1.1-beta-kroog.12` |
+    | `koog-agents-additions` | `1.1.1-beta-kroog.12` |
+    | `koog-ktor` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-ai-common` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-ai-starter-chat-memory` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-ai-starter-model-chat` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-ai-starter-model-embedding` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-ai-starter-vector-store` | `1.1.1-beta-kroog.12` |
+    | `koog-spring-boot-starter` | `1.1.1-beta-kroog.12` |
+    | `prompt-cache-redis` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-dashscope-client` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-deepseek-client` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-google-client` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-litert-client` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-llms-all` | `1.1.1-beta-kroog.12` |
+    | `prompt-executor-mistralai-client` | `1.1.1-beta-kroog.12` |
+    | `rag-vector` | `1.1.1-beta-kroog.12` |
 
-`skills` is a standalone beta module (`1.1.1-beta-kroog.11`), excluded from both umbrella modules. Add `com.kreoh.kroog:skills-jvm` explicitly.
+`skills` is a standalone beta module (`1.1.1-beta-kroog.12`), excluded from the stable `koog-agents` umbrella and included in the JVM publication of `koog-agents-additions`. It can also be added explicitly as `com.kreoh.kroog:skills-jvm`.
