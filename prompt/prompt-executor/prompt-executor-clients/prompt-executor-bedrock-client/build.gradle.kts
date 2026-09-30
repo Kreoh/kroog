@@ -30,6 +30,7 @@ kotlin {
                 implementation(
                     project(":prompt:prompt-executor:prompt-executor-clients:prompt-executor-anthropic-client")
                 )
+                api(project(":prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client"))
                 api(libs.aws.sdk.kotlin.bedrockruntime)
             }
         }
@@ -43,6 +44,8 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.mock)
+                implementation(project(":http-client:http-client-ktor"))
             }
         }
     }

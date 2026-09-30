@@ -424,3 +424,33 @@ See the main project README for contribution guidelines.
 ## License
 
 This module is part of the Koog project and follows the same license terms.
+
+## Latest model additions
+
+Claude Opus 5.5 and Sonnet 5.5 use global inference profiles by default. GPT-6 Astra uses
+`us.openai.gpt-6-astra` through `BedrockLLMClient` configured with `BedrockAPIMethod.Converse`.
+Automatic Converse cache markers are disabled for Astra because AWS rejects them.
+AWS supports global profiles too; use `model.copy(id = "global.openai.gpt-6-astra")` when needed.
+
+Gemma 4 31B, 26B-A4B and E2B require `BedrockMantleLLMClient`. This client supports
+Chat Completions and Responses at AWS's explicit `openai/v1` paths, with a Bedrock API key.
+It also supports GPT-6 Astra in `US_WEST_2`, translating its Runtime inference profile into
+the unprefixed Mantle model ID. Use `OpenAIChatParams` or `OpenAIResponsesParams` to configure
+these requests. Responses support is explicitly declared as a compatible endpoint.
+
+```kotlin
+val client = BedrockMantleLLMClient(
+    apiKey = System.getenv("AWS_BEARER_TOKEN_BEDROCK"),
+    httpClientFactory = KtorKoogHttpClient.Factory(),
+)
+val model = BedrockModels.GoogleGemma4_31B
+```
+
+`BedrockModels.Embeddings.AmazonNova2MultimodalEmbeddings` supports `embed(text, model)` through
+InvokeModel in `us-east-1`. Requests use `GENERIC_INDEX`, 3072 dimensions and end truncation. The existing API
+accepts text only; image, audio and video embeddings and retrieval-purpose selection remain outside
+this API. Batch embeddings remain unsupported.
+
+Sources: [Gemma 4 on Mantle](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-31b.html),
+[GPT-6 Astra endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-6-astra.html),
+[Nova embedding schema](https://docs.aws.amazon.com/nova/latest/userguide/embeddings-schema.html).

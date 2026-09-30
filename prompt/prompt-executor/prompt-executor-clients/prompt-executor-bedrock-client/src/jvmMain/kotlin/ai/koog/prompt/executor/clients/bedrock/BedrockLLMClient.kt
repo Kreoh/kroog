@@ -59,6 +59,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.double
 import org.jetbrains.annotations.VisibleForTesting
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -246,6 +252,9 @@ public class BedrockLLMClient @JvmOverloads public constructor(
     ): Message.Assistant {
         logger.debug { "Executing prompt for model: ${model.id}" }
 
+        require(!model.id.startsWith("google.gemma-4-")) {
+            "Gemma 4 requires BedrockMantleLLMClient; Bedrock Runtime is unsupported."
+        }
         model.requireCapability(LLMCapability.Completion, "Model ${model.id} does not support chat completions")
         // Check tool support
         if (tools.isNotEmpty() && !model.supports(LLMCapability.Tools)) {
@@ -366,6 +375,9 @@ public class BedrockLLMClient @JvmOverloads public constructor(
     ): Flow<StreamFrame> {
         logger.debug { "Executing streaming prompt for model: ${model.id}" }
 
+        require(!model.id.startsWith("google.gemma-4-")) {
+            "Gemma 4 requires BedrockMantleLLMClient; Bedrock Runtime is unsupported."
+        }
         model.requireCapability(LLMCapability.Completion, "Model ${model.id} does not support chat completions")
         // Check tool support
         if (tools.isNotEmpty() && !model.supports(LLMCapability.Tools)) {
@@ -517,7 +529,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
     /**
      * Embeds the given text using the AWS Bedrock InvokeModel API.
      *
-     * Supports Amazon Titan Embed (v1 and v2) and Cohere embedding model families.
+     * Supports Amazon Titan Embed, Nova 2 Multimodal Embeddings (text), and Cohere embedding models.
      *
      * @param text The text to embed.
      * @param model The model to use for embedding. Must have the [LLMCapability.Embed] capability.
@@ -542,6 +554,11 @@ public class BedrockLLMClient @JvmOverloads public constructor(
             val responseBodyString = response.body.decodeToString()
             logger.debug { "Bedrock Embedding Response: $responseBodyString" }
             when (modelFamily) {
+                is BedrockModelFamilies.AmazonNova -> {
+                    json.parseToJsonElement(responseBodyString).jsonObject.getValue("embeddings")
+                        .jsonArray.single().jsonObject.getValue("embedding").jsonArray.map { it.jsonPrimitive.double }
+                }
+
                 is BedrockModelFamilies.TitanEmbedding -> {
                     when (model.id) {
                         "amazon.titan-embed-text-v1" -> {
@@ -629,6 +646,23 @@ public class BedrockLLMClient @JvmOverloads public constructor(
 
     private fun createEmbeddingRequestBody(text: String, model: LLModel): String =
         when (val modelFamily = getBedrockModelFamily(model)) {
+            is BedrockModelFamilies.AmazonNova -> {
+                require(model.id == BedrockModels.Embeddings.AmazonNova2MultimodalEmbeddings.id) {
+                    "Unknown Nova embedding model ID: ${model.id}"
+                }
+                buildJsonObject {
+                    put("taskType", "SINGLE_EMBEDDING")
+                    put("singleEmbeddingParams", buildJsonObject {
+                        put("embeddingPurpose", "GENERIC_INDEX")
+                        put("embeddingDimension", 3072)
+                        put("text", buildJsonObject {
+                            put("truncationMode", "END")
+                            put("value", text)
+                        })
+                    })
+                }.toString()
+            }
+
             is BedrockModelFamilies.TitanEmbedding -> {
                 when (model.id) {
                     "amazon.titan-embed-text-v1" ->

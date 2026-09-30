@@ -161,6 +161,8 @@ internal object BedrockConverseConverters {
         val requestPrompt = PromptCachePolicy.requestView(
             prompt = prompt,
             leadingBreakpoints = toolBreakpoints,
+            // Astra rejects Converse cache markers. Mantle manages its caching separately.
+            automaticBreakpoint = !model.id.endsWith("openai.gpt-6-astra"),
             metadata = { it.toPromptCacheMetadata() },
         )
 

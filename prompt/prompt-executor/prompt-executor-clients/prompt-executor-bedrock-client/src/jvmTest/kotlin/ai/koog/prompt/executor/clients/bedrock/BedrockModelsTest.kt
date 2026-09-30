@@ -12,6 +12,40 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class BedrockModelsTest {
+    @Test
+    fun testLatestModelsHaveRegisteredProviderProfiles() {
+        val models = listOf(
+            BedrockModels.AnthropicClaude55Opus,
+            BedrockModels.AnthropicClaude55Sonnet,
+            BedrockModels.OpenAIGpt6Astra,
+            BedrockModels.GoogleGemma4_31B,
+            BedrockModels.GoogleGemma4_26BA4B,
+            BedrockModels.GoogleGemma4E2B,
+            BedrockModels.Embeddings.AmazonNova2MultimodalEmbeddings,
+        )
+        assertEquals(listOf(
+            "global.anthropic.claude-opus-5-5",
+            "global.anthropic.claude-sonnet-5-5",
+            "us.openai.gpt-6-astra",
+            "google.gemma-4-31b",
+            "google.gemma-4-26b-a4b",
+            "google.gemma-4-e2b",
+            "amazon.nova-2-multimodal-embeddings-v1:0",
+        ), models.map { it.id })
+        models.forEach { model ->
+            assertSame(LLMProvider.Bedrock, model.provider)
+            assertSame(model, BedrockModels.models.single { it.id == model.id })
+        }
+        assertEquals(AnthropicModels.Opus_5_5.capabilities, models[0].capabilities)
+        assertEquals(AnthropicModels.Sonnet_5_5.capabilities, models[1].capabilities)
+        assertEquals(listOf(256_000L, 256_000L, 128_000L), models.subList(3, 6).map { it.contextLength })
+        models.subList(2, 6).forEach {
+            assertTrue(it.supports(LLMCapability.Vision.Image))
+            assertTrue(it.supports(LLMCapability.Thinking))
+        }
+        assertEquals(listOf(LLMCapability.Embed), models.last().capabilities)
+    }
+
 
     @Test
     fun `BedrockModels models should have Bedrock provider`() {

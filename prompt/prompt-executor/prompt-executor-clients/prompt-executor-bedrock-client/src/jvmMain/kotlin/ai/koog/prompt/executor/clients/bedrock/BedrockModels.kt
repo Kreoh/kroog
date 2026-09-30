@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.bedrock
 
 import ai.koog.prompt.executor.clients.LLModelDefinitions
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -103,6 +104,54 @@ public enum class BedrockInferencePrefixes(public val prefix: String) {
  * Bedrock models available through the AWS Bedrock API
  */
 public object BedrockModels : LLModelDefinitions {
+    /** Claude Opus 5.5, using AWS's global inference profile. */
+    public val AnthropicClaude55Opus: LLModel = BedrockModel(
+        AnthropicModels.Opus_5_5,
+        "anthropic.claude-opus-5-5",
+        BedrockInferencePrefixes.GLOBAL.prefix,
+    ).effectiveModel
+
+    /** Claude Sonnet 5.5, using AWS's global inference profile. */
+    public val AnthropicClaude55Sonnet: LLModel = BedrockModel(
+        AnthropicModels.Sonnet_5_5,
+        "anthropic.claude-sonnet-5-5",
+        BedrockInferencePrefixes.GLOBAL.prefix,
+    ).effectiveModel
+
+    /** GPT-6 Astra. Use Converse on Bedrock Runtime or [BedrockMantleLLMClient] on Mantle. */
+    public val OpenAIGpt6Astra: LLModel = BedrockModel(
+        OpenAIModels.Chat.GPT6Astra.copy(
+            capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().filterNot {
+                it == LLMCapability.Schema.JSON.Standard
+            },
+        ),
+        "openai.gpt-6-astra",
+    ).effectiveModel
+
+    private fun gemma4(id: String, contextLength: Long): LLModel = LLModel(
+        provider = LLMProvider.Bedrock,
+        id = id,
+        capabilities = listOf(
+            LLMCapability.Completion,
+            LLMCapability.Temperature,
+            LLMCapability.Tools,
+            LLMCapability.Thinking,
+            LLMCapability.Vision.Image,
+            LLMCapability.OpenAIEndpoint.Completions,
+            LLMCapability.OpenAIEndpoint.Responses,
+        ),
+        contextLength = contextLength,
+    )
+
+    /** Gemma 4 31B. Available through [BedrockMantleLLMClient] only. */
+    public val GoogleGemma4_31B: LLModel = gemma4("google.gemma-4-31b", 256_000)
+
+    /** Gemma 4 26B-A4B. Available through [BedrockMantleLLMClient] only. */
+    public val GoogleGemma4_26BA4B: LLModel = gemma4("google.gemma-4-26b-a4b", 256_000)
+
+    /** Gemma 4 E2B. Available through [BedrockMantleLLMClient] only. */
+    public val GoogleGemma4E2B: LLModel = gemma4("google.gemma-4-e2b", 128_000)
+
     // Basic capabilities for text-only models
     private val standardCapabilities: List<LLMCapability> = listOf(
         LLMCapability.Temperature,
@@ -845,6 +894,18 @@ public object BedrockModels : LLModelDefinitions {
      */
     public object Embeddings {
         /**
+         * Nova 2 Multimodal Embeddings, accessed through InvokeModel without an inference prefix.
+         * [BedrockLLMClient.embed] generates a 3072-dimensional text vector for GENERIC_INDEX.
+         * Other input modalities are outside the current text embedding API.
+         */
+        public val AmazonNova2MultimodalEmbeddings: LLModel = LLModel(
+            provider = LLMProvider.Bedrock,
+            id = "amazon.nova-2-multimodal-embeddings-v1:0",
+            capabilities = embedCapabilities,
+            contextLength = 8_192,
+        )
+
+        /**
          * Amazon Titan Embeddings G1 - Text
          * Input: Text
          * Output: Embedding
@@ -924,6 +985,13 @@ public object BedrockModels : LLModelDefinitions {
      * List of the supported models by the Bedrock provider.
      */
     private val supportedModels: List<LLModel> = listOf(
+        AnthropicClaude55Opus,
+        AnthropicClaude55Sonnet,
+        OpenAIGpt6Astra,
+        GoogleGemma4_31B,
+        GoogleGemma4_26BA4B,
+        GoogleGemma4E2B,
+        Embeddings.AmazonNova2MultimodalEmbeddings,
         // Claude Series
         AnthropicClaude4Opus,
         AnthropicClaude41Opus,

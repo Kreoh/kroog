@@ -24,6 +24,19 @@ import kotlin.test.assertNull
 import aws.sdk.kotlin.services.bedrockruntime.model.Tool as BedrockTool
 
 class BedrockCacheControlTest {
+    @Test
+    fun testAstraDoesNotReceiveAutomaticConverseCacheMarkers() {
+        for (id in listOf("us.openai.gpt-6-astra", "global.openai.gpt-6-astra")) {
+            val request = BedrockConverseConverters.createConverseRequest(
+                Prompt.build("astra-cache") { user("Hello") },
+                BedrockModels.OpenAIGpt6Astra.copy(id = id),
+                emptyList(),
+            )
+            assertEquals(1, requireNotNull(request.messages).single().content.size)
+            assertIs<ContentBlock.Text>(requireNotNull(request.messages).single().content.single())
+        }
+    }
+
 
     private val model = BedrockModels.AnthropicClaude4Sonnet
 

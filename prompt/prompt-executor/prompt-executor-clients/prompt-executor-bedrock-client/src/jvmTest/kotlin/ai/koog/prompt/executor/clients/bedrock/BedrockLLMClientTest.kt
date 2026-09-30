@@ -77,6 +77,54 @@ import kotlin.time.Duration.Companion.milliseconds
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 
 class BedrockLLMClientTest {
+    @Test
+    fun testAstraUsesRuntimeInferenceProfileWithConverse() = runTest {
+        var captured: ConverseRequest? = null
+        val runtime = createMockBedrockClient(onConverse = {
+            captured = it
+            defaultConverseResponse()
+        })
+        val client = BedrockLLMClient(runtime, apiMethod = BedrockAPIMethod.Converse)
+        client.execute(Prompt.build("astra") { user("Hello") }, BedrockModels.OpenAIGpt6Astra)
+        assertEquals("us.openai.gpt-6-astra", captured?.modelId)
+        assertFailsWith<LLMClientException> {
+            BedrockLLMClient(runtime).execute(Prompt.build("astra-invoke") { user("Hello") }, BedrockModels.OpenAIGpt6Astra)
+        }
+    }
+
+    @Test
+    fun testNovaEmbeddingUsesTextWireFormatAndExtractsVector() = runTest {
+        var captured: InvokeModelRequest? = null
+        val runtime = createMockBedrockClient(onInvokeModel = {
+            captured = it
+            InvokeModelResponse {
+                contentType = "application/json"
+                body = """{"embeddings":[{"embeddingType":"TEXT","embedding":[0.25,-0.5,1.0]}]}""".encodeToByteArray()
+            }
+        })
+        val client = BedrockLLMClient(runtime)
+        val model = BedrockModels.Embeddings.AmazonNova2MultimodalEmbeddings
+        assertEquals(listOf(0.25, -0.5, 1.0), client.embed("Text with \"quotes\"", model))
+        assertEquals(model.id, captured?.modelId)
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(requireNotNull(captured).body!!.decodeToString())
+        assertEquals(kotlinx.serialization.json.Json.parseToJsonElement("""
+            {"taskType":"SINGLE_EMBEDDING","singleEmbeddingParams":{
+                "embeddingPurpose":"GENERIC_INDEX","embeddingDimension":3072,
+                "text":{"truncationMode":"END","value":"Text with \"quotes\""}}}
+        """), json)
+    }
+
+    @Test
+    fun testGemma4RejectsRuntimeBeforeProviderTraffic() = runTest {
+        val runtime = createMockBedrockClient(onConverse = { error("No provider traffic expected") })
+        val client = BedrockLLMClient(runtime, apiMethod = BedrockAPIMethod.Converse)
+        val prompt = Prompt.build("gemma") { user("Hello") }
+        for (model in listOf(BedrockModels.GoogleGemma4_31B, BedrockModels.GoogleGemma4_26BA4B, BedrockModels.GoogleGemma4E2B)) {
+            assertFailsWith<IllegalArgumentException> { client.execute(prompt, model) }
+            assertFailsWith<IllegalArgumentException> { client.executeStreaming(prompt, model).toList() }
+        }
+    }
+
 
     companion object {
         /*

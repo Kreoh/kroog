@@ -102,6 +102,17 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockLLMClient : ai
 	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public final class ai/koog/prompt/executor/clients/bedrock/BedrockMantleLLMClient : ai/koog/prompt/executor/clients/openai/OpenAILLMClient {
+	public fun <init> (Lai/koog/http/client/KoogHttpClient;Lai/koog/prompt/executor/clients/bedrock/BedrockRegions;)V
+	public synthetic fun <init> (Lai/koog/http/client/KoogHttpClient;Lai/koog/prompt/executor/clients/bedrock/BedrockRegions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/prompt/executor/clients/bedrock/BedrockRegions;)V
+	public synthetic fun <init> (Ljava/lang/String;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/prompt/executor/clients/bedrock/BedrockRegions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun execute (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeMultipleChoices (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeStreaming (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;)Lkotlinx/coroutines/flow/Flow;
+	public fun llmProvider ()Lai/koog/prompt/llm/LLMProvider;
+}
+
 public final class ai/koog/prompt/executor/clients/bedrock/BedrockModel {
 	public static final field Companion Lai/koog/prompt/executor/clients/bedrock/BedrockModel$Companion;
 	public fun <init> (Lai/koog/prompt/llm/LLModel;Ljava/lang/String;Ljava/lang/String;)V
@@ -239,6 +250,8 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public final fun getAnthropicClaude4_5Haiku ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude4_5Sonnet ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude4_6Sonnet ()Lai/koog/prompt/llm/LLModel;
+	public final fun getAnthropicClaude55Opus ()Lai/koog/prompt/llm/LLModel;
+	public final fun getAnthropicClaude55Sonnet ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude5Opus ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaude5Sonnet ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaudeFable5 ()Lai/koog/prompt/llm/LLModel;
@@ -246,6 +259,9 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public final fun getGoogleGemma3_12BIt ()Lai/koog/prompt/llm/LLModel;
 	public final fun getGoogleGemma3_27BIt ()Lai/koog/prompt/llm/LLModel;
 	public final fun getGoogleGemma3_4BIt ()Lai/koog/prompt/llm/LLModel;
+	public final fun getGoogleGemma4E2B ()Lai/koog/prompt/llm/LLModel;
+	public final fun getGoogleGemma4_26BA4B ()Lai/koog/prompt/llm/LLModel;
+	public final fun getGoogleGemma4_31B ()Lai/koog/prompt/llm/LLModel;
 	public final fun getMetaLlama3_0_70BInstruct ()Lai/koog/prompt/llm/LLModel;
 	public final fun getMetaLlama3_0_8BInstruct ()Lai/koog/prompt/llm/LLModel;
 	public final fun getMetaLlama3_1_405BInstruct ()Lai/koog/prompt/llm/LLModel;
@@ -260,12 +276,14 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public fun getModels ()Ljava/util/List;
 	public final fun getMoonshotKimiK2Thinking ()Lai/koog/prompt/llm/LLModel;
 	public final fun getMoonshotKimiK2_5 ()Lai/koog/prompt/llm/LLModel;
+	public final fun getOpenAIGpt6Astra ()Lai/koog/prompt/llm/LLModel;
 	public final fun getOpenAIGptOss120B ()Lai/koog/prompt/llm/LLModel;
 	public final fun getOpenAIGptOss20B ()Lai/koog/prompt/llm/LLModel;
 }
 
 public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels$Embeddings {
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/bedrock/BedrockModels$Embeddings;
+	public final fun getAmazonNova2MultimodalEmbeddings ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAmazonTitanEmbedText ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAmazonTitanEmbedTextV2 ()Lai/koog/prompt/llm/LLModel;
 	public final fun getCohereEmbedEnglishV3 ()Lai/koog/prompt/llm/LLModel;
