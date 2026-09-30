@@ -6,6 +6,41 @@ A core module that defines data models and parameters for controlling language m
 
 The prompt-model module provides essential data structures for configuring and controlling language model interactions. It includes the `LLMParams` class which encapsulates parameters like temperature, speculation, schema, and tool choice options. The module also defines structured data schemas and tool choice behaviors that can be used to customize language model responses.
 
+### Maintaining the model catalogue
+
+`ModelCatalogue` defines the semantic profiles consumed by applications for capability and limit discovery.
+Its entries are maintained separately from provider model definitions. Adding a provider constant or registering
+an `LLModel` does not add a catalogue entry.
+
+Model changes must update the canonical profile, aliases and provider API compatibility together with lookup and
+profile regression tests. New deployment names use the existing semantic profile where appropriate.
+Verify input and output limits, reasoning, temperature restrictions, MIME types, structured output and hosted
+execution against provider evidence. Resolve any profile or route restriction the contract cannot represent
+before declaring support complete.
+
+Update `ModelCatalogueTest` and its normalised fixture, then run `:prompt:prompt-model:jvmTest` and the affected
+provider JVM tests. Follow the mandatory model support gate in [TESTING.md](../../TESTING.md) and the staged consumer
+checks in [PUBLISHING.md](../../PUBLISHING.md) before release.
+
+### Selecting a model profile
+
+Use `ModelCatalogue.find(semanticId, providerApi)` when selecting a provider route. It returns null for an unknown
+model or an unsupported or undeclared route, and applies route restrictions such as Astra's unavailable structured
+output on Bedrock Converse. The one-argument lookup returns the semantic profile.
+
+The catalogue includes GPT-6 Sol and Luna, GPT-6.1 Sol, Claude Opus and Sonnet 5.5, Gemini 3.8 Flash,
+DeepSeek Flash and V4 Pro, the three supported Gemma 4 sizes and Nova 2 Multimodal Embeddings.
+DeepSeek's legacy Flash IDs are explicit aliases of `deepseek-flash`.
+Bedrock deployment IDs remain separate: `google.gemma-4-31b` selects semantic `gemma-4-31b`, and
+`amazon.nova-2-multimodal-embeddings-v1:0` selects semantic `nova-2-multimodal-embeddings`.
+Nova uses `ProviderApi.BEDROCK_EMBEDDINGS`; the current Kroog embedding API accepts text only.
+
+For text models, `outputTokenLimit` is null when the independent output ceiling is unknown.
+Gemma 4 uses this representation because AWS documents its shared context window without a separate output ceiling.
+Its legacy `maxOutputTokens` value is zero; consumers must not turn that sentinel into a zero-token generation budget.
+Embedding profiles have zero output tokens because they return vectors. Input ceilings and shared context windows
+still require room for generated output.
+
 ### Example of usage
 
 ```kotlin

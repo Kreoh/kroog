@@ -23,6 +23,8 @@ public enum class ProviderApi {
     AZURE_EMBEDDINGS,
     OPENAI_REALTIME,
     AZURE_REALTIME,
+    /** Text embedding through Bedrock Runtime InvokeModel. */
+    BEDROCK_EMBEDDINGS,
 }
 
 /** How provider-side code is executed. */
@@ -172,7 +174,7 @@ public object ProviderCapabilityMatrix {
                 HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
             )
         }
-        if (!model.hostedExecution) {
+        if (ModelCatalogue.find(modelId, api)?.hostedExecution != true) {
             return HostedExecutionAcceptance.Unsupported(
                 HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
             )
@@ -242,6 +244,7 @@ public object ProviderCapabilityMatrix {
 
         ProviderApi.OPENAI_EMBEDDINGS,
         ProviderApi.AZURE_EMBEDDINGS,
+        ProviderApi.BEDROCK_EMBEDDINGS,
         ProviderApi.OPENAI_REALTIME,
         ProviderApi.AZURE_REALTIME,
         -> HostedExecutionCapability.Unsupported(

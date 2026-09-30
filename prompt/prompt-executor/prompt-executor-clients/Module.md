@@ -28,6 +28,18 @@ The module consists of:
 Each client handles authentication, request formatting, response parsing, and media content encoding specific to its
 respective API requirements.
 
+### Adding or changing model support
+
+Update the provider definitions and registry together with the central `ModelCatalogue` profiles, aliases and
+provider API compatibility. ChatUI uses that catalogue to discover capabilities and limits.
+A new deployment of an existing semantic model requires a route review rather than a duplicate semantic profile.
+
+Complete the model support gate in [TESTING.md](../../../TESTING.md): add catalogue lookup and profile regression
+tests, update the normalised fixture and expected IDs, and run `:prompt:prompt-model:jvmTest` alongside the
+affected provider JVM tests. Provider unit tests and live requests do not establish catalogue completeness.
+Resolve catalogue contract gaps before release, then verify discovery through staged JVM artefacts as required by
+[PUBLISHING.md](../../../PUBLISHING.md).
+
 ### Using in your project
 
 Add the dependency for the specific client you want to use:

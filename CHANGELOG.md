@@ -1,3 +1,19 @@
+# Kroog 1.1.1-kroog.14
+
+## Fixes
+
+- Add the missing central model catalogue profiles for GPT-6 Sol and Luna, GPT-6.1 Sol, Claude Opus and Sonnet 5.5, Gemini 3.8 Flash, DeepSeek Flash and V4 Pro, Gemma 4 and Nova 2 Multimodal Embeddings.
+- Resolve DeepSeek's retired Flash IDs to its current image-capable profile. Add provider-aware catalogue lookup for Astra's Bedrock restrictions, a Bedrock embedding API and explicit unknown generation limits for Gemma.
+- Require catalogue discovery and capability regression tests, plus staged consumer checks, before model support is considered complete or a release is tagged.
+
+## Validation
+
+The catalogue and affected provider JVM suites passed 1,007 tests with three existing Markdown DSL skips.
+All 87 publications were staged at `1.1.1-kroog.14`, with matching beta versions, and their files, checksums
+and internal dependency versions were verified. A separate consumer checked 17 provider definitions and
+passed 31 catalogue regression tests against those artefacts. The compiled JVM ABI has five additive symbols;
+existing unrelated dump drift remains documented. Signing and remote publication are separate release steps.
+
 # Kroog 1.1.1-kroog.13
 
 Release preparation for the latest provider models, following `1.1.1-kroog.12`.

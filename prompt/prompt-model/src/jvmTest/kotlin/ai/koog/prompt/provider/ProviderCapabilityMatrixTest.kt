@@ -23,6 +23,7 @@ class ProviderCapabilityMatrixTest {
             ProviderApi.BEDROCK_CONVERSE to HostedExecutionMode.PROVIDER_MANAGED_SANDBOX,
             ProviderApi.OPENAI_EMBEDDINGS to null,
             ProviderApi.AZURE_EMBEDDINGS to null,
+            ProviderApi.BEDROCK_EMBEDDINGS to null,
             ProviderApi.OPENAI_REALTIME to null,
             ProviderApi.AZURE_REALTIME to null,
         )

@@ -10,6 +10,7 @@ public enum class ModelPublisher {
     ANTHROPIC,
     GOOGLE,
     DEEPSEEK,
+    AMAZON,
 }
 
 /** Semantic model workload. */
@@ -53,6 +54,8 @@ public data class TemperatureSupport(
 /** Why a known provider route is unavailable for a semantic model. */
 public enum class ModelProviderApiUnsupportedReason {
     MODEL_SUPPORT_NOT_ESTABLISHED,
+    /** Provider documentation explicitly excludes this model from the API. */
+    MODEL_API_NOT_SUPPORTED,
 }
 
 /** Compatibility of one provider API with a semantic model. */
@@ -70,6 +73,9 @@ public sealed interface ModelProviderApiCompatibility {
  * One authoritative semantic model entry.
  *
  * Provider deployment names, credentials, presentation labels and descriptions do not belong here.
+ * [maxInputTokens] is the provider's input ceiling; shared context windows still include generated output.
+ * [maxOutputTokens] is zero for embeddings and for text models without a verified independent output ceiling.
+ * Use [outputTokenLimit] when applying a generation limit; unknown text limits must not become a zero-token budget.
  */
 public data class ModelCatalogueEntry(
     val id: String,
@@ -86,6 +92,10 @@ public data class ModelCatalogueEntry(
     val structuredOutput: Boolean,
     val hostedExecution: Boolean,
 ) {
+    /** Verified output ceiling, or null when a text model's independent output limit is unknown. */
+    public val outputTokenLimit: Long?
+        get() = maxOutputTokens.takeUnless { kind == ModelKind.TEXT && it == 0L }
+
     public val supportsImages: Boolean
         get() = supportedMimeTypes.any { it.startsWith("image/") }
 
@@ -210,7 +220,34 @@ public object ModelCatalogue {
             temperature = TemperatureSupport(
                 1.0,
                 1.0,
-                omittedProviderApis = setOf(ProviderApi.OPENAI_RESPONSES),
+                omittedProviderApis = astraApis,
+            ),
+            input = 922_000,
+            providerApis = astraApis,
+        ),
+        // Provider-verified additions: https://developers.openai.com/api/docs/models/gpt-6-sol
+        // https://developers.openai.com/api/docs/models/gpt-6-luna
+        openAiReasoning(
+            id = "gpt-6-sol",
+            efforts = frontierReasoning,
+            temperature = conditionalTemperature,
+            input = 922_000,
+            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+        ),
+        openAiReasoning(
+            id = "gpt-6-luna",
+            efforts = frontierReasoning,
+            temperature = conditionalTemperature,
+            input = 922_000,
+            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+        ),
+        // https://developers.openai.com/api/docs/models/gpt-6.1-sol
+        // The input budget reserves 128,000 output tokens from the shared 1,050,000-token context.
+        openAiReasoning(
+            id = "gpt-6.1-sol",
+            efforts = frontierReasoning - "none",
+            temperature = TemperatureSupport(
+                1.0, 1.0, omittedProviderApis = setOf(ProviderApi.OPENAI_RESPONSES),
             ),
             input = 922_000,
             providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
@@ -306,7 +343,41 @@ public object ModelCatalogue {
             reasoning = categorical(frontierReasoningWithOff),
             omitTemperature = true,
         ),
+        // https://platform.claude.com/docs/en/models/opus-5-5/overview
+        // https://platform.claude.com/docs/en/models/sonnet-5-5/overview
+        // https://platform.claude.com/docs/en/build-with-claude/effort
+        // Both models reject disabled thinking; Sonnet's between_tools mode is not an off effort.
+        claude(
+            id = "claude-opus-5-5",
+            input = 1_000_000,
+            output = 128_000,
+            reasoning = categorical(frontierReasoning - "none"),
+            omitTemperature = true,
+        ),
+        claude(
+            id = "claude-sonnet-5-5",
+            input = 1_000_000,
+            output = 128_000,
+            reasoning = categorical(frontierReasoning - "none"),
+            omitTemperature = true,
+        ),
         deepSeek(),
+        // https://api-docs.deepseek.com/quick_start/pricing/
+        // https://api-docs.deepseek.com/guides/thinking_mode/
+        deepSeekV4(
+            id = "deepseek-flash",
+            aliases = setOf("deepseek-v4-flash", "deepseek-v4-flash-vision-exp"),
+            mimeTypes = openAiVisualMimeTypes,
+        ),
+        deepSeekV4(id = "deepseek-v4-pro"),
+        // Mantle-only routes; these semantic IDs deliberately omit AWS's publisher prefix.
+        // https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-31b.html
+        // https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-26b-a4b.html
+        // https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-e2b.html
+        gemma4("gemma-4-31b", input = 256_000),
+        gemma4("gemma-4-26b-a4b", input = 256_000),
+        gemma4("gemma-4-e2b", input = 128_000),
+        novaEmbeddings(),
         gemini(
             id = "gemini-2.5-pro",
             input = 983_041,
@@ -369,6 +440,15 @@ public object ModelCatalogue {
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes,
         ),
+        // https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
+        gemini(
+            id = "gemini-3.8-flash",
+            input = 1_048_576,
+            output = 65_536,
+            reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0)),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes,
+        ),
         gemini(
             id = "gemini-3.1-pro",
             input = 983_040,
@@ -399,6 +479,27 @@ public object ModelCatalogue {
 
     /** Resolve a canonical semantic ID or an explicit alias. */
     public fun find(idOrAlias: String): ModelCatalogueEntry? = byIdentifier[idOrAlias]
+
+    /**
+     * Resolve a semantic profile for a supported provider API, including route-specific restrictions.
+     *
+     * Returns null for unknown models and unsupported or undeclared routes. The one-argument lookup retains
+     * semantic capabilities; applications selecting a provider route should use this overload.
+     */
+    public fun find(idOrAlias: String, api: ProviderApi): ModelCatalogueEntry? {
+        val model = find(idOrAlias) ?: return null
+        if (model.compatibility(api) !is ModelProviderApiCompatibility.Supported) return null
+        return when {
+            model.id == "gpt-6-astra" && api == ProviderApi.BEDROCK_CONVERSE ->
+                model.copy(structuredOutput = false, hostedExecution = false)
+
+            api == ProviderApi.OPENAI_COMPATIBLE_RESPONSES ||
+                api == ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS ->
+                model.copy(hostedExecution = false)
+
+            else -> model
+        }
+    }
 
     /** Validate catalogue invariants without performing provider I/O. */
     public fun validate(
@@ -623,9 +724,13 @@ private val textModelApis: Set<ProviderApi> = setOf(
     ProviderApi.BEDROCK_CONVERSE,
 )
 private val embeddingModelApis: Set<ProviderApi> =
-    setOf(ProviderApi.OPENAI_EMBEDDINGS, ProviderApi.AZURE_EMBEDDINGS)
+    setOf(ProviderApi.OPENAI_EMBEDDINGS, ProviderApi.AZURE_EMBEDDINGS, ProviderApi.BEDROCK_EMBEDDINGS)
 private val realtimeModelApis: Set<ProviderApi> =
     setOf(ProviderApi.OPENAI_REALTIME, ProviderApi.AZURE_REALTIME)
+private val compatibleApis: Set<ProviderApi> =
+    setOf(ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS)
+private val astraApis: Set<ProviderApi> =
+    setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE) + compatibleApis
 private val openAiAzure: Set<ProviderApi> =
     setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES)
 private val openAiAzureCodex: Set<ProviderApi> = openAiAzure + ProviderApi.CODEX_RESPONSES
@@ -826,6 +931,60 @@ private fun deepSeek(): ModelCatalogueEntry = ModelCatalogueEntry(
     temperature = TemperatureSupport(0.0, 1.0),
     supportedMimeTypes = setOf("text/plain"),
     structuredOutput = true,
+    hostedExecution = false,
+)
+
+private fun deepSeekV4(
+    id: String,
+    aliases: Set<String> = emptySet(),
+    mimeTypes: Set<String> = setOf("text/plain"),
+): ModelCatalogueEntry = ModelCatalogueEntry(
+    id = id,
+    aliases = aliases,
+    publisher = ModelPublisher.DEEPSEEK,
+    kind = ModelKind.TEXT,
+    providerApis = compatibleApis,
+    reasoning = categorical(mapOf("none" to 0.0, "low" to 0.25, "high" to 0.5, "max" to 1.0)),
+    maxInputTokens = 1_000_000,
+    maxOutputTokens = 384_000,
+    temperature = TemperatureSupport(0.0, 2.0, allowedReasoningEfforts = setOf("none")),
+    supportedMimeTypes = mimeTypes,
+    structuredOutput = true,
+    hostedExecution = false,
+)
+
+private fun gemma4(id: String, input: Long): ModelCatalogueEntry = ModelCatalogueEntry(
+    id = id,
+    publisher = ModelPublisher.GOOGLE,
+    kind = ModelKind.TEXT,
+    providerApis = compatibleApis,
+    unsupportedProviderApis = mapOf(
+        ProviderApi.BEDROCK_CONVERSE to ModelProviderApiUnsupportedReason.MODEL_API_NOT_SUPPORTED,
+    ),
+    // Mantle documents high effort to enable thinking. Avoid borrowing GPT reasoning levels.
+    reasoning = categorical(mapOf("none" to 0.0, "high" to 1.0)),
+    maxInputTokens = input,
+    // AWS publishes a shared context window, but no independent output ceiling.
+    maxOutputTokens = 0,
+    temperature = TemperatureSupport(0.0, 2.0),
+    supportedMimeTypes = openAiVisualMimeTypes,
+    structuredOutput = false,
+    hostedExecution = false,
+)
+
+// https://docs.aws.amazon.com/nova/latest/nova2-userguide/embeddings.html
+private fun novaEmbeddings(): ModelCatalogueEntry = ModelCatalogueEntry(
+    id = "nova-2-multimodal-embeddings",
+    publisher = ModelPublisher.AMAZON,
+    kind = ModelKind.EMBEDDING,
+    providerApis = setOf(ProviderApi.BEDROCK_EMBEDDINGS),
+    reasoning = ReasoningSupport.Unsupported,
+    maxInputTokens = 8_192,
+    maxOutputTokens = 0,
+    temperature = TemperatureSupport(1.0, 1.0),
+    // Kroog's current embedding client accepts text only.
+    supportedMimeTypes = setOf("text/plain"),
+    structuredOutput = false,
     hostedExecution = false,
 )
 

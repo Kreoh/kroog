@@ -128,3 +128,54 @@ redirection disabled. It compiled and ran checks for GPT-6.1 Sol, DeepSeek V4.1 
 image capability, all seven Bedrock definitions and the Mantle client class. No provider
 request was made by this consumer. Local staging validates unsigned JVM artefacts;
 release signing, the signed Central Portal bundle and remote publication remain separate.
+
+## Catalogue correction for Kroog 1.1.1-kroog.14
+
+The provider changes in `1.1.1-kroog.13` did not update the central `ModelCatalogue`.
+The earlier provider tests and release consumer checked definitions and inference, and missed catalogue discovery.
+This correction adds 12 semantic profiles, bringing the catalogue to 50 entries: GPT-6 Sol and Luna, GPT-6.1 Sol,
+Claude Opus and Sonnet 5.5, Gemini 3.8 Flash, DeepSeek Flash and V4 Pro, the three supported Gemma 4 sizes,
+and Nova 2 Multimodal Embeddings. DeepSeek's legacy Flash IDs resolve to the current image-capable profile.
+
+The provider-aware `find(semanticId, providerApi)` overload rejects unsupported and undeclared routes and applies
+Astra's Bedrock restrictions. Mantle uses the existing OpenAI-compatible API identities. Nova adds
+`BEDROCK_EMBEDDINGS` and the Amazon publisher, with text-only input through the current client.
+Gemma's independent output ceiling remains unknown: `outputTokenLimit` returns null, while the existing
+`maxOutputTokens` property uses zero as its documented sentinel. Consumers applying output limits must use
+the nullable property. Shared context windows still include generated output.
+
+Specifications were checked against the [OpenAI model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol),
+[Claude effort guide](https://platform.claude.com/docs/en/build-with-claude/effort),
+[Gemini model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash),
+[DeepSeek model details](https://api-docs.deepseek.com/quick_start/pricing/),
+[AWS Gemma model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-31b.html)
+and [Nova embedding guide](https://docs.aws.amazon.com/nova/latest/nova2-userguide/embeddings.html).
+The frozen KreLLM provenance constants remain unchanged.
+
+Six initial regression tests failed on missing profiles before the correction. Final module-qualified JVM checks
+reported 1,010 tests: 1,007 passed, three existing Markdown DSL tests skipped, and no failures or errors.
+Counts were prompt-model 287, OpenAI 330, Anthropic 80, Google 66, DeepSeek 29, Bedrock 216 and the new cross-module
+catalogue checks two. The catalogue golden fixture and expected ID set were updated with capability and route
+assertions, rather than relying on the fixture alone.
+
+Six affected JVM publications were staged locally from an isolated archive with the reviewed correction.
+A separate consumer resolved those publications first and used the previously verified release staging only for
+unchanged transitive dependencies. POM and artefact resolution ignored Gradle metadata redirection.
+It compiled and checked 17 provider definitions against the catalogue, then passed 31 catalogue,
+provider-matrix and cross-module regression tests against the staged artefacts. Its test dependencies required
+Maven Central resolution; the repository checks and publication tasks ran offline. No provider request was made.
+
+The full compiled prompt-model JVM ABI differs from the prepared release by exactly five additive public symbols.
+The checked-in dump was updated only for those declarations, preserving its recorded unrelated drift.
+No non-JVM compilation or ABI regeneration ran. The correction is prepared as `1.1.1-kroog.14`; remote publication remains a separate step and
+the pushed `1.1.1-kroog.13` tag must remain immutable.
+
+### Final revision 14 staging
+
+The complete `1.1.1-kroog.14` tree was validated in an isolated archive containing the reviewed catalogue
+correction and release version changes. All 87 inventory-selected JVM publication tasks passed offline:
+46 stable and 41 beta coordinates, 522 primary files, 2,088 verified checksum sidecars and 252 matching internal
+POM dependency references. JVM JARs passed ZIP integrity checks. A separate consumer resolved exclusively from
+this complete staging for Kroog coordinates, compiled and checked 17 provider definitions, and passed all 31
+catalogue, provider-matrix and cross-module tests offline. No provider request or remote publication ran.
+The final release notes record these completed checks; production source remained unchanged after validation.

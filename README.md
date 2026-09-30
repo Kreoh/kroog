@@ -19,7 +19,7 @@ Useful links:
 * [Slack channel](https://docs.koog.ai/koog-slack-channel/)
 * [Issue tracker](https://youtrack.jetbrains.com/issues/KG)
 
-Kroog is the JVM-focused Kreoh fork of Koog. This source line prepares Kroog `1.1.1-kroog.13`, incorporating upstream Koog 1.3.0. See the [release notes](CHANGELOG.md) for changes and validation limits. Maven Central publication is a separate release step.
+Kroog is the JVM-focused Kreoh fork of Koog. This source line prepares Kroog `1.1.1-kroog.14`, incorporating upstream Koog 1.3.0. See the [release notes](CHANGELOG.md) for changes and validation limits. Maven Central publication is a separate release step.
 
 Use `com.kreoh.kroog` coordinates; Kotlin packages remain `ai.koog`. For snapshots and JVM POM-based resolution, see [publishing](PUBLISHING.md). The badges and external documentation below refer to upstream Koog.
 
@@ -96,8 +96,8 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
     ```
     dependencies {
-        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.13")
-        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.13")
+        implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.14")
+        implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.14")
     }
     ```
 2. Configure the repository and POM-based JVM resolution described in [PUBLISHING.md](PUBLISHING.md).
@@ -107,8 +107,8 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
     ```
     dependencies {
-        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.13'
-        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.13'
+        implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.14'
+        implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.14'
     }
     ```
 2. Configure the repository and POM-based JVM resolution described in [PUBLISHING.md](PUBLISHING.md).
@@ -120,12 +120,12 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
     <dependency>
         <groupId>com.kreoh.kroog</groupId>
         <artifactId>koog-agents-jvm</artifactId>
-        <version>1.1.1-kroog.13</version>
+        <version>1.1.1-kroog.14</version>
     </dependency>
     <dependency>
         <groupId>com.kreoh.kroog</groupId>
         <artifactId>koog-agents-additions-jvm</artifactId>
-        <version>1.1.1-beta-kroog.13</version>
+        <version>1.1.1-beta-kroog.14</version>
     </dependency>
     ```
 2. Configure the release or snapshot repository described in [PUBLISHING.md](PUBLISHING.md).

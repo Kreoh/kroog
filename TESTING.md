@@ -23,6 +23,42 @@ A change is NOT done until ALL of the following are true:
 If any gate fails, fix the underlying issue. Do NOT weaken the test, disable it, or mark
 the task complete with a caveat. If the gate genuinely cannot be satisfied, stop and ask the user.
 
+### Model support gate
+
+Every addition or change to a provider model requires a consumer-facing catalogue review.
+The provider's `LLModel` definitions and registry and `ModelCatalogue` are separate contracts.
+A successful provider request does not establish that catalogue consumers can discover the model.
+
+Before declaring model support complete:
+
+- [ ] List every affected canonical semantic ID, explicit alias and provider API.
+- [ ] Verify that `ModelCatalogue.find()` resolves each semantic ID and supported alias to the intended profile.
+      A new provider deployment of an existing model must use the established semantic ID and reviewed route compatibility.
+- [ ] Check the profile's publisher, kind, input and output limits, reasoning efforts and budgets, temperature
+      restrictions, supported MIME types, structured output and hosted execution against provider evidence.
+      Check context-window and input-limit semantics explicitly.
+- [ ] Check supported, explicitly unsupported and undeclared routes through `compatibility()`. Do not assume
+      that capabilities are identical across provider APIs.
+- [ ] Add regression tests that fail when the affected profile, alias or route declaration is omitted or wrong.
+      Update `ModelCatalogueTest`'s expected IDs and
+      `prompt/prompt-model/src/jvmTest/resources/model-catalogue/krellm-model-catalogue.txt` together with the source.
+      Updating the golden fixture alone does not establish correctness.
+- [ ] Run the catalogue JVM tests and the affected provider JVM tests, and record their commands and results.
+- [ ] Resolve any catalogue contract gap before release, including model kinds, publishers, unknown limits
+      or restrictions that vary by route.
+
+For Kreoh work, use module-qualified JVM tasks only:
+
+```shell
+./gradlew :prompt:prompt-model:jvmTest
+./gradlew :prompt:prompt-executor:prompt-executor-clients:<provider-module>:jvmTest
+```
+
+The JVM-only scope in `AGENTS.md` overrides broader commands elsewhere in this document.
+Provider unit tests, live inference, compilation and publication checks each cover different contracts.
+Release validation must additionally exercise catalogue discovery from the staged artefacts as described in
+`PUBLISHING.md`.
+
 ### Test planning checklist (use before writing any test)
 
 Before writing a test, make sure these points are clear:
@@ -43,6 +79,7 @@ Before considering the change complete, confirm:
 - [ ] Which tests were added or modified (file paths + test names).
 - [ ] The exact Gradle command that was run and its result (pass/fail count).
 - [ ] Whether any Quality Gate was skipped, and why.
+- [ ] For model changes, the completed model support gate and catalogue test evidence.
 
 If this checklist cannot be filled in truthfully, the task is not done.
 

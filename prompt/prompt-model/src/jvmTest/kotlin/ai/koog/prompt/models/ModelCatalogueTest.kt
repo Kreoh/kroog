@@ -20,7 +20,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryExpectedSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(38, ModelCatalogue.entries.size)
+        assertEquals(50, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -31,7 +31,11 @@ class ModelCatalogueTest {
         assertEquals(ModelKind.TEXT, astra.kind)
         assertEquals(922_000, astra.maxInputTokens)
         assertEquals(128_000, astra.maxOutputTokens)
-        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES), astra.providerApis)
+        assertEquals(
+            setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE,
+                ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS),
+            astra.providerApis,
+        )
         assertEquals(
             mapOf("low" to 0.2, "medium" to 0.4, "high" to 0.6, "xhigh" to 0.8, "max" to 1.0),
             (astra.reasoning as ReasoningSupport.Supported).efforts,
@@ -343,6 +347,18 @@ class ModelCatalogueTest {
             "gpt-5.6-terra",
             "gpt-5.6-luna",
             "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6-luna",
+            "gpt-6.1-sol",
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "gemini-3.8-flash",
+            "deepseek-flash",
+            "deepseek-v4-pro",
+            "gemma-4-31b",
+            "gemma-4-26b-a4b",
+            "gemma-4-e2b",
+            "nova-2-multimodal-embeddings",
             "gpt-5-mini",
             "gpt-5-nano",
             "claude-4.5-haiku",

@@ -102,6 +102,25 @@ cross-platform work:
 ## Quality Gates
 Read and follow the Quality Gates section in /TESTING.md before considering any code change complete.
 
+### Model support must reach consumers
+
+For every model addition or change to capabilities, limits, reasoning, sampling or provider routes, review both the
+provider model definitions and `ModelCatalogue` in `prompt/prompt-model`. Provider registration alone does not
+complete model support. ChatUI consumes the central catalogue for capabilities and limits.
+
+- Add or update the canonical semantic profile, explicit aliases and supported provider APIs in the same change.
+  For a new deployment of an existing semantic model, update its route compatibility instead of duplicating the profile.
+  Keep deployment names separate from semantic IDs.
+- Verify token limits, reasoning efforts, temperature restrictions, MIME types, structured output and hosted execution
+  against provider evidence. Preserve the distinction between a context window and the catalogue's input limit.
+  Do not invent limits or declare an API supported merely because another route supports the model.
+- If the catalogue cannot represent a supported model or a route-specific restriction, resolve that contract gap
+  before declaring support complete. Record the unresolved gap as a release blocker.
+- Add catalogue lookup and profile regression tests, update its expected ID set and normalised fixture, and run
+  `:prompt:prompt-model:jvmTest` alongside the affected provider's module-specific JVM tests.
+- Before tagging, verify catalogue lookups and profiles through the staged JVM artefacts. Follow the model support
+  gates in `TESTING.md` and `PUBLISHING.md`. Passing provider tests or live inference alone does not satisfy them.
+
 ## Architecture
 
 ### Core Framework Components

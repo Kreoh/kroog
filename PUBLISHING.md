@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.1.1-kroog.13`; modules which apply a beta version transform
+stable version is `1.1.1-kroog.14`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -19,19 +19,19 @@ Change the Kroog base version only through an explicit Kroog release decision.
 
 `gradle.properties` is the source of truth for the stable version. On the
 current release line, increment the numeric `kroog` revision for each new
-release: `1.1.1-kroog.12` is followed by `1.1.1-kroog.13`, including when the
+release: `1.1.1-kroog.13` is followed by `1.1.1-kroog.14`, including when the
 release incorporates upstream Koog 1.3.0. Do not infer `1.3.0-kroog.1` from
 that upstream update.
 
-For a release configured as `1.1.1-kroog.13`, the version forms are:
+For a release configured as `1.1.1-kroog.14`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.1.1-kroog.13` |
-| Beta modules, derived automatically | `1.1.1-beta-kroog.13` |
-| Stable module snapshots | `1.1.1-kroog.13-SNAPSHOT` |
-| Beta module snapshots | `1.1.1-beta-kroog.13-SNAPSHOT` |
-| Annotated release tag | `1.1.1-kroog.13` |
+| Stable modules | `1.1.1-kroog.14` |
+| Beta modules, derived automatically | `1.1.1-beta-kroog.14` |
+| Stable module snapshots | `1.1.1-kroog.14-SNAPSHOT` |
+| Beta module snapshots | `1.1.1-beta-kroog.14-SNAPSHOT` |
+| Annotated release tag | `1.1.1-kroog.14` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
@@ -59,8 +59,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.1.1-beta-kroog.13-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.13`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.1.1-beta-kroog.14-SNAPSHOT`, and its release version is
+`1.1.1-beta-kroog.14`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.
@@ -187,7 +187,8 @@ dependency locks and dependency-verification checksums from that generation.
    documentation. Keep historical release notes and audit evidence unchanged.
 3. Add Kroog release notes covering user-visible features, fixes, compatibility
    changes and the incorporated upstream version. Review the release commit.
-4. Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
+4. Complete the model catalogue release gate below for every model change.
+   Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
    failing CI checks and document any existing limitations before release.
    Validate all 87 publications from a clean archive of the exact release commit
    using the local publication procedure above and a fresh output directory.
@@ -205,6 +206,27 @@ Pushing a tag or creating a GitHub release does not trigger Maven publication.
 The CI workflow is manually dispatched and uploads a deployment for human
 approval in Central Portal. Never reuse or move a tag after a failed release;
 prepare a new Kroog revision and tag for the corrected release.
+
+### Model catalogue release gate
+
+Before creating a release tag or dispatching publication, review every model addition and profile change since the
+previous release against the model support gate in `TESTING.md`. Record each canonical semantic ID, alias and
+provider API with its catalogue test evidence. An omitted profile, stale capability or unresolved catalogue
+contract gap blocks release preparation.
+
+Run `:prompt:prompt-model:jvmTest` and the affected provider JVM tests on the chosen release source.
+Verify that the normalised catalogue fixture and expected ID set include the reviewed changes.
+A publication count, successful compilation or successful live provider request does not verify catalogue completeness.
+
+Extend the separate JVM consumer smoke test against the freshly staged Maven artefacts to call
+`ModelCatalogue.find()` for every added or changed semantic ID and alias. Assert the expected limits, reasoning,
+temperature restrictions, MIME types, structured output, hosted execution and `compatibility()` results for
+the intended provider APIs. Check provider definitions alongside the catalogue, accounting for documented route
+restrictions and the distinction between context windows and input limits. Record the source commit, resolved
+coordinates, assertions and test result in the release evidence.
+
+ChatUI relies on Kroog's catalogue for capability and limit discovery. Repair omissions in Kroog and publish a new
+revision before updating consumers. Keep previously pushed release tags immutable.
 
 ### Tagging and CI dispatch
 

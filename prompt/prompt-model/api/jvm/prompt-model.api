@@ -2065,6 +2065,7 @@ public final class ai/koog/prompt/models/ModelCatalogue {
 	public static final field sourceRevision Ljava/lang/String;
 	public static final field sourceTypesSha256 Ljava/lang/String;
 	public final fun find (Ljava/lang/String;)Lai/koog/prompt/models/ModelCatalogueEntry;
+	public final fun find (Ljava/lang/String;Lai/koog/prompt/provider/ProviderApi;)Lai/koog/prompt/models/ModelCatalogueEntry;
 	public final fun getEntries ()Ljava/util/List;
 	public final fun normalisedSnapshot ()Ljava/lang/String;
 	public final fun validate (Ljava/util/List;)Ljava/util/List;
@@ -2096,6 +2097,7 @@ public final class ai/koog/prompt/models/ModelCatalogueEntry {
 	public final fun getKind ()Lai/koog/prompt/models/ModelKind;
 	public final fun getMaxInputTokens ()J
 	public final fun getMaxOutputTokens ()J
+	public final fun getOutputTokenLimit ()Ljava/lang/Long;
 	public final fun getProviderApis ()Ljava/util/Set;
 	public final fun getPublisher ()Lai/koog/prompt/models/ModelPublisher;
 	public final fun getReasoning ()Lai/koog/prompt/models/ReasoningSupport;
@@ -2178,6 +2180,7 @@ public final class ai/koog/prompt/models/ModelProviderApiCompatibility$Unsupport
 }
 
 public final class ai/koog/prompt/models/ModelProviderApiUnsupportedReason : java/lang/Enum {
+	public static final field MODEL_API_NOT_SUPPORTED Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
 	public static final field MODEL_SUPPORT_NOT_ESTABLISHED Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/models/ModelProviderApiUnsupportedReason;
@@ -2185,6 +2188,7 @@ public final class ai/koog/prompt/models/ModelProviderApiUnsupportedReason : jav
 }
 
 public final class ai/koog/prompt/models/ModelPublisher : java/lang/Enum {
+	public static final field AMAZON Lai/koog/prompt/models/ModelPublisher;
 	public static final field ANTHROPIC Lai/koog/prompt/models/ModelPublisher;
 	public static final field DEEPSEEK Lai/koog/prompt/models/ModelPublisher;
 	public static final field GOOGLE Lai/koog/prompt/models/ModelPublisher;
@@ -2681,6 +2685,7 @@ public final class ai/koog/prompt/provider/ProviderApi : java/lang/Enum {
 	public static final field AZURE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
 	public static final field BEDROCK_ANTHROPIC_MESSAGES Lai/koog/prompt/provider/ProviderApi;
 	public static final field BEDROCK_CONVERSE Lai/koog/prompt/provider/ProviderApi;
+	public static final field BEDROCK_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;
 	public static final field CODEX_RESPONSES Lai/koog/prompt/provider/ProviderApi;
 	public static final field OPENAI_COMPATIBLE_CHAT_COMPLETIONS Lai/koog/prompt/provider/ProviderApi;
 	public static final field OPENAI_COMPATIBLE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
