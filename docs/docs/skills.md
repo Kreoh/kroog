@@ -6,11 +6,11 @@ Add the standalone beta JVM module explicitly:
 
 ```kotlin
 dependencies {
-    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.12")
+    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.13")
 }
 ```
 
-This is the current source-line coordinate, not an announcement of publication. Snapshot builds use `1.1.1-beta-kroog.12-SNAPSHOT`. The module is excluded from the stable `koog-agents` umbrella and included in the JVM publication of `koog-agents-additions`. Follow the repository's `PUBLISHING.md` for JVM POM-based resolution and snapshot repositories.
+This is the current source-line coordinate, not an announcement of publication. Snapshot builds use `1.1.1-beta-kroog.13-SNAPSHOT`. The module is excluded from the stable `koog-agents` umbrella and included in the JVM publication of `koog-agents-additions`. Follow the repository's `PUBLISHING.md` for JVM POM-based resolution and snapshot repositories.
 
 ## Discover skills and compose a prompt
 

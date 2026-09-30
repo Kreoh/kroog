@@ -61,3 +61,70 @@ The tests accept `ANTHROPIC_API_TEST_KEY` or `ANTHROPIC_API_KEY`, and `GEMINI_AP
 Token limits were verified against official specifications only. OpenAI's model metadata endpoint does not report those limits, and the native Anthropic and Gemini metadata checks remain unrun. No full-window or maximum-output stress test was performed. Successful small requests establish runtime compatibility; they do not empirically prove the entire context boundary.
 
 Independent review identified an Astra alias regression, which was corrected by retaining structural profile matching and adding rebuilt-list regression cases. The [alignment audit](upstream/koog-1.3.0-alignment.md#s8-final-accounting) records the accepted local publication closure and current whole-plan review status.
+
+## Additional models for Kroog 1.1.1-kroog.13
+
+GPT-6.1 Sol, DeepSeek V4.1 Flash and the Bedrock model additions were committed after
+`1.1.1-kroog.12`. GPT-6.1 Sol's user-added live test has a passing local result. Its
+streaming and Responses tool replay checks and explicit Chat Completions request use low
+reasoning effort. The OpenAI JVM suite passed 330 tests, DeepSeek passed 29 and Bedrock
+passed 216, with no failures, errors or skips.
+
+Eight selected Bedrock live tests passed across three runs on 30 September 2026:
+
+- `integration_testBedrockRuntimeOpus55` and `integration_testBedrockRuntimeSonnet55`:
+  streamed text and input usage, tool calls, replay and returned probe text with output usage.
+- `integration_testBedrockRuntimeAstra`: the same checks after removing automatic Converse
+  cache markers. Runtime uses the `us.openai.gpt-6-astra` inference profile and default reasoning.
+- `integration_testBedrockMantleGemma31B`, `integration_testBedrockMantleGemma26BA4B`,
+  `integration_testBedrockMantleGemmaE2B` and `integration_testBedrockMantleAstra`:
+  streamed Responses text, tools, replay and a separate Chat Completions request.
+- `integration_testBedrockNovaEmbeddings`: 3072 finite values, including non-zero values,
+  returned from a text embedding request in `us-east-1`.
+
+Select the live checks with the JVM integration task:
+
+```sh
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :integration-tests:jvmIntegrationTest \
+  --tests '*NewProviderModelsIntegrationTest.integration_testBedrock*' \
+  --offline --console=plain --no-parallel
+```
+
+The tests accept AWS access credentials with an optional session token. Mantle uses a
+Bedrock API key when supplied, otherwise test-only SigV4 authentication through the
+injected HTTP client. Credentials and signatures stay in memory. No external credentials
+were created or committed. Initial failed attempts identified Astra's cache-marker issue,
+an unsupported `reasoning_effort` Runtime parameter and Nova's regional restriction.
+These were corrected before the passing runs.
+
+`integration_testDeepSeekV41Flash` is ready but remains unrun because neither
+`DEEPSEEK_API_TEST_KEY` nor `DEEPSEEK_API_KEY` was set. It checks generation, streaming,
+tools and replay, then red-image recognition through the stable Flash ID and both legacy
+aliases. The DeepSeek JVM tests exercise URL and Base64 image serialisation through a
+mocked HTTP engine.
+
+The complete Bedrock JVM ABI dump matches compiled classes. OpenAI's previously recorded
+unrelated dump drift is retained. No non-JVM compilation or ABI regeneration ran.
+
+### Local release preparation
+
+The `1.1.1-kroog.13` release tree was staged unsigned in an isolated archive of feature
+commit `e94990f4dc4437e1e199d9da7fc3097e78056056` with the reviewed version and documentation
+changes overlaid. Java 21 ran all 87 module-qualified `ArtifactsRepository` publication
+tasks from `gradle/kroog-jvm-publications.txt`, using `--offline --no-parallel --no-daemon`
+and `BRANCH_KOOG_IS_RELEASING_FROM=release/1.1.1-kroog.13`. The task graph was checked before
+execution; no non-JVM compile or aggregate ABI task ran. Signing and remote publication
+credentials were omitted.
+
+Local validation verified 87 coordinates (46 stable and 41 beta), 522 primary files,
+2088 MD5, SHA-1, SHA-256 and SHA-512 checksum sidecars, and 252 internal POM dependency
+references. Binary, sources and Javadoc JARs passed ZIP integrity checks. POMs, Gradle
+module files and coordinate metadata were non-empty, and every internal dependency
+resolved to a coordinate and version in the staged closure. The Bedrock POM exports the
+new OpenAI client dependency.
+
+A separate Kotlin JVM consumer used POM and artefact resolution with Gradle metadata
+redirection disabled. It compiled and ran checks for GPT-6.1 Sol, DeepSeek V4.1 Flash and
+image capability, all seven Bedrock definitions and the Mantle client class. No provider
+request was made by this consumer. Local staging validates unsigned JVM artefacts;
+release signing, the signed Central Portal bundle and remote publication remain separate.

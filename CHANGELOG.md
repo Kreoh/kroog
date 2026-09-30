@@ -1,3 +1,35 @@
+# Kroog 1.1.1-kroog.13
+
+Release preparation for the latest provider models, following `1.1.1-kroog.12`.
+These notes do not announce Maven Central publication.
+
+## Changes
+
+- Added GPT-6.1 Sol with Responses routing, reasoning validation, sampling exclusions and Chat Completions compatibility checks.
+- Added DeepSeek V4.1 Flash using `deepseek-flash`, with image input. Existing Flash and experimental vision IDs remain supported provider aliases and expose the image capability.
+- Added Bedrock Claude Opus 5.5, Sonnet 5.5, GPT-6 Astra, Gemma 4 31B, 26B-A4B and E2B, and Nova 2 Multimodal Embeddings.
+- Added `BedrockMantleLLMClient` for Chat Completions and Responses. Astra inference profiles are translated into the unprefixed Mantle ID; unsupported regions and Gemma 4 Runtime requests fail before inference.
+- Disabled automatic Converse cache markers for Astra after live requests exposed AWS's rejection of those markers.
+- Added Nova text embeddings with 3072 dimensions, `GENERIC_INDEX` and end truncation, using InvokeModel in `us-east-1`.
+- Stable modules use `1.1.1-kroog.13`; beta modules use `1.1.1-beta-kroog.13`. The JVM publication inventory remains 87 coordinates.
+
+## Validation limits
+
+The OpenAI, DeepSeek and Bedrock client JVM suites passed 575 tests in total (330, 29 and 216).
+All eight Bedrock live checks passed across Runtime and Mantle, covering streaming, tools,
+replay, Chat Completions and text embeddings as applicable. Sol 6.1 has a passing local live
+result from the user-added test. DeepSeek live image and generation checks remain unrun
+because its API key was absent; URL and Base64 image requests passed mocked JVM tests.
+See the [validation record](docs/latest-models-2026-09.md) for the commands and scope.
+Nova's current API supports text embeddings only. Non-JVM targets, full context-window
+stress tests, release signing and remote publication are outside this local preparation.
+Unsigned local staging passed for all 87 JVM publications: 46 stable and 41 beta coordinates.
+Checks verified 522 primary files, 2088 checksum sidecars and 252 internal POM dependency
+references. A separate JVM consumer compiled and ran against the staged POMs and JARs,
+including the new model definitions and Mantle's OpenAI dependency.
+Existing OpenAI JVM dump drift remains documented; the complete Bedrock JVM dump matches
+compiled classes.
+
 # Kroog 1.1.1-kroog.12
 
 Release preparation incorporating upstream Koog 1.3.0. Kroog keeps its independent version sequence. These notes do not announce Maven Central publication.
