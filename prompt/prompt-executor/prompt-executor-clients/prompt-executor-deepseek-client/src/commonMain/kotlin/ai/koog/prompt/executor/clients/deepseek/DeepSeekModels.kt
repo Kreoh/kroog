@@ -18,7 +18,7 @@ import kotlin.jvm.JvmField
  *
  * | Name                        | Speed  | Price                | Input              | Output      |
  * |-----------------------------|--------|----------------------|--------------------|-------------|
- * | [DeepSeekV4Flash]           | Fast   | $0.44 / $1.32 per 1M | Text, Tools        | Text, Tools |
+ * | [DeepSeekV4Flash]           | Fast   | $0.44 / $1.32 per 1M | Text, Image, Tools | Text, Tools |
  * | [DeepSeekV4FlashVisionExp]  | Fast   | $0.44 / $1.32 per 1M | Text, Image, Tools | Text, Tools |
  * | [DeepSeekV4Pro]             | Medium | $1.74 / $3.48 per 1M | Text, Tools        | Text, Tools |
  *
@@ -27,7 +27,7 @@ import kotlin.jvm.JvmField
 public object DeepSeekModels : LLModelDefinitions {
 
     /**
-     * DeepSeek V4 Flash model optimized for fast, cost-effective generation.
+     * Legacy Flash alias, now routed by DeepSeek to V4.1 Flash with image input.
      * Supports both thinking and non-thinking modes in the DeepSeek API.
      *
      * @see <a href="https://api-docs.deepseek.com/api/create-chat-completion/">Chat Completion API</a>
@@ -45,13 +45,14 @@ public object DeepSeekModels : LLModelDefinitions {
             LLMCapability.Schema.JSON.Standard,
             LLMCapability.MultipleChoices,
             LLMCapability.Thinking,
+            LLMCapability.Vision.Image,
         ),
         contextLength = 1_000_000,
         maxOutputTokens = 384_000
     )
 
     /**
-     * DeepSeek V4 Pro model optimized for advanced reasoning and agentic tasks.
+     * DeepSeek V4 Pro model optimised for advanced reasoning and agentic tasks.
      * Supports both thinking and non-thinking modes in the DeepSeek API.
      *
      * @see <a href="https://api-docs.deepseek.com/api/create-chat-completion/">Chat Completion API</a>
@@ -75,8 +76,7 @@ public object DeepSeekModels : LLModelDefinitions {
     )
 
     /**
-     * DeepSeek V4 Flash Vision (experimental) is a multimodal vision understanding model
-     * with stronger visual agent performance, staying on par with [DeepSeekV4Flash] for pure text tasks.
+     * Legacy experimental vision alias, now routed by DeepSeek to V4.1 Flash.
      * Supports both thinking and non-thinking modes in the DeepSeek API.
      *
      * @see <a href="https://api-docs.deepseek.com/api/create-chat-completion/">Chat Completion API</a>
@@ -101,9 +101,19 @@ public object DeepSeekModels : LLModelDefinitions {
     )
 
     /**
+     * DeepSeek V4.1 Flash supports image input, tools, and thinking or non-thinking generation.
+     * Uses the current stable Flash ID with a one-million-token context window.
+     *
+     * @see <a href="https://api-docs.deepseek.com/guides/vision/">DeepSeek vision guide</a>
+     */
+    @JvmField
+    public val DeepSeekV4_1Flash: LLModel = DeepSeekV4Flash.copy(id = "deepseek-flash")
+
+    /**
      * List of the supported models by the DeepSeek provider.
      */
     private val supportedModels: List<LLModel> = listOf(
+        DeepSeekV4_1Flash,
         DeepSeekV4Flash,
         DeepSeekV4FlashVisionExp,
         DeepSeekV4Pro,

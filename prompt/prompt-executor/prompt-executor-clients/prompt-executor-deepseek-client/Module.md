@@ -143,3 +143,13 @@ val reasoningResponse = client.execute(
     )
 )
 ```
+
+## DeepSeek V4.1 Flash
+
+`DeepSeekModels.DeepSeekV4_1Flash` uses the stable `deepseek-flash` ID and supports image input,
+tools and thinking, with a 1,000,000-token context and 384,000 output tokens. URL and Base64
+images use the standard Chat Completions image format. The older `DeepSeekV4Flash` and
+`DeepSeekV4FlashVisionExp` IDs remain supported aliases routed to V4.1 Flash by DeepSeek,
+and both advertise image input. V4 Pro remains text only.
+
+See the [DeepSeek vision guide](https://api-docs.deepseek.com/guides/vision/).

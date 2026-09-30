@@ -47,6 +47,39 @@ import kotlin.time.Instant
 import kotlinx.serialization.json.Json as KotlinxJson
 
 class DeepSeekLLMClientTest {
+    @Test
+    fun testFlashVisionSerialisesUrlAndBase64Images() = runTest {
+        val sources = listOf(
+            ai.koog.prompt.message.AttachmentContent.URL("https://example.test/picture.png"),
+            ai.koog.prompt.message.AttachmentContent.Binary.Base64("aGVsbG8="),
+        )
+        val urls = listOf("https://example.test/picture.png", "data:image/png;base64,aGVsbG8=")
+        for (model in listOf(DeepSeekModels.DeepSeekV4_1Flash, DeepSeekModels.DeepSeekV4Flash, DeepSeekModels.DeepSeekV4FlashVisionExp)) {
+            sources.zip(urls).forEach { (source, expectedUrl) ->
+                var captured: JsonObject? = null
+                val mockHttp = HttpClient(MockEngine {
+                    captured = KotlinxJson.parseToJsonElement((it.body as TextContent).text).jsonObject
+                    respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                })
+                val client = DeepSeekLLMClient(apiKey = key, httpClientFactory = KtorKoogHttpClient.Factory(mockHttp))
+                try {
+                    client.execute(Prompt.build("vision") { user {
+                        text("Describe this")
+                        image(ai.koog.prompt.message.AttachmentSource.Image(source, "png"))
+                    } }, model)
+                    val request = requireNotNull(captured)
+                    assertEquals(model.id, request.getValue("model").jsonPrimitive.content)
+                    val image = request.getValue("messages").jsonArray.single().jsonObject
+                        .getValue("content").jsonArray[1].jsonObject
+                    assertEquals("image_url", image.getValue("type").jsonPrimitive.content)
+                    assertEquals(expectedUrl, image.getValue("image_url").jsonObject.getValue("url").jsonPrimitive.content)
+                } finally {
+                    client.close()
+                }
+            }
+        }
+    }
+
 
     @Test
     fun testNativeCacheUsagePreservesInclusiveCounts() = runTest {

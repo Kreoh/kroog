@@ -13,6 +13,17 @@ import kotlin.test.assertSame
 class DeepSeekModelsTest {
 
     @Test
+    fun testV41FlashUsesStableIdAndVisionProfile() {
+        val model = DeepSeekModels.DeepSeekV4_1Flash
+        assertEquals("deepseek-flash", model.id)
+        assertEquals(DeepSeekModels.DeepSeekV4Flash.copy(id = model.id), model)
+        assertSame(model, DeepSeekModels.models.single { it.id == model.id })
+        assertSame(model, DeepSeekModels.list().single { it.id == model.id })
+        kotlin.test.assertTrue(model.supports(LLMCapability.Vision.Image))
+        kotlin.test.assertFalse(DeepSeekModels.DeepSeekV4Pro.supports(LLMCapability.Vision.Image))
+    }
+
+    @Test
     fun testExperimentalVisionModelExposesExactProfile() {
         val model = DeepSeekModels.DeepSeekV4FlashVisionExp
         assertEquals("deepseek-v4-flash-vision-exp", model.id)
@@ -37,7 +48,7 @@ class DeepSeekModelsTest {
         )
         assertEquals(
             DeepSeekModels.DeepSeekV4Flash.capabilities,
-            model.capabilities?.filterNot { it == LLMCapability.Vision.Image },
+            model.capabilities,
         )
     }
 
