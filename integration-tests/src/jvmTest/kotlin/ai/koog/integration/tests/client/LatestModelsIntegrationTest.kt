@@ -56,6 +56,26 @@ class LatestModelsIntegrationTest {
     }
 
     @Test
+    fun integration_testOpenAISol61() = runTest(timeout = 180.seconds) {
+        val model = OpenAIModels.Chat.GPT6_1Sol
+        Models.assumeAvailable(model.provider)
+        val key = credential("OPEN_AI_API_TEST_KEY", "OPENAI_API_KEY")
+        val metadata = modelMetadata("https://api.openai.com/v1/models/" + model.id,
+            mapOf("Authorization" to "Bearer " + key))
+        assertEquals(model.id, metadata.getValue("id").jsonPrimitive.content)
+        OpenAILLMClient(key).use { client ->
+            checkGeneration(client, model, OpenAIResponsesParams(
+                maxTokens = 2048, reasoning = ReasoningConfig(effort = ReasoningEffort.LOW), stateless = true,
+            ))
+            val chat = client.execute(prompt("sol61-live-chat", params = OpenAIChatParams(
+                maxTokens = 2048, reasoningEffort = ReasoningEffort.LOW,
+            )) { user("Reply with the single word PONG.") }, model)
+            assertTrue(chat.parts.filterIsInstance<MessagePart.Text>().joinToString { it.text }.contains("PONG"))
+            assertTrue((chat.metaInfo.outputTokensCount ?: 0) > 0)
+        }
+    }
+
+    @Test
     fun integration_testOpenAILuna() = runTest(timeout = 180.seconds) {
         checkOpenAI(OpenAIModels.Chat.GPT6Luna)
     }

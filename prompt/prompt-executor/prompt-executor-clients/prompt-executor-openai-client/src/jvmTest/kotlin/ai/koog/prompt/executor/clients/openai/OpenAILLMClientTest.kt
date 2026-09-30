@@ -30,6 +30,64 @@ import kotlin.test.assertIs
 class OpenAILLMClientTest {
 
     @Test
+    fun testSol61RoutingReasoningAndRawToolRestrictions() {
+        val original = OpenAIModels.Chat.GPT6_1Sol
+        listOf(
+            original,
+            original.copy(id = "sol61-deployment"),
+            original.copy(id = "rebuilt-sol61", capabilities = original.capabilities.orEmpty().toList()),
+        ).forEach { model ->
+            assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
+            assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
+            listOf(null, "low", "medium", "high", "xhigh", "max").forEach { effort ->
+                val additional = mapOf("temperature" to JsonPrimitive(0.4), "top_p" to JsonPrimitive(0.8),
+                    "logprobs" to JsonPrimitive(true), "top_logprobs" to JsonPrimitive(5))
+                val chat = chatRequest(model, OpenAIChatParams(additionalProperties = additional +
+                    (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())))
+                val responses = responsesRequest(model, OpenAIResponsesParams(additionalProperties = additional +
+                    (effort?.let { mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(it)) }) }
+                        ?: emptyMap()),
+                    include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL)))
+                chat["reasoning_effort"]?.jsonPrimitive?.content shouldBe effort
+                responses["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content shouldBe effort
+                listOf(chat, responses).forEach { request ->
+                    request["model"]?.jsonPrimitive?.content shouldBe model.id
+                    additional.keys.forEach { request.containsKey(it) shouldBe false }
+                }
+                responses["include"]?.jsonArray?.map { it.jsonPrimitive.content } shouldBe
+                    listOf("message.input_image.image_url")
+            }
+            listOf(ReasoningEffort.NONE, ReasoningEffort.MINIMAL).forEach { effort ->
+                assertFailsWith<IllegalArgumentException> {
+                    chatRequest(model, OpenAIChatParams(reasoningEffort = effort))
+                }
+                assertFailsWith<IllegalArgumentException> {
+                    responsesRequest(model, OpenAIResponsesParams(reasoning = ReasoningConfig(effort = effort)))
+                }
+            }
+            listOf("none", "minimal", "ultra").forEach { effort ->
+                assertFailsWith<IllegalArgumentException> {
+                    chatRequest(model, OpenAIChatParams(additionalProperties =
+                        mapOf("reasoning_effort" to JsonPrimitive(effort))))
+                }
+                assertFailsWith<IllegalArgumentException> {
+                    responsesRequest(model, OpenAIResponsesParams(additionalProperties =
+                        mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(effort)) })))
+                }
+            }
+            val tools = Json.parseToJsonElement("""[{"type":"function","function":{"name":"lookup"}}]""")
+            listOf("tools" to tools, "tool_choice" to JsonPrimitive("auto"),
+                "parallel_tool_calls" to JsonPrimitive(false)).forEach { property ->
+                assertFailsWith<IllegalArgumentException> {
+                    chatRequest(model, OpenAIChatParams(additionalProperties = mapOf(property)))
+                }
+            }
+            responsesRequest(model, OpenAIResponsesParams(additionalProperties = mapOf("tools" to tools)))
+                .get("tools") shouldBe tools
+        }
+    }
+
+    @Test
     fun testSolAndLunaProfilesRoutingAndReasoningRestrictions() {
         listOf(OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna).forEach { original ->
             original.contextLength shouldBe 1_050_000

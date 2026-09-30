@@ -66,7 +66,7 @@ class OpenAIChatCompletionLLMClientTest {
     }
 
     @Test
-    fun testAstraExplicitChatRejectsToolsBeforeNetworkOnEveryEntryPoint() = runTest {
+    fun testReasoningOnlyModelsRejectChatToolsBeforeNetworkOnEveryEntryPoint() = runTest {
         var requests = 0
         val engine = MockEngine {
             requests++
@@ -102,18 +102,20 @@ class OpenAIChatCompletionLLMClientTest {
                 params = OpenAIChatParams(),
             ) to emptyList(),
         )
-        cases.forEach { (prompt, tools) ->
-            val failures = listOf(
-                assertFailsWith<IllegalArgumentException> { client.execute(prompt, OpenAIModels.Chat.GPT6Astra, tools) },
-                assertFailsWith<IllegalArgumentException> {
-                    client.executeStreaming(prompt, OpenAIModels.Chat.GPT6Astra, tools).toList()
-                },
-            )
-            failures.forEach { assertTrue(it.message.orEmpty().contains("Use OpenAIResponsesParams")) }
-            val multipleChoicesFailure = assertFailsWith<IllegalArgumentException> {
-                client.executeMultipleChoices(prompt, OpenAIModels.Chat.GPT6Astra, tools)
+        listOf(OpenAIModels.Chat.GPT6Astra, OpenAIModels.Chat.GPT6_1Sol).forEach { model ->
+            cases.forEach { (prompt, tools) ->
+                val failures = listOf(
+                    assertFailsWith<IllegalArgumentException> { client.execute(prompt, model, tools) },
+                    assertFailsWith<IllegalArgumentException> {
+                        client.executeStreaming(prompt, model, tools).toList()
+                    },
+                )
+                failures.forEach { assertTrue(it.message.orEmpty().contains("Use OpenAIResponsesParams")) }
+                val multipleChoicesFailure = assertFailsWith<IllegalArgumentException> {
+                    client.executeMultipleChoices(prompt, model, tools)
+                }
+                assertTrue(multipleChoicesFailure.message.orEmpty().contains("multiple"))
             }
-            assertTrue(multipleChoicesFailure.message.orEmpty().contains("multiple"))
         }
         assertEquals(0, requests)
     }

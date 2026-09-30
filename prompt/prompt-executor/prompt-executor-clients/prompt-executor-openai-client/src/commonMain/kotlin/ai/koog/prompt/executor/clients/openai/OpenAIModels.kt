@@ -1006,6 +1006,18 @@ public object OpenAIModels : LLModelDefinitions {
             capabilities = GPT6Astra.capabilities.orEmpty() + LLMCapability.Temperature,
         )
 
+        /**
+         * GPT-6.1 Sol accepts text and images, with a 1,050,000-token context window
+         * and up to 128,000 output tokens. Defaults to Responses, which is required for tools.
+         * Explicit Chat Completions supports text generation without tools.
+         * Supports `low`, `medium` (default), `high`, `xhigh` and `max` reasoning;
+         * `none` and `minimal` are unsupported. Sampling controls are omitted.
+         *
+         * @see <a href="https://developers.openai.com/api/docs/models/gpt-6.1-sol">Model page</a>
+         */
+        @JvmField
+        public val GPT6_1Sol: LLModel = GPT6Astra.copy(id = "gpt-6.1-sol")
+
         private val gpt5_6Capabilities: List<LLMCapability> = listOf(
             LLMCapability.Completion,
             LLMCapability.Speculation,
@@ -1298,6 +1310,7 @@ public object OpenAIModels : LLModelDefinitions {
             Chat.GPT5_6Luna,
             Chat.GPT6Astra,
             Chat.GPT6Sol,
+            Chat.GPT6_1Sol,
             Chat.GPT6Luna,
             Chat.GPT5Mini,
 

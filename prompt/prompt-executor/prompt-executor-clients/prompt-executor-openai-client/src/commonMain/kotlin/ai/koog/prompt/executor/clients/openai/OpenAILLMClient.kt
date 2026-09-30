@@ -496,11 +496,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             request["reasoning_effort"]?.jsonPrimitive?.contentOrNull
         }
         require(effort == null || effort in setOf("low", "medium", "high", "xhigh", "max") ||
-            (!model.isGpt6Astra() && effort == "none")) {
-            if (model.isGpt6Astra()) "Use low instead of none or minimal for GPT-6 Astra."
+            (!model.isGpt6ReasoningOnly() && effort == "none")) {
+            if (model.isGpt6ReasoningOnly()) "Use low instead of none or minimal for ${model.id}."
             else "${model.id} does not support reasoning effort $effort. Use low instead of minimal."
         }
-        if (!responses && (model.isGpt6Astra() || effort != "none")) {
+        if (!responses && (model.isGpt6ReasoningOnly() || effort != "none")) {
             require(
                 request["tools"]?.jsonArray.isNullOrEmpty() &&
                     "tool_choice" !in request &&
@@ -510,9 +510,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         message["role"]?.jsonPrimitive?.content == "tool" ||
                             !message["tool_calls"]?.jsonArray.isNullOrEmpty()
                     }
-            ) { "GPT-6 tool calling with reasoning requires Responses. Use OpenAIResponsesParams. Sol and Luna also allow Chat with effort none." }
+            ) { "GPT-6 tool calling with reasoning requires Responses. Use OpenAIResponsesParams. GPT-6 Sol and Luna also allow Chat with effort none." }
         }
-        if (!model.isGpt6Astra() && effort == "none") return payload
+        if (!model.isGpt6ReasoningOnly() && effort == "none") return payload
         val compatible = request.toMutableMap()
         setOf("temperature", "top_p", "top_logprobs", "logprobs").forEach { compatible.remove(it) }
         if (responses) {
@@ -525,10 +525,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
     }
 
-    private fun LLModel.isGpt6Astra(): Boolean =
-        id == OpenAIModels.Chat.GPT6Astra.id || matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
+    private fun LLModel.isGpt6ReasoningOnly(): Boolean =
+        id == OpenAIModels.Chat.GPT6Astra.id || id == OpenAIModels.Chat.GPT6_1Sol.id || matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
 
-    private fun LLModel.isGpt6(): Boolean = isGpt6Astra() ||
+    private fun LLModel.isGpt6(): Boolean = isGpt6ReasoningOnly() ||
         id == OpenAIModels.Chat.GPT6Sol.id || id == OpenAIModels.Chat.GPT6Luna.id ||
         matchesGpt6Profile(OpenAIModels.Chat.GPT6Sol)
 
