@@ -16,7 +16,7 @@ val result = images.generate(request)
 val bytes = result.data.single().bytes()
 ```
 
-The initial model selected for the ChatUI handoff is `gpt-image-2.5-sunburst`. The client requires an explicit model string and does not infer it from the conversation model or hard-code a default. Availability and model-specific option combinations remain provider-validated. This API targets GPT Image models, with base64 outputs; legacy DALL-E URL outputs and variations are outside its contract.
+The example above uses `gpt-image-2.5-sunburst`. The client requires an explicit model string and does not infer it from the conversation model or hard-code a default. Availability and model-specific option combinations remain provider-validated. This API targets GPT Image models, with base64 outputs; legacy DALL-E URL outputs and variations are outside its contract.
 
 ## Editing
 

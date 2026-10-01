@@ -2,6 +2,10 @@
 
 Upstream adoption, retained-contract checks and local JVM publication validation are checkpointed. This audit preserves the original provenance and records final path accounting without changing release numbering. The final blind whole-plan review remains pending; slice acceptance does not imply whole-plan acceptance. See [S8 final accounting](#s8-final-accounting).
 
+The catalogue fixture paths below use the current neutral filename,
+`model-catalogue.txt`. The fixture was renamed after this audit; recorded blob
+hashes and historical validation results are unchanged.
+
 ## Immutable source
 
 | Reference | Object |
@@ -394,7 +398,7 @@ Regression names in the historical ledgers are evidence anchors. Their actual ou
 | F219 | A | absent | prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/models/ModelCatalogueTest.kt | absent | absent | 09d209f5f52bdcc9d6abd53ffd7c16f8266de09d | S2 | Retained exactly from H; B=U. ModelCatalogueTest: all 12 pass; assertions inspected; see S2 validation |
 | F220 | A | absent | prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/provider/ProviderCapabilityMatrixTest.kt | absent | absent | 67a609c4aa2085da8323ea35870b9f0bd51e53ec | S2 | Retained exactly from H; B=U. ProviderCapabilityMatrixTest: all 7 pass; assertions inspected; see S2 validation |
 | F221 | A | absent | prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/streaming/ManagedGeneratedFileFrameTest.kt | absent | absent | 10f538c01bf188334b03a6ec704dc7fb874daf1f | S2 | Retained exactly from H; B=U. ManagedGeneratedFileFrameTest: all 11 pass; assertions inspected; see S2 validation |
-| F222 | A | absent | prompt/prompt-model/src/jvmTest/resources/model-catalogue/krellm-model-catalogue.txt | absent | absent | 6859a90a49d7e1ad95fa695953d0c56679fc8a69 | S2 | Retained exactly from H; B=U. ModelCatalogueTest exact normalised golden comparison passes; 38 semantic IDs retained; see S2 validation |
+| F222 | A | absent | prompt/prompt-model/src/jvmTest/resources/model-catalogue/model-catalogue.txt | absent | absent | 6859a90a49d7e1ad95fa695953d0c56679fc8a69 | S2 | Retained exactly from H; B=U. ModelCatalogueTest exact normalised golden comparison passes; 38 semantic IDs retained; see S2 validation |
 | F223 | M | prompt/prompt-tokenizer/src/commonMain/kotlin/ai/koog/prompt/tokenizer/PromptTokenizer.kt | prompt/prompt-tokenizer/src/commonMain/kotlin/ai/koog/prompt/tokenizer/PromptTokenizer.kt | 2c8aeaee0cdc5aadbe2335edcaabf31243fb8410 | 2c8aeaee0cdc5aadbe2335edcaabf31243fb8410 | 7d7f692b5c2c615581bbb666653bf2980f82b745 | S5c | Retained H unchanged; assigned JVM presentation regressions passed; see S5c validation; B=U |
 | F224 | M | prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt | prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt | c77a34e68cc331c4f8f3da98544cdc2219442360 | c77a34e68cc331c4f8f3da98544cdc2219442360 | e442082adb31c7229bfb243ddb76c9338e7609b1 | S5c | Retained H unchanged; assigned JVM presentation regressions passed; see S5c validation; B=U |
 | F225 | M | settings.gradle.kts | settings.gradle.kts | 451015ad7f16f75f76bf768cc111799d99901215 | 53638c13fdc85b4de98fe2dd1243421ffd55e7ee | 47256fc64a231c1fe1cddb8d8c7a08d09a615ba8 | S1 | Adapted with Kroog module graph; upstream skills inclusion already present, retained H; S1 |
@@ -1878,7 +1882,7 @@ covered, including all new tests and documentation.
 | `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/models/ModelCatalogueTest.kt` | 09d209f5f52bdcc9d6abd53ffd7c16f8266de09d | F219 | C=H |
 | `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/provider/ProviderCapabilityMatrixTest.kt` | 67a609c4aa2085da8323ea35870b9f0bd51e53ec | F220 | C=H |
 | `prompt/prompt-model/src/jvmTest/kotlin/ai/koog/prompt/streaming/ManagedGeneratedFileFrameTest.kt` | 10f538c01bf188334b03a6ec704dc7fb874daf1f | F221 | C=H |
-| `prompt/prompt-model/src/jvmTest/resources/model-catalogue/krellm-model-catalogue.txt` | 6859a90a49d7e1ad95fa695953d0c56679fc8a69 | F222 | C=H |
+| `prompt/prompt-model/src/jvmTest/resources/model-catalogue/model-catalogue.txt` | 6859a90a49d7e1ad95fa695953d0c56679fc8a69 | F222 | C=H |
 | `prompt/prompt-tokenizer/src/commonMain/kotlin/ai/koog/prompt/tokenizer/PromptTokenizer.kt` | 7d7f692b5c2c615581bbb666653bf2980f82b745 | F223 | C=H |
 | `prompt/prompt-tokenizer/src/commonTest/kotlin/ai/koog/prompt/tokenizer/PromptTokenizerTest.kt` | e442082adb31c7229bfb243ddb76c9338e7609b1 | F224 | C=H |
 | `settings.gradle.kts` | 47256fc64a231c1fe1cddb8d8c7a08d09a615ba8 | U047, F225 | C=H |

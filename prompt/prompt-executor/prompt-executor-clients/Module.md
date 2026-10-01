@@ -31,7 +31,7 @@ respective API requirements.
 ### Adding or changing model support
 
 Update the provider definitions and registry together with the central `ModelCatalogue` profiles, aliases and
-provider API compatibility. ChatUI uses that catalogue to discover capabilities and limits.
+provider API compatibility. Applications use that catalogue to discover capabilities and limits.
 A new deployment of an existing semantic model requires a route review rather than a duplicate semantic profile.
 
 Complete the model support gate in [TESTING.md](../../../TESTING.md): add catalogue lookup and profile regression

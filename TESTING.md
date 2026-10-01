@@ -41,7 +41,7 @@ Before declaring model support complete:
       that capabilities are identical across provider APIs.
 - [ ] Add regression tests that fail when the affected profile, alias or route declaration is omitted or wrong.
       Update `ModelCatalogueTest`'s expected IDs and
-      `prompt/prompt-model/src/jvmTest/resources/model-catalogue/krellm-model-catalogue.txt` together with the source.
+      `prompt/prompt-model/src/jvmTest/resources/model-catalogue/model-catalogue.txt` together with the source.
       Updating the golden fixture alone does not establish correctness.
 - [ ] Run the catalogue JVM tests and the affected provider JVM tests, and record their commands and results.
 - [ ] Resolve any catalogue contract gap before release, including model kinds, publishers, unknown limits

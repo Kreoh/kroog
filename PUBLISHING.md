@@ -6,32 +6,46 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.1.1-kroog.15`; modules which apply a beta version transform
+stable version is `1.3.0-kroog.1`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
 ## Kroog version numbering
 
-Kroog maintains its own release sequence, independently of upstream Koog.
-Merging an upstream release does not change the Kroog version or reset its
-revision. Record the upstream version in the release notes and alignment audit.
-Change the Kroog base version only through an explicit Kroog release decision.
+Kroog uses `UPSTREAM_VERSION-kroog.REVISION`. The major, minor and patch
+components must match the latest incorporated upstream Koog release. The
+`kroog` revision counts Kroog releases based on that upstream version.
 
-`gradle.properties` is the source of truth for the stable version. On the
-current release line, increment the numeric `kroog` revision for each new
-release: `1.1.1-kroog.14` is followed by `1.1.1-kroog.15`, including when the
-release incorporates upstream Koog 1.3.0. Do not infer `1.3.0-kroog.1` from
-that upstream update.
+- When incorporating a newer Koog release, update all three base components to
+  that release and reset the Kroog revision to `1`.
+- While the incorporated Koog version stays unchanged, increment only the
+  Kroog revision for subsequent releases.
+- For example, incorporating Koog `1.3.0` changes the release line from
+  `1.1.1-kroog.15` to `1.3.0-kroog.1`. A subsequent Kroog release on that
+  baseline is `1.3.0-kroog.2`; incorporating Koog `1.3.1` starts
+  `1.3.1-kroog.1`.
+- Never keep an older base version after incorporating a newer upstream
+  release. Document Kroog-specific features, fixes and compatibility changes
+  in the release notes.
+- Preserve existing tags, published coordinates and historical validation
+  records. If a proposed coordinate was already used, choose the next unused
+  revision on the correct upstream base; never overwrite it.
 
-For a release configured as `1.1.1-kroog.15`, the version forms are:
+`gradle.properties` is the source of truth for the configured Kroog version.
+Before release preparation, compare its base with the incorporated upstream
+version recorded in the alignment audit. A mismatch blocks release. Update
+the README, current dependency examples and version documentation together.
+See `VERSIONING.md` for the policy and beta-module version forms.
+
+For a release configured as `1.3.0-kroog.1`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.1.1-kroog.15` |
-| Beta modules, derived automatically | `1.1.1-beta-kroog.15` |
-| Stable module snapshots | `1.1.1-kroog.15-SNAPSHOT` |
-| Beta module snapshots | `1.1.1-beta-kroog.15-SNAPSHOT` |
-| Annotated release tag | `1.1.1-kroog.15` |
+| Stable modules | `1.3.0-kroog.1` |
+| Beta modules, derived automatically | `1.3.0-beta-kroog.1` |
+| Stable module snapshots | `1.3.0-kroog.1-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.1-SNAPSHOT` |
+| Annotated release tag | `1.3.0-kroog.1` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
@@ -59,8 +73,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.1.1-beta-kroog.15-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.15`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.3.0-beta-kroog.1-SNAPSHOT`, and its release version is
+`1.3.0-beta-kroog.1`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.
@@ -102,42 +116,6 @@ points at an unpublished Kotlin Multiplatform root. The target-only contract
 therefore consumes the generated POM and binary artefact explicitly and ignores
 Gradle metadata redirection. The `.module` files remain required, checksummed
 publication evidence; consumers must not use them for dependency resolution.
-
-## Refresh the ChatUI eligibility manifest
-
-ChatUI tracks `gradle/kroog-jvm-publication-manifest.json` as the fail-closed
-eligibility contract for local Kroog repositories. Generate it deterministically
-from one clean publication. It records the trusted schema, group, source commit,
-stable and beta versions, common timestamp generation, exact sorted coordinate
-set and kind, plus seven sorted primary-file records per coordinate: binary,
-sources and Javadoc JARs, POM, `.module`, version Maven metadata and coordinate
-Maven metadata. Every file record contains a repository-relative path, non-zero
-size and SHA-256.
-
-ChatUI validates the complete source tree without following links. Each accepted
-Gradle invocation creates an unpredictable owner-only directory under the JVM
-temporary root, copies only the recorded primary files into it and resolves from
-that private verified snapshot. POSIX mode 0700 or an exactly verified
-single-owner ACL is mandatory. Immediately before every project or buildscript
-configuration resolves, ChatUI rechecks the captured root identity and exact
-609-file sizes, hashes and no-follow closure. Kroog is not configured as a
-Gradle plugin repository. Concurrent builds share no snapshot, lock or cache.
-Build-finished and JVM-shutdown hooks attempt bounded cleanup without following
-links and only while the root retains its original identity. A process crash can
-leave one unpredictable temporary directory; later builds do not scan arbitrary
-temporary parents. Checksum sidecars remain in the publication source and are
-not copied. Explicit remote selection branches before ChatUI reads any local
-override, manifest or publication path and creates no snapshot.
-
-After regeneration, update ChatUI's `kroogSourceCommit`,
-`kroogSnapshotGeneration` and `kroogManifestSha256` properties together with
-the stable or beta version properties when they change. Run the validator
-tamper table for a missing coordinate, mixed generation, changed file, extra
-root coordinate and stale timestamp generation. Explicit `local` must reject
-each copy with a sanitised reason code, while `auto` must fall back to Central Portal.
-The exact repository must pass local compilation, dependency reports and named
-dependency insights. Do not refresh dependency locks or verification metadata
-when the resolved external graph is unchanged.
 
 ## Central Portal
 
@@ -182,11 +160,15 @@ dependency locks and dependency-verification checksums from that generation.
 
 1. Merge the intended feature and fix PRs into `master`, including any branch
    refreshes. Choose the exact source commit to prepare for release.
-2. Check existing release tags and choose the next unused Kroog revision. Update
+2. Verify the incorporated Koog version against the alignment audit. Match the
+   Kroog base to that version and reset the revision to `1` when the upstream
+   base changes. Check existing tags and published coordinates before choosing
+   the next unused revision on that base. Update
    `version` in `gradle.properties`, current dependency examples and version
    documentation. Keep historical release notes and audit evidence unchanged.
 3. Add Kroog release notes covering user-visible features, fixes, compatibility
-   changes and the incorporated upstream version. Review the release commit.
+   changes and the incorporated upstream version. Complete the README release
+   gate below and review the release commit.
 4. Complete the model catalogue release gate below for every model change.
    Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
    failing CI checks and document any existing limitations before release.
@@ -207,6 +189,43 @@ The CI workflow is manually dispatched and uploads a deployment for human
 approval in Central Portal. Never reuse or move a tag after a failed release;
 prepare a new Kroog revision and tag for the corrected release.
 
+### README release gate
+
+Before tagging each release, review every README section against the chosen
+release source and update it alongside the release notes. README accuracy is a
+release requirement.
+
+- Keep Kroog's identity, Apache 2.0 licence, JVM-only scope and relationship with
+  upstream Koog clear. Record the exact incorporated Koog version and comparison
+  date. Describe contributions upstream only where supported by evidence.
+- Refresh the additional features and fixes section against that incorporated
+  Koog baseline. Link each difference to implementation, tests or release notes.
+  Remove or qualify differences that the incorporated upstream version now
+  includes. Avoid undated claims that upstream lacks a feature.
+- Refresh the recent model table, especially OpenAI, Anthropic and Google.
+  Distinguish the model developer from each supported hosting provider and API.
+  Verify entries against both provider definitions and the central
+  `ModelCatalogue`, including aliases and route-specific restrictions. State the
+  verification date and relevant Kroog release; link to detailed capability and
+  validation evidence. Do not infer one route's support from another route.
+- Keep Maven Central installation instructions current for Gradle Kotlin DSL
+  and Maven: repository configuration, `com.kreoh.kroog` coordinates, JVM artefact
+  IDs, the stable umbrella, optional beta modules and their distinct versions,
+  JVM requirements and the required POM-based Gradle resolution settings.
+  Explain that Kotlin imports remain under `ai.koog`.
+- Check the minimal usage example and linked documentation against the release
+  API. Keep installation examples on a confirmed published version until the
+  new artefacts are available from Central, then update them and verify
+  dependency resolution. Clearly distinguish release preparation from published
+  availability.
+- Keep documentation about Kroog self-contained. Do not name consuming projects
+  or include their internal configuration, deployment procedures, credentials
+  setup or adoption claims. Use generic application examples where needed.
+
+Record the README review and any deferred post-publication version update in the
+release evidence. A stale feature comparison or unsupported model-route claim
+blocks release preparation.
+
 ### Model catalogue release gate
 
 Before creating a release tag or dispatching publication, review every model addition and profile change since the
@@ -225,8 +244,8 @@ the intended provider APIs. Check provider definitions alongside the catalogue, 
 restrictions and the distinction between context windows and input limits. Record the source commit, resolved
 coordinates, assertions and test result in the release evidence.
 
-ChatUI relies on Kroog's catalogue for capability and limit discovery. Repair omissions in Kroog and publish a new
-revision before updating consumers. Keep previously pushed release tags immutable.
+Applications rely on Kroog's catalogue for capability and limit discovery. Repair catalogue omissions before
+release; if a release is already published, prepare a new revision. Keep previously pushed release tags immutable.
 
 ### Tagging and CI dispatch
 

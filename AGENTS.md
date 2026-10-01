@@ -4,6 +4,16 @@ Koog is a Kotlin multiplatform framework for building AI agents with graph-based
 It supports JVM and JS targets and integrates with multiple LLM providers
 (OpenAI, Anthropic, Google, OpenRouter, Ollama) and Model Context Protocol (MCP).
 
+## Kroog release versioning
+
+- Use `UPSTREAM_VERSION-kroog.REVISION`. The base must match the latest incorporated Koog release.
+- On an upstream version change, update the base and reset the Kroog revision to `1`.
+  Increment only the suffix for subsequent releases on that same upstream base.
+- Compare `gradle.properties` with the upstream alignment audit before release preparation.
+  A mismatch blocks release. Koog `1.3.0` corresponds to Kroog `1.3.0-kroog.1` for the first revision.
+- Update current version documentation and dependency examples together. Preserve historical tags,
+  published coordinates and validation records. Follow `VERSIONING.md` and `PUBLISHING.md`.
+
 ## Project Structure
 
 The project follows a modular architecture with a clear separation of concerns:
@@ -106,7 +116,8 @@ Read and follow the Quality Gates section in /TESTING.md before considering any 
 
 For every model addition or change to capabilities, limits, reasoning, sampling or provider routes, review both the
 provider model definitions and `ModelCatalogue` in `prompt/prompt-model`. Provider registration alone does not
-complete model support. ChatUI consumes the central catalogue for capabilities and limits.
+complete model support. Applications consume the central catalogue for capabilities and limits.
+Keep repository documentation self-contained: do not name consuming projects or include their internal setup.
 
 - Add or update the canonical semantic profile, explicit aliases and supported provider APIs in the same change.
   For a new deployment of an existing semantic model, update its route compatibility instead of duplicating the profile.

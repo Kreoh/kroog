@@ -11,7 +11,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueMatchesNormalisedBaselineAndProviderVerifiedGolden() {
         val expected = assertNotNull(
-            javaClass.getResourceAsStream("/model-catalogue/krellm-model-catalogue.txt")
+            javaClass.getResourceAsStream("/model-catalogue/model-catalogue.txt")
         ).bufferedReader().use { it.readText().trimEnd() }
 
         assertEquals(expected, ModelCatalogue.normalisedSnapshot())

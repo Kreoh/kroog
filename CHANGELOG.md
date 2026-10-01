@@ -1,3 +1,17 @@
+# Kroog 1.3.0-kroog.1
+
+Release preparation aligning the Kroog version with incorporated upstream Koog
+1.3.0. This corrects the former 1.1.1-based numbering and resets the Kroog
+revision to 1. Further releases on the same upstream baseline increment the
+Kroog revision; incorporating a newer Koog version updates the base and resets
+the revision again.
+
+Stable modules use `1.3.0-kroog.1`; beta modules use
+`1.3.0-beta-kroog.1`. Existing release tags and historical validation records
+remain unchanged. Previous validation results belong to their recorded source
+and coordinates. This version correction does not establish validation or
+Maven Central publication of the new coordinates.
+
 # Kroog 1.1.1-kroog.15
 
 Release preparation for cache-write token accounting, following `1.1.1-kroog.14`.

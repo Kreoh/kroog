@@ -48,7 +48,7 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :integration-tests:jvmIntegrati
 
 Each checks streamed text, positive input usage, a tool call, replay of the assistant response and tool result, the returned probe value, and positive output usage. Requests use synthetic prompts and a 2,048-token output budget. Claude uses adaptive thinking with low effort; Gemini uses low thinking. These checks exercise Anthropic's Vertex client and Google's client with an injected authenticated HTTP client.
 
-The Vertex tests accept `VERTEX_ACCESS_TOKEN`, `VERTEX_PROJECT_ID` and optional `VERTEX_LOCATION` (default `eu`). This run used an in-memory OAuth access token derived from the user-specified ChatUI service account and the `eu` location. No credentials are stored in the repository. The `eu` and `us` multi-region endpoints use `https://aiplatform.LOCATION.rep.googleapis.com`, as documented in [Google's endpoint locations](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations). Global and individual regional endpoints are also supported by the test configuration.
+The Vertex tests accept `VERTEX_ACCESS_TOKEN`, `VERTEX_PROJECT_ID` and optional `VERTEX_LOCATION` (default `eu`). This run used an in-memory OAuth access token derived from a user-supplied service account and the `eu` location. No credentials are stored in the repository. The `eu` and `us` multi-region endpoints use `https://aiplatform.LOCATION.rep.googleapis.com`, as documented in [Google's endpoint locations](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations). Global and individual regional endpoints are also supported by the test configuration.
 
 The native Anthropic and Gemini tests compile but remain unrun because direct provider API keys were not supplied. Those separate tests compare token limits with native model metadata before checking streaming and tool replay. The Vertex tests do not call native metadata endpoints. To run the native tests, configure the provider keys and select:
 
@@ -150,7 +150,7 @@ Specifications were checked against the [OpenAI model page](https://developers.o
 [DeepSeek model details](https://api-docs.deepseek.com/quick_start/pricing/),
 [AWS Gemma model card](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-google-gemma-4-31b.html)
 and [Nova embedding guide](https://docs.aws.amazon.com/nova/latest/nova2-userguide/embeddings.html).
-The frozen KreLLM provenance constants remain unchanged.
+The frozen baseline provenance constants remain unchanged.
 
 Six initial regression tests failed on missing profiles before the correction. Final module-qualified JVM checks
 reported 1,010 tests: 1,007 passed, three existing Markdown DSL tests skipped, and no failures or errors.

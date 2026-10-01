@@ -136,8 +136,8 @@ public data class ModelCatalogueIssue(
 /**
  * Kroog's authoritative semantic model catalogue.
  *
- * The source constants identify the frozen KreLLM baseline used for the original entries. Entries added after that
- * baseline cite their provider documentation in source comments and do not claim KreLLM provenance.
+ * The source constants identify the frozen baseline used for the original entries. Entries added after that
+ * baseline cite their provider documentation in source comments and do not claim provenance from that baseline.
  */
 public object ModelCatalogue {
     public const val sourceRevision: String = "ee0eb29e3f0befa21f8637b713fe5d00ce1113df"
@@ -211,7 +211,7 @@ public object ModelCatalogue {
             input = 922_000,
             providerApis = openAiAzureCodex,
         ),
-        // Added after the frozen KreLLM baseline. OpenAI documentation:
+        // Added after the frozen baseline. OpenAI documentation:
         // https://developers.openai.com/api/docs/models/gpt-6-astra
         // https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra
         openAiReasoning(
