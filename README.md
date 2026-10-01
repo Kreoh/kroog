@@ -8,9 +8,9 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Comparison checked on **1 October 2026**: this README describes the source at [commit `cbcf83d1e`][release-source], prepared as `1.3.0-kroog.1` (beta modules: `1.3.0-beta-kroog.1`). The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Comparison checked on **1 October 2026**: this README describes the source at [commit `7ca670394e`][release-source], prepared as `1.3.0-kroog.2` (beta modules: `1.3.0-beta-kroog.2`). The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
-`1.3.0-kroog.1` is **release preparation, not a Maven Central publication announcement**. Installation examples below use confirmed published revision 15. Later working-tree changes are outside this comparison.
+The first streamed-identity preparation is `1.3.0-kroog.1`; the later correctness batches prepare `1.3.0-kroog.2`. **Both are unpublished release preparations.** Installation examples below use confirmed published revision 15. The [correctness import record][correctness-imports] identifies the three batches and pinned upstream authorship.
 
 Compared with that upstream baseline, Kroog retains these additions and adaptations:
 
@@ -19,9 +19,14 @@ Compared with that upstream baseline, Kroog retains these additions and adaptati
 - **Token accounting:** keep input and total usage inclusive, expose cache reads and writes separately, and preserve omitted counts versus reported zero. OpenAI and Azure cache-write counts survive ordinary and streamed responses, including incomplete responses. See the [revision 15 notes][release-notes]. Upstream Google cache-count support is incorporated with the fork's structured accounting retained [in the audit][alignment].
 - **Model catalogue:** expose canonical semantic profiles, explicit aliases, reasoning and sampling restrictions, MIME types and provider API compatibility. Deployment names remain separate from semantic IDs. See [the catalogue][catalogue] and [revision 14 notes][release-notes].
 - **Streamed tool-call identities:** buffer early argument fragments until a usable ID and name arrive, then emit them once in per-call order with resolved identity. Parallel calls remain separate. Completion retains the full arguments without replaying argument deltas. Google emits serialised parsed arguments; this release does not establish incremental Google argument support. See the [identity release notes][release-notes].
+- **Correctness batches:** improve nested tool schemas, discriminator handling, Gemini argument and safety handling, request credentials, memory pairing, parallel context isolation, MCP schemas, tracing and Spring metadata. See the [import record][correctness-imports].
+- **Streamed history and serialisers:** record completed streamed responses automatically within active write sessions, preserving metadata, tools and reasoning. Failed, cancelled or incomplete streams leave history unchanged. Explicit cache directive serializer modules preserve concrete types. See the [remaining changes][correctness-imports].
+- **Batch embeddings and DeepSeek helpers:** add batch embedding APIs with a compatible sequential default, an OpenAI batch path and simple DeepSeek executor helpers. See the [remaining changes][correctness-imports].
 - **Skills discovery safeguards:** retain strict YAML validation, immutable registries, typed loading and secure JVM filesystem discovery while adopting upstream skills APIs. See [the alignment audit][alignment].
 
 Upstream features such as skills discovery, Bedrock AgentCore Runtime, Google cache-count parsing and Langfuse reasoning traces are incorporated baseline features. The audit records their fork adaptations.
+
+The source validation covers 26 affected JVM suites and two Spring suites, with 2,665 passing tests and 57 existing skips. These are local test results and do not establish live provider compatibility or Maven Central publication. See the [import record][correctness-imports] for scope.
 
 ## Recent model support
 
@@ -112,7 +117,7 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
 ### Published dependencies
 
-Checked on **1 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.1.1-kroog.15` and the [beta additions umbrella POM][beta-pom] at `1.1.1-beta-kroog.15`. The stable `1.3.0-kroog.1` umbrella POM returns HTTP 404. Keep the following published coordinates until the prepared release is published and verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
+Checked on **1 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.1.1-kroog.15` and the [beta additions umbrella POM][beta-pom] at `1.1.1-beta-kroog.15`. The prepared stable `1.3.0-kroog.2` umbrella POM returns HTTP 404. Keep the following published coordinates until the prepared release is published and verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
 
 The stable umbrella supplies the main agent APIs. Add the beta umbrella only when using its additional modules. Gradle consumers should resolve these JVM publications through POMs, using the repository configuration below. See [PUBLISHING.md](PUBLISHING.md) for the publication inventory and resolution checks.
 
@@ -185,16 +190,17 @@ It would be best to contribute directly to upstream Koog, but you can open a PR 
 
 Kroog is licensed under the [Apache 2.0 licence](LICENSE.txt).
 
-[release-source]: https://github.com/Kreoh/kroog/tree/cbcf83d1edbce36022b301a3596600bdf12d1fd6
+[release-source]: https://github.com/Kreoh/kroog/tree/7ca670394ee85767b621ba46dd788b5b4b65a00f
 [upstream-source]: https://github.com/JetBrains/koog/tree/3acc88cf8ce70b87d8afbd3cf184844a50aa504e
-[alignment]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/docs/upstream/koog-1.3.0-alignment.md
-[model-validation]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/docs/latest-models-2026-09.md
-[release-notes]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/CHANGELOG.md
-[cache-policy]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt
-[catalogue]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt
+[alignment]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/upstream/koog-1.3.0-alignment.md
+[model-validation]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/latest-models-2026-09.md
+[release-notes]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/CHANGELOG.md
+[cache-policy]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt
+[catalogue]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt
 [stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.1.1-kroog.15/koog-agents-jvm-1.1.1-kroog.15.pom
 [beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.1.1-beta-kroog.15/koog-agents-additions-jvm-1.1.1-beta-kroog.15.pom
-[openai-models]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt
-[anthropic-models]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt
-[google-models]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt
-[bedrock-models]: https://github.com/Kreoh/kroog/blob/cbcf83d1edbce36022b301a3596600bdf12d1fd6/prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt
+[openai-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt
+[anthropic-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt
+[google-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt
+[bedrock-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt
+[correctness-imports]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/upstream/correctness-imports.md

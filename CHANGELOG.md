@@ -1,3 +1,50 @@
+# Kroog 1.3.0-kroog.2
+
+Release preparation for the three correctness batches following the separate
+`1.3.0-kroog.1` streamed tool-call identity release. Stable modules use
+`1.3.0-kroog.2`; beta modules use `1.3.0-beta-kroog.2`. These notes do not
+announce Maven Central publication. [Pinned upstream sources](docs/upstream/correctness-imports.md)
+record the original contributors and adaptation boundaries.
+
+## Small imports
+
+- Preserve nested required tool parameters and annotated JSON discriminator names.
+- Accept Gemini function calls without arguments, report safety feedback clearly and transmit Google credentials in headers. Google continues to emit parsed argument objects.
+- Execute tools before following text edges in mixed strategy responses, including history compression.
+- Correct Redis expiry regression fixtures and preserve sliding cache expiry.
+- Track Spring finish reasons and token usage independently, including usage updates without a finish reason.
+
+## Careful adaptations
+
+- Keep tool calls and results paired within memory windows. Match explicit IDs separately from anonymous tool names and preserve current system messages over stored systems. Provide optional system-message filtering on memory load and store.
+- Copy and rebind parallel tool contexts while retaining shared state and storage, cancellation, managed execution privacy and tracing context. Honour the simple strategy's parallel-tools flag.
+- Parse MCP unions and string constants with reference and depth checks. Preserve parent array and object shapes; the server enforces constraints the tool descriptor cannot represent.
+- Export visible assistant text to Langfuse while retaining reasoning separately.
+- Fall back to the model ID for unmapped direct Anthropic models. Vertex still requires an explicit mapped version.
+
+## Remaining changes
+
+- Automatically append one assistant message after successfully collecting a complete write-session stream. Preserve complete content and end metadata. Failed, cancelled, truncated and abandoned streams append no assistant response. Collect within the active session; streaming nodes and functional requests keep it open. Java subscribers must await completion before returning from a write session. Do not append streamed responses manually.
+- Add explicit cache serialisation configuration for provider-neutral, provider and application directives. Keys and stored entries share registrations and retain concrete types and TTL values. Missing registrations raise serialisation errors. Existing constructors and ordinary cache keys remain compatible.
+- Add batch embeddings with a sequential default for existing embedders, native OpenAI requests, input ordering and malformed-result checks. Preserve empty batches and coroutine cancellation. Document embedders forward batches.
+- Add common and JVM simple DeepSeek executor helpers.
+
+## Validation
+
+The 28 affected and neighbouring JVM suites passed 2,665 tests with 57 existing skips,
+zero failures and zero errors. Test inputs match the committed implementation.
+Regression tests failed before their fixes. Module JVM JAR and POM checks and changed-source
+formatting passed. Compiled JVM ABI comparisons preserve existing signatures; additive
+cache, memory and embedding API dumps are updated. Unchanged legacy consumer bytecode
+runs against the new cache constructors, and an old embedding implementer uses the new
+sequential default without recompilation.
+
+The [release evidence](docs/releases/1.3.0-kroog.2-validation.md) records publication and
+consumer checks. Installation examples remain on confirmed published revision 15 until
+new coordinates are available. Existing unrelated formatting and ABI dump drift remain
+outside these changes. Live provider requests, non-JVM targets, signing and remote
+publication were not performed.
+
 # Kroog 1.3.0-kroog.1
 
 Release preparation aligning the Kroog version with incorporated upstream Koog

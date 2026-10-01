@@ -4,17 +4,18 @@ The `skills-jvm` module provides generic, beta APIs for validating skill
 documents, building immutable registries, rendering metadata catalogues and
 registering a typed `load_skill` tool. It contains no bundled skills.
 
-Use the local snapshot while developing against this Kroog line:
+Install the confirmed published beta JVM module:
 
 ```kotlin
 dependencies {
-    implementation("com.kreoh.kroog:skills-jvm:1.3.0-beta-kroog.1-SNAPSHOT")
+    implementation("com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.15")
 }
 ```
 
-The corresponding release coordinate is
-`com.kreoh.kroog:skills-jvm:1.3.0-beta-kroog.1`. Publication is deferred to
-Kroog's normal release workflow.
+The current source prepares `1.3.0-beta-kroog.2`, with local snapshots at
+`1.3.0-beta-kroog.2-SNAPSHOT`. Those versions are unpublished. Follow
+[PUBLISHING.md](../PUBLISHING.md) for POM-based JVM resolution and the separate
+release workflow.
 
 ## Skill documents
 

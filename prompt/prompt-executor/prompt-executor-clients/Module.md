@@ -42,33 +42,36 @@ Resolve catalogue contract gaps before release, then verify discovery through st
 
 ### Using in your project
 
-Add the dependency for the specific client you want to use:
+Add the confirmed published JVM dependency for the client you want to use.
+These examples use stable or beta revision 15, as appropriate. The current
+source prepares unpublished `1.3.0-kroog.2` and `1.3.0-beta-kroog.2`.
+Use the POM-based Maven Central repository settings in [PUBLISHING.md](../../../PUBLISHING.md).
 
 ```kotlin
 dependencies { 
    // For Anthropic 
-   implementation("ai.koog.prompt:prompt-executor-anthropic-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-anthropic-client-jvm:1.1.1-kroog.15")
 
    // For Bedrock
-   implementation("ai.koog.prompt:prompt-executor-bedrock-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-bedrock-client-jvm:1.1.1-kroog.15")
 
    // For DeepSeek
-   implementation("ai.koog.prompt:prompt-executor-deepseek-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-deepseek-client-jvm:1.1.1-beta-kroog.15")
 
    // For Google Gemini
-   implementation("ai.koog.prompt:prompt-executor-google-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-google-client-jvm:1.1.1-beta-kroog.15")
 
    // For MistralAI
-   implementation("ai.koog.prompt:prompt-executor-mistralai-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-mistralai-client-jvm:1.1.1-beta-kroog.15")
 
    // For Ollama 
-   implementation("ai.koog.prompt:prompt-executor-ollama-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-ollama-client-jvm:1.1.1-kroog.15")
 
    // For OpenAI
-   implementation("ai.koog.prompt:prompt-executor-openai-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-openai-client-jvm:1.1.1-kroog.15")
 
    // For OpenRouter 
-   implementation("ai.koog.prompt:prompt-executor-openrouter-client:$version")
+   implementation("com.kreoh.kroog:prompt-executor-openrouter-client-jvm:1.1.1-kroog.15")
 }
 ```
 

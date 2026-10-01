@@ -13,12 +13,13 @@ on that upstream baseline.
 3. If the upstream version has not changed, increment the Kroog revision.
 4. Check existing tags and published coordinates. Never overwrite a release or
    reuse its tag; choose the next unused revision on the correct upstream base.
-5. Update `gradle.properties`, current README examples, version documentation
-   and release notes together. Record additional features, fixes and any
-   compatibility changes.
+5. Update `gradle.properties`, source version documentation and release notes
+   together. Keep installation examples on confirmed published coordinates
+   until the new artefacts are available and dependency resolution is verified.
+   Record additional features, fixes and any compatibility changes.
 
 The current source incorporates Koog `1.3.0`, so its configured version is
-`1.3.0-kroog.1`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
+`1.3.0-kroog.2`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
 is incorrect. A mismatch between the incorporated upstream version and the
 configured Kroog base blocks release preparation.
 
@@ -34,14 +35,16 @@ The upstream semantic version supplies the base. Kroog's suffix is its fork
 release convention; it is a prerelease identifier under SemVer ordering.
 Do not describe a suffixed version as a plain SemVer final release.
 
+The first streamed-identity preparation remains `1.3.0-kroog.1`; the subsequent correctness batches prepare revision `2`. Neither preparation announces Maven Central publication. Installation examples use confirmed published `1.1.1-kroog.15` and `1.1.1-beta-kroog.15` until the new coordinates are published and verified.
+
 ## Stable modules, beta modules and snapshots
 
 | Publication | Current source version |
 | --- | --- |
-| Stable modules and annotated release tag | `1.3.0-kroog.1` |
-| Beta modules | `1.3.0-beta-kroog.1` |
-| Stable module snapshots | `1.3.0-kroog.1-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.1-SNAPSHOT` |
+| Stable modules and annotated release tag | `1.3.0-kroog.2` |
+| Beta modules | `1.3.0-beta-kroog.2` |
+| Stable module snapshots | `1.3.0-kroog.2-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.2-SNAPSHOT` |
 
 Beta versions are derived automatically. All modules share the same upstream
 base and Kroog revision. The stable umbrella is `koog-agents-jvm`; the beta
