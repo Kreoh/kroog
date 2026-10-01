@@ -17,9 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MockRedisClient(
     private val mockConnection: StatefulRedisConnection<String, String>,
-    private val mockCommands: RedisCoroutinesCommands<String, String>
+    private val mockCommands: RedisCoroutinesCommands<String, String>,
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis,
 ) : RedisClient() {
-    private data class Data(val value: String, var timestamp: Long, val ttl: Long? = null)
+    private data class Data(val value: String, val timestamp: Long, val ttl: Long? = null)
 
     // Store the data in the client so it's accessible across connections
     private val dataStore = ConcurrentHashMap<String, Data>()
@@ -28,12 +29,11 @@ class MockRedisClient(
         // Setup the mock commands to implement our in-memory Redis functionality
         coEvery { mockCommands.get(any()) } answers {
             val key = firstArg<String>()
-            val now = System.currentTimeMillis()
+            val now = currentTimeMillis()
             dataStore[key]?.let { data ->
-                if (data.ttl != null && now > data.timestamp + data.ttl) {
+                if (data.ttl != null && now >= data.timestamp + data.ttl) {
                     null
                 } else {
-                    data.timestamp = now
                     data.value
                 }
             }
@@ -42,10 +42,10 @@ class MockRedisClient(
         coEvery { mockCommands.set(any(), any()) } answers {
             val key = firstArg<String>()
             val value = secondArg<String>()
-            val now = System.currentTimeMillis()
+            val now = currentTimeMillis()
 
-            // Preserve TTL when updating an existing key
-            dataStore[key] = Data(value, now, dataStore[key]?.ttl)
+            // Redis SET clears any existing expiry.
+            dataStore[key] = Data(value, now, null)
             "OK"
         }
 
@@ -53,7 +53,7 @@ class MockRedisClient(
             val key = firstArg<String>()
             val ttl = secondArg<Long>()
             val value = thirdArg<String>()
-            val now = System.currentTimeMillis()
+            val now = currentTimeMillis()
 
             dataStore[key] = Data(value, now, ttl * 1000) // Convert seconds to milliseconds
             "OK"

@@ -28,8 +28,8 @@ class GoogleLLMClientFactoryTest {
 
         assertEquals("GoogleLLMClient", factory.clientName)
         assertEquals("https://google.test", factory.baseUrl)
-        assertEquals(emptyMap(), factory.headers)
-        assertEquals(mapOf("key" to "test-key"), factory.queryParameters)
+        assertEquals(mapOf("x-goog-api-key" to "test-key"), factory.headers)
+        assertEquals(emptyMap(), factory.queryParameters)
         assertEquals(1_000L, factory.requestTimeoutMillis)
         assertEquals(2_000L, factory.connectTimeoutMillis)
         assertEquals(3_000L, factory.socketTimeoutMillis)

@@ -96,16 +96,15 @@ class SpringAiToolCallAssemblerTest {
             emitEnd()
         }.toList()
 
-        val toolCallFrames = frames.dropLast(1)
-        assertEquals(4, toolCallFrames.size) // 2 deltas + 2 completes
-        val delta0 = toolCallFrames[0] as StreamFrame.ToolCallDelta
-        val delta1 = toolCallFrames[2] as StreamFrame.ToolCallDelta
-        assertEquals("call-1", delta0.id)
-        assertEquals("search", delta0.name)
-        assertEquals("""{"q":"test"}""", delta0.content)
-        assertEquals("call-2", delta1.id)
-        assertEquals("fetch", delta1.name)
-        assertEquals("""{"url":"http://x"}""", delta1.content)
+        assertEquals(
+            listOf(
+                StreamFrame.ToolCallDelta("call-1", "search", """{"q":"test"}""", 0),
+                StreamFrame.ToolCallDelta("call-2", "fetch", """{"url":"http://x"}""", 1),
+                StreamFrame.ToolCallComplete("call-1", "search", """{"q":"test"}""", 0),
+                StreamFrame.ToolCallComplete("call-2", "fetch", """{"url":"http://x"}""", 1),
+            ),
+            frames.dropLast(1),
+        )
         assertTrue(frames.last() is StreamFrame.End)
     }
 }

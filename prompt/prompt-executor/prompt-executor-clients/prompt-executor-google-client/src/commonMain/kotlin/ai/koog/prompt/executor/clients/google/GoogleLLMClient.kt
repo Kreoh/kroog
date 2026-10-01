@@ -109,7 +109,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     /**
      * Secondary constructor for creating a GoogleLLMClient backed by an HTTP client factory.
      *
-     * @param apiKey The API key for the Google AI API
+     * @param apiKey The API key sent in the `x-goog-api-key` request header
      * @param settings Custom client settings, defaults to standard API endpoint and timeouts
      * @param httpClientFactory Factory used to create an HTTP client for making API requests.
      * @param clock Clock instance used for tracking response metadata timestamps.
@@ -125,8 +125,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         httpClientFactory.create(
             clientName = GOOGLE_CLIENT_NAME,
             baseUrl = settings.baseUrl,
-            headers = emptyMap(),
-            queryParameters = mapOf("key" to apiKey),
+            headers = mapOf("x-goog-api-key" to apiKey),
+            queryParameters = emptyMap(),
             requestTimeoutMillis = settings.timeoutConfig.requestTimeoutMillis,
             connectTimeoutMillis = settings.timeoutConfig.connectTimeoutMillis,
             socketTimeoutMillis = settings.timeoutConfig.socketTimeoutMillis,
@@ -275,6 +275,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                     .forEach { emitBufferedHostedPart(it) }
             }
 
+            var blockedResponse: GoogleResponse? = null
             httpClient.sse(
                 path = "${settings.defaultPath}/${model.id}:${settings.streamGenerateContentMethod}",
                 requestBody = request,
@@ -284,6 +285,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 parameters = mapOf("alt" to "sse"),
                 processStreamingChunk = { it }
             ).collect { response ->
+                if (response.candidates.isEmpty() && response.promptFeedback?.blockReason != null) {
+                    blockedResponse = response
+                }
                 response.usageMetadata?.let { update ->
                     val countsChanged =
                         (update.promptTokenCount != null && update.promptTokenCount != latestUsage.promptTokenCount) ||
@@ -386,6 +390,8 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                     }
                 }
             }
+            // Raise provider errors after collection so HTTP transports preserve the block reason.
+            blockedResponse?.let { throw noCandidatesException(it) }
             flushBufferedHostedParts(previousChunkParts.values)
             finishReason?.let { emitEnd(it, latestMeta) }
         } catch (e: CancellationException) {
@@ -1106,8 +1112,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                             MessagePart.Tool.Call(
                                 id = Uuid.random().toString(),
                                 tool = part.functionCall.name,
-                                args = part.functionCall.args
-                                    ?: throw IllegalArgumentException("Function call args must not be null")
+                                args = part.functionCall.args ?: JsonObject(emptyMap())
                             )
                         )
                     }
@@ -1233,8 +1238,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
      */
     private fun processGoogleResponse(response: GoogleResponse): List<Message.Assistant> {
         if (response.candidates.isEmpty()) {
-            logger.error { "Empty candidates in Google API response" }
-            throw LLMClientException(clientName, "Empty candidates in Google API response")
+            throw noCandidatesException(response)
         }
 
         val metaInfo = (response.usageMetadata ?: GoogleUsageMetadata()).toMetaInfo()
@@ -1242,6 +1246,20 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         return response.candidates.map { candidate ->
             processGoogleCandidate(candidate, metaInfo)
         }
+    }
+
+    /**
+     * Reports a missing candidate response, including the reason when Google blocks the prompt.
+     */
+    private fun noCandidatesException(response: GoogleResponse): LLMClientException {
+        val blockReason = response.promptFeedback?.blockReason
+        val message = if (blockReason != null) {
+            "Google API returned no candidates: the prompt was blocked (reason: $blockReason)"
+        } else {
+            "Google API returned no candidates"
+        }
+        logger.error { message }
+        return LLMClientException(clientName, message)
     }
 
     /**

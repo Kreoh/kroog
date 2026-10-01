@@ -19,8 +19,6 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.condition.DisabledOnOs
-import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import kotlin.test.AfterTest
@@ -37,8 +35,8 @@ class RedisPromptCacheTest {
         private val mockConnection: StatefulRedisConnection<String, String> = mockk(relaxed = true)
         private val mockCommands: RedisCoroutinesCommands<String, String> = mockk(relaxed = true)
 
-        private fun createCache(ttl: Duration): RedisPromptCache {
-            val mockRedisClient = MockRedisClient(mockConnection, mockCommands)
+        private fun createCache(ttl: Duration, currentTimeMillis: () -> Long): RedisPromptCache {
+            val mockRedisClient = MockRedisClient(mockConnection, mockCommands, currentTimeMillis)
 
             // Create a RedisPromptCache with the mock client
             return RedisPromptCache(mockRedisClient, "test:", ttl)
@@ -51,8 +49,11 @@ class RedisPromptCacheTest {
         private val testClock = KoogClock { testResponse.metaInfo.timestamp }
     }
 
+    private var nowMillis = 0L
+
     @BeforeTest
     fun setUp() {
+        nowMillis = 0L
         // Replace the Kotlin extension function at runtime
         mockkStatic(StatefulRedisConnection<*, *>::coroutines)
         every { mockConnection.coroutines() } returns mockCommands
@@ -65,8 +66,8 @@ class RedisPromptCacheTest {
     }
 
     @Test
-    fun `test put and get`() = runTest {
-        val cache = createCache(60.seconds)
+    fun testPutAndGet() = runTest {
+        val cache = createCache(60.seconds) { nowMillis }
         cache.put(testPrompt, testTools, testResponse)
 
         val cachedResponse = cache.get(testPrompt, testTools, testClock)
@@ -74,31 +75,64 @@ class RedisPromptCacheTest {
     }
 
     @Test
-    fun `test cache expiration`() = runTest {
-        val cache = createCache(1.seconds)
+    fun testCacheExpiration() = runTest {
+        val cache = createCache(1.seconds) { nowMillis }
         cache.put(testPrompt, testTools, testResponse)
 
-        Thread.sleep(1500) // 1.5 seconds
+        nowMillis += 1500
 
         val cachedResponse = cache.get(testPrompt, testTools, testClock)
         assertNull(cachedResponse)
     }
 
-    @DisabledOnOs(OS.WINDOWS, disabledReason = "Fails on Windows")
     @Test
-    fun `test expiration update on access`() = runTest {
-        val cache = createCache(2.seconds)
+    fun testExpirationUpdateOnAccess() = runTest {
+        val cache = createCache(2.seconds) { nowMillis }
         cache.put(testPrompt, testTools, testResponse)
 
-        Thread.sleep(1000) // 1 second
+        nowMillis += 1000
 
         val cachedResponse1 = cache.get(testPrompt, testTools, testClock)
         assertEquals(testResponse, cachedResponse1)
 
-        Thread.sleep(1500) // 1.5 seconds (total 2.5 seconds from start)
+        nowMillis += 1500
 
-        // The cache should still be valid because the timestamp was updated
+        // Reading the cache refreshes its expiry.
         val cachedResponse2 = cache.get(testPrompt, testTools, testClock)
         assertEquals(testResponse, cachedResponse2)
+    }
+
+    @Test
+    fun testAccessedEntryExpiresAtRefreshedTtl() = runTest {
+        val cache = createCache(2.seconds) { nowMillis }
+        cache.put(testPrompt, testTools, testResponse)
+
+        nowMillis = 1000
+        assertEquals(testResponse, cache.get(testPrompt, testTools, testClock))
+
+        nowMillis = 3000
+        assertNull(cache.get(testPrompt, testTools, testClock))
+    }
+
+    @Test
+    fun testRedisGetDoesNotRefreshExpiry() = runTest {
+        MockRedisClient(mockConnection, mockCommands) { nowMillis }
+        mockCommands.setex("key", 2, "value")
+
+        nowMillis = 1000
+        assertEquals("value", mockCommands.get("key"))
+
+        nowMillis = 2000
+        assertNull(mockCommands.get("key"))
+    }
+
+    @Test
+    fun testRedisSetClearsExpiry() = runTest {
+        MockRedisClient(mockConnection, mockCommands) { nowMillis }
+        mockCommands.setex("key", 2, "value")
+        mockCommands.set("key", "updated")
+
+        nowMillis = 2000
+        assertEquals("updated", mockCommands.get("key"))
     }
 }
