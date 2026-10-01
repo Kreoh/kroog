@@ -163,7 +163,8 @@ public fun buildStreamFrameFlow(block: suspend StreamFrameFlowBuilder.() -> Unit
 /**
  * Represents a wrapper around a [FlowCollector] that provides methods for emitting [StreamFrame] objects.
  *
- * This is mainly used for combining chunked tool calls and only emit completed tool calls.
+ * Tool-call argument fragments carry the resolved identity as soon as both ID and name are known.
+ * Earlier fragments are retained per call and released once in order. Completion remains assembled separately.
  *
  * @property flowCollector The underlying [FlowCollector] used for emitting [StreamFrame] objects.
  */
@@ -324,10 +325,14 @@ public class StreamFrameFlowBuilder(
     }
 
     /**
-     * Updates the coroutine context to signal we're currently combining a tool call,
-     * this does not emit anything yet, that happens only in [tryEmitPendingToolCall].
+     * Emits newly received argument text with the resolved call identity, without accumulating delta content.
+     * Fragments received before a non-blank ID and name are retained and released once identity arrives.
+     * Calls that remain unresolved at a flush boundary emit only their existing completion frame; their
+     * withheld deltas are discarded. No replay ID is invented. Completion defaults remain unchanged.
      *
-     * @throws StreamFrameFlowBuilderError if there is
+     * @throws StreamFrameFlowBuilderError when an anonymous fragment has no pending call.
+     * @throws IllegalArgumentException when identity fields conflict.
+     * @throws IllegalStateException when an anonymous fragment is ambiguous.
      */
     @JvmOverloads
     public suspend fun emitToolCallDelta(
@@ -339,15 +344,43 @@ public class StreamFrameFlowBuilder(
     ) {
         withStateLock {
             val sanitizedId = id?.takeUnless { it.isBlank() }
-            val update = resolvePendingToolCallUpdate(sanitizedId, name, args, index, providerItemId)
+            val update = resolvePendingToolCallUpdate(
+                sanitizedId,
+                name,
+                args,
+                index,
+                providerItemId?.takeUnless { it.isBlank() },
+            )
             tryEmitPendingTextLocked()
             tryEmitPendingReasoningLocked()
+            val resolved = update.pendingToolCall
+            val ready = resolved.id != null && resolved.name.isNotBlank()
+            val retained = if (ready) resolved.copy(withheldArguments = emptyList()) else resolved
             if (update.position == null) {
-                pendingToolCalls += update.pendingToolCall
+                pendingToolCalls += retained
             } else {
-                pendingToolCalls[update.position] = update.pendingToolCall
+                pendingToolCalls[update.position] = retained
             }
-            flowCollector.emitToolCallDelta(sanitizedId, name, args, index, providerItemId)
+            if (ready) {
+                resolved.withheldArguments.forEach { fragment ->
+                    flowCollector.emitToolCallDelta(
+                        resolved.id,
+                        resolved.name,
+                        fragment,
+                        resolved.index,
+                        resolved.providerItemId,
+                    )
+                }
+                if (args == null) {
+                    flowCollector.emitToolCallDelta(
+                        resolved.id,
+                        resolved.name,
+                        null,
+                        resolved.index,
+                        resolved.providerItemId,
+                    )
+                }
+            }
         }
     }
 
@@ -519,6 +552,7 @@ public class StreamFrameFlowBuilder(
         val argumentsDelta: String?,
         val index: Int?,
         val providerItemId: String?,
+        val withheldArguments: List<String> = argumentsDelta?.let(::listOf) ?: emptyList(),
     ) {
         fun enrich(
             id: String?,
@@ -550,6 +584,7 @@ public class StreamFrameFlowBuilder(
                 argumentsDelta = newArguments,
                 index = this.index ?: index,
                 providerItemId = this.providerItemId ?: providerItemId,
+                withheldArguments = if (argumentsDelta == null) withheldArguments else withheldArguments + argumentsDelta,
             )
         }
     }

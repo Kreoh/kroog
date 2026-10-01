@@ -591,14 +591,14 @@ class BedrockAnthropicClaudeSerializationTest {
                 index = 0
             ),
             StreamFrame.ToolCallDelta(
-                id = null,
-                name = null,
+                id = toolId,
+                name = toolName,
                 content = "{\"location\":",
                 index = 0
             ),
             StreamFrame.ToolCallDelta(
-                id = null,
-                name = null,
+                id = toolId,
+                name = toolName,
                 content = "\"Paris\"}",
                 index = 0
             ),

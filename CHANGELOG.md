@@ -12,6 +12,19 @@ remain unchanged. Previous validation results belong to their recorded source
 and coordinates. This version correction does not establish validation or
 Maven Central publication of the new coordinates.
 
+## Streamed tool-call identities
+
+- Enrich each argument delta with the resolved call ID, name, index and provider item ID.
+- Buffer fragments received before a usable ID and name, then release them once in their original per-call order. Preserve identical consecutive fragments and isolate parallel calls.
+- Keep complete arguments unchanged. Completion never re-emits argument deltas. Unresolved calls retain their existing completion behaviour and receive no invented IDs.
+- Verify Anthropic, Claude on Vertex, Bedrock Converse, Bedrock Anthropic, OpenAI Chat Completions, DeepSeek and DashScope through their adapters. Preserve OpenAI Responses canonical identity handling.
+- Google continues to emit serialised arguments from parsed function-call objects. This change does not establish incremental Google argument support.
+
+The ten affected and neighbouring JVM suites passed 1,166 tests with three existing Markdown DSL skips.
+Regression tests fail against the original builder and pass with the fix. Changed-file formatting passed;
+compiled JVM ABI comparison against baseline sources found no public signature changes.
+Signing, remote publication and Maven Central approval have not been performed.
+
 # Kroog 1.1.1-kroog.15
 
 Release preparation for cache-write token accounting, following `1.1.1-kroog.14`.

@@ -90,3 +90,21 @@ When both normalised categories are known, total usage is their sum. A conflicti
 Streaming clients retain earlier usage fields when later events omit them and replace cumulative snapshots. Complete and incomplete OpenAI Responses terminal events retain usable usage. Failed Responses events retain the existing failure handling. A response's usage is separate from accounting accumulated across a tool loop. Provider-managed tool execution may report usage for the whole provider request; it does not expose a separate measurement for each internal model call.
 
 Cache fields previously stored in generic Anthropic and Bedrock metadata have moved to the typed fields. The Kotlin data-class constructor, copy and default-argument signatures change, so consumers must rebuild against the coordinated Kroog release. Existing serialised responses without the new optional fields remain readable; old generic cache keys are not migrated into typed counts.
+
+
+### Streamed tool arguments
+
+`StreamFrameFlowBuilder` enriches tool-call deltas with the resolved call ID, name, index and provider item ID.
+Delta content contains only newly received argument text. Fragments received before both a non-blank ID and
+name are known remain queued per call, then emit once in their original order. Identical consecutive fragments
+remain distinct. Late provider item IDs enrich future events without replaying prior text.
+
+A call that remains unresolved at an existing completion or flush boundary emits its normal
+`ToolCallComplete` frame without anonymous argument deltas or invented IDs. Completion still carries the
+assembled arguments, or the existing `{}` default when no argument text was supplied. Consumers must not
+append completion content to an argument buffer that already contains the deltas.
+
+Mocked JVM coverage verifies Anthropic, Claude on Vertex, Bedrock Converse, Bedrock's Anthropic adapter,
+OpenAI Chat Completions, DeepSeek and DashScope. OpenAI Responses retains its separate canonical identity
+handling. Google serialises parsed function-call objects; identity enrichment does not create incremental
+argument fragments, and calls without a provider ID remain available through completion.

@@ -212,7 +212,7 @@ class BedrockConverseReplayTest {
                     replay = listOf(MessagePart.ReasoningReplay.Signed("thinking", "signature")),
                 ),
                 StreamFrame.ToolCallDelta("tool-1", "lookup", null, index = 1),
-                StreamFrame.ToolCallDelta(null, null, "{\"query\":\"koog\"}", index = 1),
+                StreamFrame.ToolCallDelta("tool-1", "lookup", "{\"query\":\"koog\"}", index = 1),
                 StreamFrame.ToolCallComplete("tool-1", "lookup", "{\"query\":\"koog\"}", index = 1),
             ),
             frames,

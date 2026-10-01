@@ -217,7 +217,7 @@ internal class HostedExecutionPromptTest {
         assertEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call-late", "lookup", "{\"q\":"),
-                StreamFrame.ToolCallDelta("call-late", null, "1}", providerItemId = "provider-late"),
+                StreamFrame.ToolCallDelta("call-late", "lookup", "1}", providerItemId = "provider-late"),
                 StreamFrame.ToolCallComplete(
                     id = "call-late",
                     name = "lookup",

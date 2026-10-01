@@ -1,6 +1,7 @@
 package ai.koog.prompt.streaming
 
 import ai.koog.prompt.message.ResponseMetaInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.collect
@@ -9,7 +10,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class StreamFrameFlowBuilderTest {
 
@@ -231,7 +234,7 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_1", "calculator", "{\"a\":", 0),
-                StreamFrame.ToolCallDelta(null, null, " 5}", 0),
+                StreamFrame.ToolCallDelta("call_1", "calculator", " 5}", 0),
             ),
             frames
         )
@@ -263,8 +266,8 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_1", "search", "{\"q"),
-                StreamFrame.ToolCallDelta(null, null, "uery\":"),
-                StreamFrame.ToolCallDelta(null, null, "\"test\"}"),
+                StreamFrame.ToolCallDelta("call_1", "search", "uery\":"),
+                StreamFrame.ToolCallDelta("call_1", "search", "\"test\"}"),
                 StreamFrame.ToolCallComplete("call_1", "search", "{\"query\":\"test\"}"),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
             ),
@@ -283,7 +286,7 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_abc123", "my_tool", "{\"param\":", 0),
-                StreamFrame.ToolCallDelta(null, null, " \"value\"}", 0),
+                StreamFrame.ToolCallDelta("call_abc123", "my_tool", " \"value\"}", 0),
                 StreamFrame.ToolCallComplete("call_abc123", "my_tool", "{\"param\": \"value\"}", 0),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
             ),
@@ -304,9 +307,9 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_1", "calculator", "{\"a\":", 0),
-                StreamFrame.ToolCallDelta(null, null, " 5}", 0),
+                StreamFrame.ToolCallDelta("call_1", "calculator", " 5}", 0),
                 StreamFrame.ToolCallDelta("call_2", "calculator", "{\"b\":", 1),
-                StreamFrame.ToolCallDelta(null, null, " 6}", 1),
+                StreamFrame.ToolCallDelta("call_2", "calculator", " 6}", 1),
                 StreamFrame.ToolCallComplete("call_1", "calculator", "{\"a\": 5}", 0),
                 StreamFrame.ToolCallComplete("call_2", "calculator", "{\"b\": 6}", 1),
                 StreamFrame.End(null, ResponseMetaInfo.Empty),
@@ -361,9 +364,9 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_1", "search", "{\"q\":", 0),
-                StreamFrame.ToolCallDelta("call_1", null, " 1}", 0),
+                StreamFrame.ToolCallDelta("call_1", "search", " 1}", 0),
                 StreamFrame.ToolCallDelta("call_2", "calculator", "{\"a\":", 1),
-                StreamFrame.ToolCallDelta("call_2", null, " 2}", 1),
+                StreamFrame.ToolCallDelta("call_2", "calculator", " 2}", 1),
                 StreamFrame.ToolCallComplete("call_1", "search", "{\"q\": 1}", 0),
                 StreamFrame.ToolCallComplete("call_2", "calculator", "{\"a\": 2}", 1),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
@@ -386,8 +389,8 @@ class StreamFrameFlowBuilderTest {
             listOf(
                 StreamFrame.ToolCallDelta("call_a", "search", "{\"a\":", 0),
                 StreamFrame.ToolCallDelta("call_b", "calculator", "{\"b\":", 1),
-                StreamFrame.ToolCallDelta(null, null, " 1}", 0),
-                StreamFrame.ToolCallDelta("call_b", null, " 2}", null),
+                StreamFrame.ToolCallDelta("call_a", "search", " 1}", 0),
+                StreamFrame.ToolCallDelta("call_b", "calculator", " 2}", 1),
                 StreamFrame.ToolCallComplete("call_a", "search", "{\"a\": 1}", 0),
                 StreamFrame.ToolCallComplete("call_b", "calculator", "{\"b\": 2}", 1),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
@@ -408,9 +411,9 @@ class StreamFrameFlowBuilderTest {
 
         assertContentEquals(
             listOf(
-                StreamFrame.ToolCallDelta(null, null, "{\"a\":", 0),
+                StreamFrame.ToolCallDelta("call_a", "search", "{\"a\":", 0),
                 StreamFrame.ToolCallDelta("call_a", "search", " 1}", 0),
-                StreamFrame.ToolCallDelta("call_b", null, "{\"b\":", null),
+                StreamFrame.ToolCallDelta("call_b", "calculator", "{\"b\":", 1),
                 StreamFrame.ToolCallDelta("call_b", "calculator", " 2}", 1),
                 StreamFrame.ToolCallComplete("call_a", "search", "{\"a\": 1}", 0),
                 StreamFrame.ToolCallComplete("call_b", "calculator", "{\"b\": 2}", 1),
@@ -429,7 +432,6 @@ class StreamFrameFlowBuilderTest {
 
         assertContentEquals(
             listOf(
-                StreamFrame.ToolCallDelta("call_1", null, null, 0),
                 StreamFrame.ToolCallComplete("call_1", "", "{}", 0),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
             ),
@@ -667,8 +669,8 @@ class StreamFrameFlowBuilderTest {
         assertContentEquals(
             listOf(
                 StreamFrame.ToolCallDelta("call_1", "search", "{\"query\":"),
-                StreamFrame.ToolCallDelta(null, null, null),
-                StreamFrame.ToolCallDelta(null, null, "\"test\"}"),
+                StreamFrame.ToolCallDelta("call_1", "search", null),
+                StreamFrame.ToolCallDelta("call_1", "search", "\"test\"}"),
                 StreamFrame.ToolCallComplete("call_1", "search", "{\"query\":\"test\"}"),
                 StreamFrame.End(null, ResponseMetaInfo.Empty)
             ),
@@ -741,13 +743,134 @@ class StreamFrameFlowBuilderTest {
             listOf(
                 StreamFrame.ToolCallDelta("call_a", "search", "{\"a\":", 0),
                 StreamFrame.ToolCallDelta("call_b", "calculator", "{\"b\":", 1),
-                StreamFrame.ToolCallDelta("call_a", null, " 1}", null),
-                StreamFrame.ToolCallDelta(null, null, " 2}", 1),
+                StreamFrame.ToolCallDelta("call_a", "search", " 1}", 0),
+                StreamFrame.ToolCallDelta("call_b", "calculator", " 2}", 1),
                 StreamFrame.ToolCallComplete("call_a", "search", "{\"a\": 1}", 0),
                 StreamFrame.ToolCallComplete("call_b", "calculator", "{\"b\": 2}", 1),
                 StreamFrame.End("stop", ResponseMetaInfo.Empty)
             ),
             frames
         )
+    }
+
+    @Test
+    fun testResolvedIdentityIsEmittedBeforeCompletion() = runTest {
+        val frames = mutableListOf<StreamFrame>()
+        val builder = StreamFrameFlowBuilder(FlowCollector { frames += it })
+        builder.emitToolCallDelta("call", "lookup", "{", 0)
+        builder.emitToolCallDelta(args = "}", index = 0)
+        assertEquals(StreamFrame.ToolCallDelta("call", "lookup", "}", 0), frames.last())
+        assertTrue(frames.none { it is StreamFrame.ToolCallComplete })
+        builder.emitEnd()
+        assertEquals("{}", frames.filterIsInstance<StreamFrame.ToolCallDelta>().mapNotNull { it.content }.joinToString(""))
+        assertEquals("{}", frames.filterIsInstance<StreamFrame.ToolCallComplete>().single().content)
+    }
+
+    @Test
+    fun testDelayedIdentityReleasesRepeatedFragmentsOnceInOrder() = runTest {
+        val frames = mutableListOf<StreamFrame>()
+        val builder = StreamFrameFlowBuilder(FlowCollector { frames += it })
+        builder.emitToolCallDelta(args = "{", index = 0)
+        builder.emitToolCallDelta(id = "call", args = " ", index = 0)
+        builder.emitToolCallDelta(id = "  ", name = "  ", args = " ", index = 0)
+        assertTrue(frames.isEmpty())
+        builder.emitToolCallDelta(name = "lookup", args = "}", index = 0)
+        val deltas = frames.filterIsInstance<StreamFrame.ToolCallDelta>()
+        assertEquals(listOf("{", " ", " ", "}"), deltas.map { it.content })
+        assertTrue(deltas.all { it.id == "call" && it.name == "lookup" && it.index == 0 })
+        builder.emitEnd()
+        assertEquals(4, frames.filterIsInstance<StreamFrame.ToolCallDelta>().size)
+        assertEquals("{  }", frames.filterIsInstance<StreamFrame.ToolCallComplete>().single().content)
+    }
+
+    @Test
+    fun testLateProviderItemIdentityDoesNotReplayArguments() = runTest {
+        val frames = buildStreamFrameFlow {
+            emitToolCallDelta("call", "lookup", "{", 0)
+            emitToolCallDelta(index = 0, providerItemId = "item")
+            emitToolCallDelta(args = "}", providerItemId = "item")
+            emitEnd()
+        }.toList()
+        val deltas = frames.filterIsInstance<StreamFrame.ToolCallDelta>()
+        assertEquals(listOf("{", null, "}"), deltas.map { it.content })
+        assertEquals(StreamFrame.ToolCallDelta("call", "lookup", "}", 0, "item"), deltas.last())
+        assertEquals("{}", frames.filterIsInstance<StreamFrame.ToolCallComplete>().single().content)
+    }
+
+    @Test
+    fun testDelayedParallelCallsWithTheSameNameStaySeparate() = runTest {
+        val frames = buildStreamFrameFlow {
+            emitToolCallDelta(args = "{", index = 0)
+            emitToolCallDelta(args = "[", index = 1)
+            emitToolCallDelta(id = "second", name = "lookup", args = "]", index = 1)
+            emitToolCallDelta(id = "first", name = "lookup", args = "}", index = 0)
+            emitEnd()
+        }.toList()
+        val deltas = frames.filterIsInstance<StreamFrame.ToolCallDelta>()
+        assertEquals(listOf("[", "]"), deltas.filter { it.id == "second" }.map { it.content })
+        assertEquals(listOf("{", "}"), deltas.filter { it.id == "first" }.map { it.content })
+        assertEquals(listOf("first", "second"), frames.filterIsInstance<StreamFrame.ToolCallComplete>().map { it.id })
+    }
+
+    @Test
+    fun testUnresolvedIdentityKeepsCompletionWithoutAnonymousDeltas() = runTest {
+        val frames = buildStreamFrameFlow {
+            emitToolCallDelta(args = "{}", index = 0)
+            emitToolCallDelta(id = "call", args = "[]", index = 1)
+            emitEnd()
+        }.toList()
+        assertTrue(frames.none { it is StreamFrame.ToolCallDelta })
+        assertEquals(
+            listOf(
+                StreamFrame.ToolCallComplete(null, "", "{}", 0),
+                StreamFrame.ToolCallComplete("call", "", "[]", 1),
+            ),
+            frames.filterIsInstance<StreamFrame.ToolCallComplete>()
+        )
+    }
+
+    @Test
+    fun testFailedBufferedReleaseDoesNotReplayDeliveredFragments() = runTest {
+        for (cancel in listOf(false, true)) {
+            val frames = mutableListOf<StreamFrame>()
+            var fail = true
+            val builder = StreamFrameFlowBuilder(
+                FlowCollector { frame ->
+                    frames += frame
+                    if (fail) {
+                        fail = false
+                        if (cancel) {
+                            throw CancellationException("collector cancelled")
+                        } else {
+                            error("collector failed")
+                        }
+                    }
+                }
+            )
+            builder.emitToolCallDelta(args = "{", index = 0)
+            builder.emitToolCallDelta(args = " ", index = 0)
+            if (cancel) {
+                assertFailsWith<CancellationException> { builder.emitToolCallDelta("call", "lookup", "}", 0) }
+            } else {
+                assertFailsWith<IllegalStateException> { builder.emitToolCallDelta("call", "lookup", "}", 0) }
+            }
+            builder.emitToolCallDelta(args = " ", index = 0)
+            builder.emitEnd()
+            assertEquals(listOf("{", " "), frames.filterIsInstance<StreamFrame.ToolCallDelta>().map { it.content })
+            assertEquals("{ } ", frames.filterIsInstance<StreamFrame.ToolCallComplete>().single().content)
+        }
+    }
+
+    @Test
+    fun testUnresolvedCallsKeepCompletionAcrossTextAndReasoningFlushes() = runTest {
+        for (reasoning in listOf(false, true)) {
+            val frames = buildStreamFrameFlow {
+                emitToolCallDelta(args = "{}", index = 0)
+                if (reasoning) emitReasoningDelta(text = "thinking") else emitTextDelta("answer")
+                emitEnd()
+            }.toList()
+            assertTrue(frames.none { it is StreamFrame.ToolCallDelta })
+            assertEquals(StreamFrame.ToolCallComplete(null, "", "{}", 0), frames.first())
+        }
     }
 }
