@@ -2,7 +2,7 @@
 
 Install the confirmed published JVM client with
 `implementation("com.kreoh.kroog:prompt-executor-openai-client-jvm:1.1.1-kroog.15")`.
-The current source prepares unpublished `1.3.0-kroog.2`. Configure POM-based
+The current source prepares unpublished `1.3.0-kroog.1`. Configure POM-based
 Maven Central resolution as described in the repository's `PUBLISHING.md`.
 
 `OpenAIImagesClient` generates and edits images independently of chat and Responses requests. It reuses an authenticated `KoogHttpClient`, just like `OpenAIFilesClient`. The caller owns that transport, including its base URL, credentials, timeouts and closure.

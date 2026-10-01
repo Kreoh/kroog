@@ -8,9 +8,9 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Comparison checked on **1 October 2026**: this README describes the source at [commit `7ca670394e`][release-source], prepared as `1.3.0-kroog.2` (beta modules: `1.3.0-beta-kroog.2`). The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Comparison checked on **1 October 2026**: this README describes the implementation at [commit `7ca670394e`][release-source], now consolidated into `1.3.0-kroog.1` (beta modules: `1.3.0-beta-kroog.1`). The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
-The first streamed-identity preparation is `1.3.0-kroog.1`; the later correctness batches prepare `1.3.0-kroog.2`. **Both are unpublished release preparations.** Installation examples below use confirmed published revision 15. The [correctness import record][correctness-imports] identifies the three batches and pinned upstream authorship.
+The streamed tool-call identity fix and all three correctness batches form **one unpublished release preparation, `1.3.0-kroog.1`**. Installation examples below use confirmed published revision 15. The [correctness import record][correctness-imports] identifies the three batches and pinned upstream authorship.
 
 Compared with that upstream baseline, Kroog retains these additions and adaptations:
 
@@ -18,10 +18,10 @@ Compared with that upstream baseline, Kroog retains these additions and adaptati
 - **Prompt caching:** construct immutable request views, validate the four-breakpoint limit and cache TTL ordering, and add an eligible rolling breakpoint. See [the cache policy][cache-policy]. Bedrock Astra disables automatic Converse cache markers, as recorded in the [model validation][model-validation].
 - **Token accounting:** keep input and total usage inclusive, expose cache reads and writes separately, and preserve omitted counts versus reported zero. OpenAI and Azure cache-write counts survive ordinary and streamed responses, including incomplete responses. See the [revision 15 notes][release-notes]. Upstream Google cache-count support is incorporated with the fork's structured accounting retained [in the audit][alignment].
 - **Model catalogue:** expose canonical semantic profiles, explicit aliases, reasoning and sampling restrictions, MIME types and provider API compatibility. Deployment names remain separate from semantic IDs. See [the catalogue][catalogue] and [revision 14 notes][release-notes].
-- **Streamed tool-call identities:** buffer early argument fragments until a usable ID and name arrive, then emit them once in per-call order with resolved identity. Parallel calls remain separate. Completion retains the full arguments without replaying argument deltas. Google emits serialised parsed arguments; this release does not establish incremental Google argument support. See the [identity release notes][release-notes].
+- **Streamed tool-call identities:** buffer early argument fragments until a usable ID and name arrive, then emit them once in per-call order with resolved identity. Parallel calls remain separate. Completion retains the full arguments without replaying argument deltas. Google emits serialised parsed arguments; this release does not establish incremental Google argument support. See the [streamed identity notes][release-notes].
 - **Correctness batches:** improve nested tool schemas, discriminator handling, Gemini argument and safety handling, request credentials, memory pairing, parallel context isolation, MCP schemas, tracing and Spring metadata. See the [import record][correctness-imports].
-- **Streamed history and serialisers:** record completed streamed responses automatically within active write sessions, preserving metadata, tools and reasoning. Failed, cancelled or incomplete streams leave history unchanged. Explicit cache directive serializer modules preserve concrete types. See the [remaining changes][correctness-imports].
-- **Batch embeddings and DeepSeek helpers:** add batch embedding APIs with a compatible sequential default, an OpenAI batch path and simple DeepSeek executor helpers. See the [remaining changes][correctness-imports].
+- **Streamed history and serialisers:** record completed streamed responses automatically within active write sessions, preserving metadata, tools and reasoning. Failed, cancelled or incomplete streams leave history unchanged. Explicit cache directive serializer modules preserve concrete types. See the [correctness imports][correctness-imports].
+- **Batch embeddings and DeepSeek helpers:** add batch embedding APIs with a compatible sequential default, an OpenAI batch path and simple DeepSeek executor helpers. See the [correctness imports][correctness-imports].
 - **Skills discovery safeguards:** retain strict YAML validation, immutable registries, typed loading and secure JVM filesystem discovery while adopting upstream skills APIs. See [the alignment audit][alignment].
 
 Upstream features such as skills discovery, Bedrock AgentCore Runtime, Google cache-count parsing and Langfuse reasoning traces are incorporated baseline features. The audit records their fork adaptations.
@@ -30,7 +30,7 @@ The source validation covers 26 affected JVM suites and two Spring suites, with 
 
 ## Recent model support
 
-Source and catalogue checked on **1 October 2026** at [the prepared release commit][release-source]. This table describes implemented support at that revision. It does not assert current provider availability. Limits distinguish the catalogue's maximum input from the shared context window.
+Source and catalogue checked on **1 October 2026** at [the implementation commit][release-source]. This table describes implemented support at that revision. It does not assert current provider availability. Limits distinguish the catalogue's maximum input from the shared context window.
 
 | Model developer | Provider definition and semantic ID | Hosting and API support | Input and output token ceilings |
 | --- | --- | --- | --- |
@@ -117,7 +117,7 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
 ### Published dependencies
 
-Checked on **1 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.1.1-kroog.15` and the [beta additions umbrella POM][beta-pom] at `1.1.1-beta-kroog.15`. The prepared stable `1.3.0-kroog.2` umbrella POM returns HTTP 404. Keep the following published coordinates until the prepared release is published and verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
+Checked on **1 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.1.1-kroog.15` and the [beta additions umbrella POM][beta-pom] at `1.1.1-beta-kroog.15`. The prepared stable `1.3.0-kroog.1` umbrella POM was also checked on that date and returned HTTP 404. Keep the following published coordinates until the prepared release is published and verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
 
 The stable umbrella supplies the main agent APIs. Add the beta umbrella only when using its additional modules. Gradle consumers should resolve these JVM publications through POMs, using the repository configuration below. See [PUBLISHING.md](PUBLISHING.md) for the publication inventory and resolution checks.
 

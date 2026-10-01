@@ -10,7 +10,7 @@ dependencies {
 }
 ```
 
-The dependency above is confirmed published revision 15. The current source prepares `1.3.0-beta-kroog.2`; local snapshot builds use `1.3.0-beta-kroog.2-SNAPSHOT`. These source versions do not announce publication. The module is excluded from the stable `koog-agents` umbrella and included in the JVM publication of `koog-agents-additions`. Follow the repository's `PUBLISHING.md` for JVM POM-based resolution and snapshot repositories.
+The dependency above is confirmed published revision 15. The current source prepares `1.3.0-beta-kroog.1`; local snapshot builds use `1.3.0-beta-kroog.1-SNAPSHOT`. These source versions do not announce publication. The module is excluded from the stable `koog-agents` umbrella and included in the JVM publication of `koog-agents-additions`. Follow the repository's `PUBLISHING.md` for JVM POM-based resolution and snapshot repositories.
 
 ## Discover skills and compose a prompt
 

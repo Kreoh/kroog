@@ -44,7 +44,7 @@ Resolve catalogue contract gaps before release, then verify discovery through st
 
 Add the confirmed published JVM dependency for the client you want to use.
 These examples use stable or beta revision 15, as appropriate. The current
-source prepares unpublished `1.3.0-kroog.2` and `1.3.0-beta-kroog.2`.
+source prepares unpublished `1.3.0-kroog.1` and `1.3.0-beta-kroog.1`.
 Use the POM-based Maven Central repository settings in [PUBLISHING.md](../../../PUBLISHING.md).
 
 ```kotlin

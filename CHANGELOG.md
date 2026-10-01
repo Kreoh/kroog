@@ -1,10 +1,19 @@
-# Kroog 1.3.0-kroog.2
+# Kroog 1.3.0-kroog.1
 
-Release preparation for the three correctness batches following the separate
-`1.3.0-kroog.1` streamed tool-call identity release. Stable modules use
-`1.3.0-kroog.2`; beta modules use `1.3.0-beta-kroog.2`. These notes do not
+One unpublished release preparation contains the streamed tool-call identity fix and
+all three correctness batches. Stable modules use `1.3.0-kroog.1`; beta modules use
+`1.3.0-beta-kroog.1`. The base matches incorporated upstream Koog 1.3.0 and resets
+the Kroog revision to 1 after the former 1.1.1-based numbering. These notes do not
 announce Maven Central publication. [Pinned upstream sources](docs/upstream/correctness-imports.md)
 record the original contributors and adaptation boundaries.
+
+## Streamed tool-call identities
+
+- Enrich each argument delta with the resolved call ID, name, index and provider item ID.
+- Buffer fragments received before a usable ID and name, then release them once in their original per-call order. Preserve identical consecutive fragments and isolate parallel calls.
+- Keep complete arguments unchanged. Completion never re-emits argument deltas. Unresolved calls retain their existing completion behaviour and receive no invented IDs.
+- Verify Anthropic, Claude on Vertex, Bedrock Converse, Bedrock Anthropic, OpenAI Chat Completions, DeepSeek and DashScope through their adapters. Preserve OpenAI Responses canonical identity handling.
+- Google continues to emit serialised arguments from parsed function-call objects. This change does not establish incremental Google argument support.
 
 ## Small imports
 
@@ -22,7 +31,7 @@ record the original contributors and adaptation boundaries.
 - Export visible assistant text to Langfuse while retaining reasoning separately.
 - Fall back to the model ID for unmapped direct Anthropic models. Vertex still requires an explicit mapped version.
 
-## Remaining changes
+## Streamed history, cache serialisation and helpers
 
 - Automatically append one assistant message after successfully collecting a complete write-session stream. Preserve complete content and end metadata. Failed, cancelled, truncated and abandoned streams append no assistant response. Collect within the active session; streaming nodes and functional requests keep it open. Java subscribers must await completion before returning from a write session. Do not append streamed responses manually.
 - Add explicit cache serialisation configuration for provider-neutral, provider and application directives. Keys and stored entries share registrations and retain concrete types and TTL values. Missing registrations raise serialisation errors. Existing constructors and ordinary cache keys remain compatible.
@@ -30,6 +39,11 @@ record the original contributors and adaptation boundaries.
 - Add common and JVM simple DeepSeek executor helpers.
 
 ## Validation
+
+The earlier identity validation passed ten affected and neighbouring JVM suites:
+1,166 tests and three existing Markdown DSL skips. Builder regression tests failed
+before the fix. Changed-file formatting passed, and compiled JVM ABI comparison
+against baseline sources found no public signature changes.
 
 The 28 affected and neighbouring JVM suites passed 2,665 tests with 57 existing skips,
 zero failures and zero errors. Test inputs match the committed implementation.
@@ -39,43 +53,20 @@ cache, memory and embedding API dumps are updated. Unchanged legacy consumer byt
 runs against the new cache constructors, and an old embedding implementer uses the new
 sequential default without recompilation.
 
-All 87 JVM publications staged from clean commit `4f50d0eb9ad0cb2ac1a8b2a83587aa5274348009`;
+A historical staging run at the withdrawn unpublished revision 2 staged all 87 JVM
+publications from clean commit `4f50d0eb9ad0cb2ac1a8b2a83587aa5274348009`;
 validation checked 522 primary files, 2,088 checksum files and 252 internal POM
 dependencies, and a separate POM and JAR consumer passed 36 tests without skips or failures.
 Staged ABI checks for 12 modules retained every old public signature and matched
 JAR class bytes to the checked compilation output.
-The [release evidence](docs/releases/1.3.0-kroog.2-validation.md) records these publication
+Combined-coordinate staging at `1.3.0-kroog.1` passed for all 87 JVM publications,
+verifying 522 primary files, 2,088 checksum files and 252 internal POM dependencies.
+The separate staged consumer passed all 36 tests with no skips, failures or errors.
+The [release evidence](docs/releases/1.3.0-kroog.1-validation.md) records these publication
 preparation and consumer checks. Installation examples remain on confirmed published revision 15 until
 new coordinates are available. Existing unrelated formatting and ABI dump drift remain
 outside these changes. Live provider requests, non-JVM targets, signing and remote
 publication were not performed.
-
-# Kroog 1.3.0-kroog.1
-
-Release preparation aligning the Kroog version with incorporated upstream Koog
-1.3.0. This corrects the former 1.1.1-based numbering and resets the Kroog
-revision to 1. Further releases on the same upstream baseline increment the
-Kroog revision; incorporating a newer Koog version updates the base and resets
-the revision again.
-
-Stable modules use `1.3.0-kroog.1`; beta modules use
-`1.3.0-beta-kroog.1`. Existing release tags and historical validation records
-remain unchanged. Previous validation results belong to their recorded source
-and coordinates. This version correction does not establish validation or
-Maven Central publication of the new coordinates.
-
-## Streamed tool-call identities
-
-- Enrich each argument delta with the resolved call ID, name, index and provider item ID.
-- Buffer fragments received before a usable ID and name, then release them once in their original per-call order. Preserve identical consecutive fragments and isolate parallel calls.
-- Keep complete arguments unchanged. Completion never re-emits argument deltas. Unresolved calls retain their existing completion behaviour and receive no invented IDs.
-- Verify Anthropic, Claude on Vertex, Bedrock Converse, Bedrock Anthropic, OpenAI Chat Completions, DeepSeek and DashScope through their adapters. Preserve OpenAI Responses canonical identity handling.
-- Google continues to emit serialised arguments from parsed function-call objects. This change does not establish incremental Google argument support.
-
-The ten affected and neighbouring JVM suites passed 1,166 tests with three existing Markdown DSL skips.
-Regression tests fail against the original builder and pass with the fix. Changed-file formatting passed;
-compiled JVM ABI comparison against baseline sources found no public signature changes.
-Signing, remote publication and Maven Central approval have not been performed.
 
 # Kroog 1.1.1-kroog.15
 

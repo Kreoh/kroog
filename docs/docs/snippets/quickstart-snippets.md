@@ -12,7 +12,7 @@ Ensure your environment and project meet the following requirements:
 # --8<-- [end:prerequisites]
 
 # --8<-- [start:dependencies]
-Add the Kroog JVM dependencies below. These examples use confirmed published revision 15. The current source prepares `1.3.0-kroog.2`, which is unpublished. For snapshot repositories and POM-based Gradle resolution, follow the Kroog snapshot note in [Quickstart](../quickstart.md).
+Add the Kroog JVM dependencies below. These examples use confirmed published revision 15. The current source prepares `1.3.0-kroog.1`, which is unpublished. For snapshot repositories and POM-based Gradle resolution, follow the Kroog snapshot note in [Quickstart](../quickstart.md).
 
 === "Gradle (Kotlin)"
 

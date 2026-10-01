@@ -12,8 +12,8 @@ dependencies {
 }
 ```
 
-The current source prepares `1.3.0-beta-kroog.2`, with local snapshots at
-`1.3.0-beta-kroog.2-SNAPSHOT`. Those versions are unpublished. Follow
+The current source prepares `1.3.0-beta-kroog.1`, with local snapshots at
+`1.3.0-beta-kroog.1-SNAPSHOT`. Those versions are unpublished. Follow
 [PUBLISHING.md](../PUBLISHING.md) for POM-based JVM resolution and the separate
 release workflow.
 

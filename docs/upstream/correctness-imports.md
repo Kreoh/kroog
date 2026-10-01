@@ -32,7 +32,7 @@ Kroog retains typed tool-pair matching, coroutine cancellation, managed executio
 OpenTelemetry context propagation and strict Vertex model mapping. MCP unions retain reference
 resolution and depth limits, and accept only string constants supported by the tool schema.
 
-## Remaining changes
+## Streamed history, cache serialisation and helpers
 
 | Source | Change | Pinned head | Author |
 | --- | --- | --- | --- |
@@ -41,7 +41,9 @@ resolution and depth limits, and accept only string constants supported by the t
 | [2124](https://github.com/JetBrains/koog/pull/2124) | Batch embeddings with a compatible sequential default | `fa9b9f3691916462b3897d8063c1f08da1136e7d` | Ilya Nemtsev |
 | [2097](https://github.com/JetBrains/koog/pull/2097) | Simple DeepSeek executor helpers | `77b9097c481ae52466f6b173e7d013eaaeca5009` | jewoodev |
 
-The streamed tool-call identity fix has a separate release commit and tag before these batches. Google emits parsed
+The streamed tool-call identity fix and all three batches form one unpublished
+`1.3.0-kroog.1` release. The [validation record](../releases/1.3.0-kroog.1-validation.md)
+retains the historical checks and records combined release validation. Google emits parsed
 function-call argument objects; the changes do not establish incremental argument support. Repeated
 Google argument snapshots remain a separate adapter concern. No new model capabilities or limits
 are declared by these imports.
