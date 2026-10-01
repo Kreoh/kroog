@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.1.1-kroog.14`; modules which apply a beta version transform
+stable version is `1.1.1-kroog.15`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -19,19 +19,19 @@ Change the Kroog base version only through an explicit Kroog release decision.
 
 `gradle.properties` is the source of truth for the stable version. On the
 current release line, increment the numeric `kroog` revision for each new
-release: `1.1.1-kroog.13` is followed by `1.1.1-kroog.14`, including when the
+release: `1.1.1-kroog.14` is followed by `1.1.1-kroog.15`, including when the
 release incorporates upstream Koog 1.3.0. Do not infer `1.3.0-kroog.1` from
 that upstream update.
 
-For a release configured as `1.1.1-kroog.14`, the version forms are:
+For a release configured as `1.1.1-kroog.15`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.1.1-kroog.14` |
-| Beta modules, derived automatically | `1.1.1-beta-kroog.14` |
-| Stable module snapshots | `1.1.1-kroog.14-SNAPSHOT` |
-| Beta module snapshots | `1.1.1-beta-kroog.14-SNAPSHOT` |
-| Annotated release tag | `1.1.1-kroog.14` |
+| Stable modules | `1.1.1-kroog.15` |
+| Beta modules, derived automatically | `1.1.1-beta-kroog.15` |
+| Stable module snapshots | `1.1.1-kroog.15-SNAPSHOT` |
+| Beta module snapshots | `1.1.1-beta-kroog.15-SNAPSHOT` |
+| Annotated release tag | `1.1.1-kroog.15` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
@@ -59,8 +59,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.1.1-beta-kroog.14-SNAPSHOT`, and its release version is
-`1.1.1-beta-kroog.14`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.1.1-beta-kroog.15-SNAPSHOT`, and its release version is
+`1.1.1-beta-kroog.15`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.

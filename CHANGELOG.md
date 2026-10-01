@@ -1,3 +1,25 @@
+# Kroog 1.1.1-kroog.15
+
+Release preparation for cache-write token accounting, following `1.1.1-kroog.14`.
+This release retains the upstream Koog 1.3.0 alignment. These notes do not announce Maven Central publication.
+
+## Fixes
+
+- Preserve OpenAI and Azure `cache_write_tokens` in `ResponseMetaInfo.cacheWriteTokensCount` for Chat Completions and Responses, including streamed complete and incomplete responses.
+- Retain cache-write counts when later streaming usage updates omit them. Preserve reported zero values and keep cache reads and writes independent.
+- Keep input and total token counts inclusive. Consumers can price cache writes separately without counting those tokens twice.
+- Preserve the existing public JVM constructor signatures for `PromptTokensDetails`; its new cache-write property is additive.
+- Stable modules use `1.1.1-kroog.15`; beta modules use `1.1.1-beta-kroog.15`. The JVM publication inventory remains 87 coordinates.
+
+## Validation limits
+
+The OpenAI client and base client JVM suites passed 339 tests with no failures or skips.
+Regression tests fail against the original mappings and pass with the fix. Changed-file lint,
+JVM JAR builds and publication metadata checks passed. JVM ABI comparison against freshly compiled
+baseline sources confirms three additive base-client signatures and no public OpenAI client ABI changes.
+The existing OpenAI client dump drift and unrelated test formatting errors remain outside this fix.
+Non-JVM targets, live provider requests, signing and remote publication are separate validation steps.
+
 # Kroog 1.1.1-kroog.14
 
 ## Fixes
