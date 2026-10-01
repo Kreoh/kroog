@@ -39,8 +39,13 @@ cache, memory and embedding API dumps are updated. Unchanged legacy consumer byt
 runs against the new cache constructors, and an old embedding implementer uses the new
 sequential default without recompilation.
 
-The [release evidence](docs/releases/1.3.0-kroog.2-validation.md) records publication and
-consumer checks. Installation examples remain on confirmed published revision 15 until
+All 87 JVM publications staged from clean commit `4f50d0eb9ad0cb2ac1a8b2a83587aa5274348009`;
+validation checked 522 primary files, 2,088 checksum files and 252 internal POM
+dependencies, and a separate POM and JAR consumer passed 36 tests without skips or failures.
+Staged ABI checks for 12 modules retained every old public signature and matched
+JAR class bytes to the checked compilation output.
+The [release evidence](docs/releases/1.3.0-kroog.2-validation.md) records these publication
+preparation and consumer checks. Installation examples remain on confirmed published revision 15 until
 new coordinates are available. Existing unrelated formatting and ABI dump drift remain
 outside these changes. Live provider requests, non-JVM targets, signing and remote
 publication were not performed.
