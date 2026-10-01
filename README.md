@@ -1,29 +1,10 @@
 # Kroog
 
 [![Kotlin Stable](https://kotl.in/badges/stable.svg)](https://kotlinlang.org/docs/components-stability.html)
-[![JetBrains incubator project](https://jb.gg/badges/incubator.svg)](https://github.com/JetBrains#jetbrains-on-github)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.2-blue.svg?logo=kotlin)](http://kotlinlang.org)
-[![CI status](https://img.shields.io/github/checks-status/JetBrains/koog/main)](https://github.com/JetBrains/koog/actions?query=branch%3Amain)
 [![GitHub license](https://img.shields.io/github/license/JetBrains/koog)](LICENSE.txt)
 
-Build status:
-
-[![Checks](https://github.com/JetBrains/koog/actions/workflows/checks.yml/badge.svg?branch=develop)](https://github.com/JetBrains/koog/actions/workflows/checks.yml?query=branch%3Adevelop)
-[![Heavy Tests](https://github.com/JetBrains/koog/actions/workflows/heavy-tests.yml/badge.svg?branch=develop)](https://github.com/JetBrains/koog/actions/workflows/heavy-tests.yml?query=branch%3Adevelop)
-[![Ollama Tests](https://github.com/JetBrains/koog/actions/workflows/ollama-tests.yml/badge.svg?branch=develop)](https://github.com/JetBrains/koog/actions/workflows/ollama-tests.yml?query=branch%3Adevelop)
-
-Useful links:
-
-* [Documentation](https://docs.koog.ai/)
-* [API reference](https://api.koog.ai/)
-* [Slack channel](https://docs.koog.ai/koog-slack-channel/)
-* [Issue tracker](https://youtrack.jetbrains.com/issues/KG)
-
-Kroog is the JVM-focused Kreoh fork of Koog. This source line prepares Kroog `1.3.0-kroog.1`, incorporating upstream Koog 1.3.0. See the [release notes](CHANGELOG.md) for changes and validation limits. Maven Central publication is a separate release step.
-
-Use `com.kreoh.kroog` coordinates; Kotlin packages remain `ai.koog`. For snapshots and JVM POM-based resolution, see [publishing](PUBLISHING.md). The badges and external documentation below refer to upstream Koog.
-
-## Overview
+Kroog is Kreoh's JVM-focused fork of Koog incorporating the newest models, extra features, and many fixes. See the [release notes](CHANGELOG.md) for changes. We try to contribute upstream where possible.
 
 Koog is a Kotlin-based framework designed to build and run AI agents entirely in idiomatic Kotlin and Java API. It lets you create agents that can interact with tools, handle complex workflows, and communicate with users.
 
@@ -131,22 +112,12 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 2. Configure the release or snapshot repository described in [PUBLISHING.md](PUBLISHING.md).
 ## Versioning
 
-Koog framework is stable and follows semantic versioning. See [VERSIONING.md](VERSIONING.md) for details.
+Kroog uses the incorporated Koog version number as a prefix, with a suffix integer to identify our versions, for example `1.3.0-kroog.1` for a Kroog version incorporating Koog v1.3.0. See [VERSIONING.md](VERSIONING.md) for details.
 
 ## Contributing
-Read the [Contributing Guidelines](CONTRIBUTING.md).
-
-## Code of Conduct
-This project and the corresponding community are governed by the [JetBrains Open Source and Community Code of Conduct](https://github.com/jetbrains#code-of-conduct). Please make sure you read it.
+It would be best to contribute directly to upstream Koog, but you can open a PR here if you like.
 
 ## License
 Koog is licensed under the [Apache 2.0 License](LICENSE.txt).
-
-## Support
-
-Please feel free to ask any questions in our [official Slack
-channel](https://docs.koog.ai/koog-slack-channel/) and to
-use [Koog official YouTrack project](https://youtrack.jetbrains.com/issues/KG)
-for filing feature requests and bug reports.
 
 
