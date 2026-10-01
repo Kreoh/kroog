@@ -14,9 +14,14 @@ This release retains the upstream Koog 1.3.0 alignment. These notes do not annou
 ## Validation limits
 
 The OpenAI client and base client JVM suites passed 339 tests with no failures or skips.
-Regression tests fail against the original mappings and pass with the fix. Changed-file lint,
+The catalogue suite passed 284 tests with three existing Markdown DSL skips. These suites ran from a clean
+archive of the release preparation source. Regression tests fail against the original mappings and pass with the fix. Changed-file lint,
 JVM JAR builds and publication metadata checks passed. JVM ABI comparison against freshly compiled
 baseline sources confirms three additive base-client signatures and no public OpenAI client ABI changes.
+All 87 publications staged locally with matching stable and beta versions. Validation checked 522 primary
+files, 2,088 checksum sidecars and 252 internal POM dependency references. A separate JVM consumer passed
+five tests against the staged POMs and JARs, covering public constructors, catalogue discovery and ordinary
+and streamed cache-write usage for OpenAI and Azure. Both staged OpenAI JARs passed the JVM ABI comparison.
 The existing OpenAI client dump drift and unrelated test formatting errors remain outside this fix.
 Non-JVM targets, live provider requests, signing and remote publication are separate validation steps.
 
