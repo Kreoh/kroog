@@ -11,6 +11,14 @@ Previously compiled JVM consumers must be recompiled when adopting this version.
 the retained constructors and helpers provide source compatibility rather than binary compatibility. Clean and rebuild
 every JVM module that consumes `prompt-model` or `prompt-executor-clients` before running with the updated JARs.
 
+## Conversation history in write sessions
+
+Each successful collection of `requestLLMStreaming()` in a write session automatically appends one assistant message to conversation history. The message preserves complete text, reasoning, tool calls and other complete content, together with the finish reason, token usage and message identity from `StreamFrame.End`.
+
+Collect the entire flow while the write session remains open. History changes after successful collection, including the end marker. Cancellation, a failed stream, early termination or a missing end marker leaves assistant history unchanged. Do not append the collected assistant message manually. Collecting the same cold flow again makes another request and appends another response if it succeeds.
+
+For Java write-session publishers, subscribe and wait for `onComplete` before returning from `writeSession`. A subscription started after the session closes fails before calling the executor. Built-in streaming nodes and functional streaming requests keep their write session open throughout collection.
+
 Koog’s **Streaming API** lets you consume **LLM output incrementally** as a `Flow<StreamFrame>` in Kotlin / `Flow.Publisher<StreamFrame>` in Java.
 Instead of waiting for a full response, your code can:
 
@@ -152,6 +160,8 @@ This is the most general approach: react to each frame kind.
 
         Flow.Publisher<StreamFrame> stream = session.requestLLMStreaming();
 
+        var completion = new java.util.concurrent.CompletableFuture<Void>();
+
         stream.subscribe(new Flow.Subscriber<>() {
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
@@ -177,12 +187,15 @@ This is the most general approach: react to each frame kind.
             @Override
             public void onError(Throwable throwable) {
                 System.err.println("Stream error: " + throwable.getMessage());
+                completion.completeExceptionally(throwable);
             }
 
             @Override
             public void onComplete() {
+                completion.complete(null);
             }
         });
+        completion.join();
 
         return null;
     });
@@ -258,6 +271,8 @@ Here is a raw string stream with the Markdown definition of the output structure
 
         Flow.Publisher<StreamFrame> stream = session.requestLLMStreaming(mdDefinition);
 
+        var completion = new java.util.concurrent.CompletableFuture<Void>();
+
         // Access the raw frames directly
         stream.subscribe(new Flow.Subscriber<>() {
             @Override
@@ -274,12 +289,15 @@ Here is a raw string stream with the Markdown definition of the output structure
             @Override
             public void onError(Throwable throwable) {
                 System.err.println("Stream error: " + throwable.getMessage());
+                completion.completeExceptionally(throwable);
             }
 
             @Override
             public void onComplete() {
+                completion.complete(null);
             }
         });
+        completion.join();
 
         return null;
     });
@@ -369,6 +387,8 @@ Models that support reasoning (such as Claude Sonnet 4.5 or GPT-o1) emit reasoni
         });
 
         Flow.Publisher<StreamFrame> stream = session.requestLLMStreaming();
+
+        var completion = new java.util.concurrent.CompletableFuture<Void>();
         List<String> reasoningSteps = new ArrayList<>();
         List<String> summarySteps = new ArrayList<>();
 
@@ -404,11 +424,16 @@ Models that support reasoning (such as Claude Sonnet 4.5 or GPT-o1) emit reasoni
             }
 
             @Override
-            public void onError(Throwable throwable) { }
+            public void onError(Throwable throwable) {
+                completion.completeExceptionally(throwable);
+            }
 
             @Override
-            public void onComplete() { }
+            public void onComplete() {
+                completion.complete(null);
+            }
         });
+        completion.join();
 
         return null;
     });
@@ -471,6 +496,7 @@ derive text chunks via `filterTextOnly()` or collect them with `collectText()`.
     ```java
     ctx.getLlm().writeSession(session -> {
         Flow.Publisher<StreamFrame> frames = session.requestLLMStreaming();
+        var completion = new java.util.concurrent.CompletableFuture<Void>();
 
         // Stream text chunks as they come (equivalent of filterTextOnly):
         StringBuilder fullText = new StringBuilder();
@@ -489,14 +515,18 @@ derive text chunks via `filterTextOnly()` or collect them with `collectText()`.
             }
 
             @Override
-            public void onError(Throwable throwable) { }
+            public void onError(Throwable throwable) {
+                completion.completeExceptionally(throwable);
+            }
 
             @Override
             public void onComplete() {
                 // fullText now contains all text (equivalent of collectText)
                 System.out.println("\n---\n" + fullText);
+                completion.complete(null);
             }
         });
+        completion.join();
 
         return null;
     });
@@ -599,7 +629,7 @@ You can transform a collected list of frames to standard message objects:
 - `toAssistantMessageOrNull()` — extracts `Message.Assistant` from text frames
 - `toReasoningMessageOrNull()` — extracts `MessagePart.Reasoning` from reasoning frames
 - `toToolCallMessages()` — extracts `MessagePart.Tool.Call` from tool call frames
-- `toMessageResponses()` — converts all complete frames to their corresponding `Message.Response` objects
+- `toMessageResponse()`: combines complete frames into one `Message.Assistant`, preserving the end marker metadata
 
 ## Examples
 
@@ -1011,6 +1041,8 @@ The following sections provide a brief step-by-step guide on how to define a too
 
                 Flow.Publisher<StreamFrame> markdownStream = session.requestLLMStreaming(mdDefinition);
 
+                var completion = new java.util.concurrent.CompletableFuture<Void>();
+
                 // Process streamed frames and invoke tools on ToolCallComplete frames
                 markdownStream.subscribe(new Flow.Subscriber<StreamFrame>() {
                     @Override
@@ -1027,11 +1059,16 @@ The following sections provide a brief step-by-step guide on how to define a too
                     }
 
                     @Override
-                    public void onError(Throwable throwable) { }
+                    public void onError(Throwable throwable) {
+                        completion.completeExceptionally(throwable);
+                    }
 
                     @Override
-                    public void onComplete() { }
+                    public void onComplete() {
+                        completion.complete(null);
+                    }
                 });
+                completion.join();
 
                 return null;
             });

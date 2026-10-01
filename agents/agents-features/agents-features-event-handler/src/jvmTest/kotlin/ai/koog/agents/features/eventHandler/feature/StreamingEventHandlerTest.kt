@@ -6,9 +6,12 @@ import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestStreaming
 import ai.koog.agents.testing.tools.MockExecutorDSLBuilder
 import ai.koog.agents.testing.tools.getMockExecutor
+import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.streaming.collectText
-import ai.koog.prompt.streaming.streamFrameFlowOf
+import ai.koog.prompt.streaming.toStreamFrames
 import ai.koog.serialization.kotlinx.KotlinxSerializer
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -28,7 +31,7 @@ class StreamingEventHandlerTest {
         val eventsCollector = mockStreaming(
             strategy = streamTextStrategy("streaming-test-strategy"),
             buildLlmMock = {
-                mockLLMStream(streamFrameFlowOf(assistantResponse)) onRequestContains userMessage
+                mockLLMStream(completeResponseStream(assistantResponse)) onRequestContains userMessage
             }
         ) { agent ->
             agent.run(userMessage, null)
@@ -59,7 +62,7 @@ class StreamingEventHandlerTest {
         val eventsCollector = mockStreaming(
             strategy = streamTextStrategy("streaming-test-strategy-2"),
             buildLlmMock = {
-                mockLLMStream(streamFrameFlowOf(testResponse)) onRequestContains testMessage
+                mockLLMStream(completeResponseStream(testResponse)) onRequestContains testMessage
             }
         ) { agent ->
             agent.run(testMessage, null)
@@ -77,6 +80,9 @@ class StreamingEventHandlerTest {
 }
 
 // Helpers
+
+private fun completeResponseStream(content: String) =
+    Message.Assistant(content, ResponseMetaInfo.create(testClock)).toStreamFrames().asFlow()
 
 private fun assertEventsCollected(eventsCollector: TestEventsCollector) =
     assertTrue(eventsCollector.collectedEvents.isNotEmpty(), "Should have collected events")

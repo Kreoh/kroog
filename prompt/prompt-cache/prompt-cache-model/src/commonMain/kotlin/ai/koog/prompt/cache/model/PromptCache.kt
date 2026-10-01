@@ -7,16 +7,10 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.utils.time.KoogClock
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.math.absoluteValue
-
-private val defaultJson = Json {
-    ignoreUnknownKeys = true
-    allowStructuredMapKeys = true
-}
 
 /**
  * Interface for caching prompt execution results.
@@ -145,21 +139,24 @@ public interface PromptCache {
          * This value is used by caching mechanisms to store and retrieve cached responses.
          */
         public val asCacheKey: String
-            get() {
-                // Create a new prompt with timestamps removed from all messages
-                val messagesWithoutMetaInfo = prompt.messages.map { message ->
-                    when (message) {
-                        is Message.User -> message.copy(metaInfo = RequestMetaInfo.Empty)
-                        is Message.System -> message.copy(metaInfo = RequestMetaInfo.Empty)
-                        is Message.Assistant -> message.copy(metaInfo = ResponseMetaInfo.Empty)
-                    }
+            get() = asCacheKey(PromptCacheSerialization.Default)
+
+        /** Derives the cache key using registrations shared with the cache's persisted entries. */
+        public fun asCacheKey(serialization: PromptCacheSerialization): String {
+            // Create a new prompt with timestamps removed from all messages
+            val messagesWithoutMetaInfo = prompt.messages.map { message ->
+                when (message) {
+                    is Message.User -> message.copy(metaInfo = RequestMetaInfo.Empty)
+                    is Message.System -> message.copy(metaInfo = RequestMetaInfo.Empty)
+                    is Message.Assistant -> message.copy(metaInfo = ResponseMetaInfo.Empty)
                 }
-
-                val requestWithoutMetaInfo =
-                    Request(Prompt(messagesWithoutMetaInfo, prompt.id, prompt.params), toolJsons)
-
-                return defaultJson.encodeToString(requestWithoutMetaInfo).hashCode().absoluteValue.toString(36)
             }
+
+            val requestWithoutMetaInfo =
+                Request(Prompt(messagesWithoutMetaInfo, prompt.id, prompt.params), toolJsons)
+
+            return serialization.json.encodeToString(requestWithoutMetaInfo).hashCode().absoluteValue.toString(36)
+        }
 
         /**
          * Companion object for the Request class, providing factory functions and utility methods.

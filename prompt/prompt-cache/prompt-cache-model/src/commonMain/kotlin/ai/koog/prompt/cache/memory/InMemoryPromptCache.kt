@@ -1,6 +1,7 @@
 package ai.koog.prompt.cache.memory
 
 import ai.koog.prompt.cache.model.PromptCache
+import ai.koog.prompt.cache.model.PromptCacheSerialization
 import ai.koog.prompt.message.Message
 import ai.koog.utils.time.KoogClock
 import kotlin.time.Instant
@@ -8,8 +9,17 @@ import kotlin.time.Instant
 /**
  * In-memory implementation of [PromptCache].
  * This implementation stores cache entries in memory.
+ *
+ * @param maxEntries Maximum number of entries, or null for no limit.
+ * @param serialization Registrations shared by cache keys and persisted entries.
  */
-public class InMemoryPromptCache(private val maxEntries: Int?) : PromptCache {
+public class InMemoryPromptCache(
+    private val maxEntries: Int?,
+    private val serialization: PromptCacheSerialization,
+) : PromptCache {
+    /** Creates a cache with the default provider-neutral serialisation configuration. */
+    public constructor(maxEntries: Int?) : this(maxEntries, PromptCacheSerialization.Default)
+
     /**
      * A companion object implementation of the `PromptCache.Factory.Named` specialized for an in-memory prompt cache.
      * This factory is responsible for creating instances of `InMemoryPromptCache` based on a specific configuration string.
@@ -43,7 +53,7 @@ public class InMemoryPromptCache(private val maxEntries: Int?) : PromptCache {
     )
 
     override suspend fun get(request: PromptCache.Request): Message.Assistant? {
-        val entry = cache[request.asCacheKey] ?: return null
+        val entry = cache[request.asCacheKey(serialization)] ?: return null
 
         // Update last accessed time
         entry.accessed = KoogClock.System.now()
@@ -52,7 +62,7 @@ public class InMemoryPromptCache(private val maxEntries: Int?) : PromptCache {
     }
 
     override suspend fun put(request: PromptCache.Request, response: Message.Assistant) {
-        val key = request.asCacheKey
+        val key = request.asCacheKey(serialization)
 
         // Enforce size limit if specified
         if (maxEntries != null && cache.size >= maxEntries && !cache.containsKey(key)) {

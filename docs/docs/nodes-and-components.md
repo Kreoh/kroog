@@ -1548,10 +1548,12 @@ streaming data, processes it, and potentially calls tools with the processed dat
 
                 // Initiate the response stream in the form of the definition `mdDefinition`
                 var markdownStream = session.requestLLMStreaming(mdDefinition);
+                var completion = new java.util.concurrent.CompletableFuture<Void>();
                 // Call the parser with the result of the response stream and perform actions with the result
                 parseMarkdownStreamToBooks(markdownStream).subscribe(new Flow.Subscriber<>() {
                     @Override
                     public void onSubscribe(Flow.Subscription subscription) {
+                        subscription.request(Long.MAX_VALUE);
                     }
 
                     @Override
@@ -1562,12 +1564,15 @@ streaming data, processes it, and potentially calls tools with the processed dat
 
                     @Override
                     public void onError(Throwable throwable) {
+                        completion.completeExceptionally(throwable);
                     }
 
                     @Override
                     public void onComplete() {
+                        completion.complete(null);
                     }
                 });
+                completion.join();
 
                 return null;
             });

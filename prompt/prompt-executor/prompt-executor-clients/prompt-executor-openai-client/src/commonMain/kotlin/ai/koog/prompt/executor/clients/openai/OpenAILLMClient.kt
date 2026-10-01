@@ -33,6 +33,7 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIChatCompletionStreamResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAICodeInterpreterContainer
+import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingBatchRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
@@ -1046,13 +1047,36 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     }
 
     /**
-     * Batch embedding is not supported by the OpenAI API.
+     * Embeds all [inputs] in one request and returns vectors in input order.
+     * Empty inputs return an empty list without contacting the provider.
      *
-     * @throws UnsupportedOperationException Always thrown.
+     * @throws IllegalArgumentException If [model] lacks embedding support or the response indices
+     * do not contain exactly one entry for each input.
      */
     override suspend fun embed(inputs: List<String>, model: LLModel): List<List<Double>> {
-        logger.warn { "Batch embedding is not supported by OpenAI API" }
-        throw UnsupportedOperationException("Batch embedding is not supported by OpenAI API.")
+        model.requireCapability(LLMCapability.Embed)
+        if (inputs.isEmpty()) return emptyList()
+
+        val response = try {
+            httpClient.post(
+                path = settings.embeddingsPath,
+                requestBody = OpenAIEmbeddingBatchRequest(model = model.id, input = inputs),
+                requestBodyType = OpenAIEmbeddingBatchRequest::class,
+                responseType = OpenAIEmbeddingResponse::class,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw LLMClientException(clientName = clientName, message = e.message, cause = e)
+        }
+        require(response.data.size == inputs.size) {
+            "Expected ${inputs.size} embeddings but received ${response.data.size}"
+        }
+        val indices = response.data.map { it.index }
+        require(indices.all { it in inputs.indices } && indices.distinct().size == inputs.size) {
+            "Embedding response must contain each input index exactly once"
+        }
+        return response.data.sortedBy { it.index }.map { it.embedding }
     }
 
     /**

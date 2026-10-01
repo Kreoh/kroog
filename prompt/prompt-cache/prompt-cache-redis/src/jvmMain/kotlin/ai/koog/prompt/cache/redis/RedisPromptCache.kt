@@ -2,6 +2,7 @@ package ai.koog.prompt.cache.redis
 
 import ai.koog.agents.annotations.JavaAPI
 import ai.koog.prompt.cache.model.PromptCache
+import ai.koog.prompt.cache.model.PromptCacheSerialization
 import ai.koog.prompt.message.Message
 import ai.koog.utils.time.toKotlinDuration
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -11,6 +12,7 @@ import io.lettuce.core.api.StatefulRedisConnection
 import io.lettuce.core.api.coroutines
 import io.lettuce.core.api.coroutines.RedisCoroutinesCommands
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -21,6 +23,7 @@ import java.time.Duration as JavaDuration
  * Redis-based implementation of [PromptCache].
  * This implementation stores cache entries in a Redis database.
  *
+ * @param serialization Registrations shared by cache keys and persisted entries.
  * @param client The Redis client to use for connecting to Redis
  */
 @OptIn(ExperimentalLettuceCoroutinesApi::class)
@@ -28,7 +31,19 @@ public class RedisPromptCache(
     private val client: RedisClient,
     private val prefix: String,
     private val ttl: Duration,
+    private val serialization: PromptCacheSerialization,
 ) : PromptCache {
+    /** Creates a Redis cache with default provider-neutral directive registrations. */
+    public constructor(client: RedisClient, prefix: String, ttl: Duration) :
+        this(client, prefix, ttl, PromptCacheSerialization.Default)
+
+    private val defaultJson = serialization.json
+    private val prettyJson = Json(defaultJson) { prettyPrint = true }
+
+    /** Creates a Java-facing Redis cache with explicit directive registrations. */
+    @JavaAPI
+    public constructor(client: RedisClient, prefix: String, ttl: JavaDuration, serialization: PromptCacheSerialization) :
+        this(client, prefix, ttl.toKotlinDuration(), serialization)
 
     /**
      * Java-compatible constructor that accepts [java.time.Duration] for the TTL parameter.
@@ -71,18 +86,6 @@ public class RedisPromptCache(
     public companion object : PromptCache.Factory.Named("redis") {
         private val logger = KotlinLogging.logger { }
 
-        private val defaultJson = Json {
-            ignoreUnknownKeys = true
-            allowStructuredMapKeys = true
-        }
-
-        private val prettyJson = Json {
-            ignoreUnknownKeys = true
-            allowStructuredMapKeys = true
-            prettyPrint = true
-            prettyPrintIndent = "  "
-        }
-
         private const val DEFAULT_URI = "redis://localhost:6379"
         private const val CACHE_KEY_PREFIX = "code-prompt-cache:"
 
@@ -114,13 +117,15 @@ public class RedisPromptCache(
 
     override suspend fun put(request: PromptCache.Request, response: Message.Assistant) {
         try {
-            val key = prefix + request.asCacheKey
+            val key = prefix + request.asCacheKey(serialization)
             val value = prettyJson.encodeToString(CachedElement(response, request))
 
             // Store the value
             commands.setex(key, seconds = ttl.inWholeSeconds, value)
 
             logger.info { "Set key '$key' to Redis cache" }
+        } catch (e: SerializationException) {
+            throw e
         } catch (e: Exception) {
             throw RedisCacheException("Error storing in Redis cache", e)
         }
@@ -128,17 +133,19 @@ public class RedisPromptCache(
 
     private suspend fun getOrNull(request: PromptCache.Request): Message.Assistant? {
         try {
-            val key = prefix + request.asCacheKey
+            val key = prefix + request.asCacheKey(serialization)
             val value = commands.get(key) ?: run {
                 logger.info { "Get key '$key' from Redis cache miss" }
                 return null
             }
             logger.info { "Get key '$key' from Redis cache hit" }
 
-            // Update access time by setting the key with the same value but updated TTL
-            commands.set(key, value)
+            // Refresh the sliding expiry on each cache hit.
+            commands.setex(key, seconds = ttl.inWholeSeconds, value)
 
             return defaultJson.decodeFromString<CachedElement>(value).response
+        } catch (e: SerializationException) {
+            throw e
         } catch (e: Exception) {
             // Log the error but don't fail the operation
             logger.error { "Error retrieving from Redis cache: ${e.message}" }

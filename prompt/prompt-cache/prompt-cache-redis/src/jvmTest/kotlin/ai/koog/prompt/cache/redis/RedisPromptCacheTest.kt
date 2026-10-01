@@ -4,9 +4,13 @@ package ai.koog.prompt.cache.redis
 
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.cache.model.PromptCache
+import ai.koog.prompt.cache.model.PromptCacheSerialization
 import ai.koog.prompt.cache.model.get
 import ai.koog.prompt.cache.model.put
+import ai.koog.prompt.message.CacheControl
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.utils.time.KoogClock
@@ -19,12 +23,18 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -135,4 +145,62 @@ class RedisPromptCacheTest {
         nowMillis = 2000
         assertEquals("updated", mockCommands.get("key"))
     }
+
+    @Test
+    fun testRegisteredDirectivesUseTheSameConfigurationForKeysAndEntries() = runTest {
+        val serialization = PromptCacheSerialization(
+            SerializersModule {
+                polymorphic(CacheControl::class) { subclass(CustomDirective::class) }
+            }
+        )
+        val client = MockRedisClient(mockConnection, mockCommands) { nowMillis }
+        val cache = RedisPromptCache(client, "registered:", 60.seconds, serialization)
+        val request = PromptCache.Request.create(
+            Prompt.build("registered") {
+                user("prefix", CustomDirective("request"))
+            },
+            emptyList()
+        )
+        val response = Message.Assistant(
+            parts = listOf(MessagePart.Text("cached", cacheControl = CustomDirective("response"))),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+        cache.put(request, response)
+        assertEquals(response, cache.get(request))
+    }
+
+    @Test
+    fun testMissingRequestRegistrationFailsExplicitly() = runTest {
+        val cache = createCache(60.seconds) { nowMillis }
+        val request = PromptCache.Request.create(
+            Prompt.build("unregistered") {
+                user("prefix", CustomDirective("request"))
+            },
+            emptyList()
+        )
+        assertFailsWith<SerializationException> { cache.get(request) }
+        assertFailsWith<SerializationException> { cache.put(request, testResponse) }
+    }
+
+    @Test
+    fun testMissingStoredResponseRegistrationFailsExplicitly() = runTest {
+        val serialization = PromptCacheSerialization(
+            SerializersModule {
+                polymorphic(CacheControl::class) { subclass(CustomDirective::class) }
+            }
+        )
+        val client = MockRedisClient(mockConnection, mockCommands) { nowMillis }
+        val configured = RedisPromptCache(client, "unregistered:", 60.seconds, serialization)
+        val request = PromptCache.Request.create(testPrompt, testTools)
+        val response = Message.Assistant(
+            parts = listOf(MessagePart.Text("cached", cacheControl = CustomDirective("response"))),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+        configured.put(request, response)
+        val unconfigured = RedisPromptCache(client, "unregistered:", 60.seconds)
+        assertFailsWith<SerializationException> { unconfigured.get(request) }
+    }
+
+    @Serializable
+    private data class CustomDirective(val marker: String) : CacheControl
 }

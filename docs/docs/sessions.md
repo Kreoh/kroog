@@ -408,7 +408,7 @@ For more advanced use cases, methods for structured and streaming requests are p
 
 2. `requestLLMStructuredOneShot()`: similar to `requestLLMStructured()` but without retries or corrections.
 
-3. `requestLLMStreaming()`: makes a streaming request to the LLM, returning a flow of response chunks. You can learn more about streaming on the [Streaming API](streaming-api.md) page.
+3. `requestLLMStreaming()`: returns a cold flow of response frames. Fully collecting it inside a write session automatically appends the completed assistant response, including end metadata, to history. Failed, cancelled and incomplete collections append no assistant response. Java subscribers must finish before the write-session callback returns. See the [Streaming API](streaming-api.md) page for collection examples.
 
 Example:
 
@@ -466,7 +466,8 @@ Example:
 
         // Make a streaming request
         var responseStream = session.requestLLMStreaming();
-        // Process chunks from Flow.Publisher<StreamFrame>
+        // Subscribe and wait for completion here, before the write session closes.
+        // See the Streaming API examples for a complete subscriber.
         return null;
     });
     ```

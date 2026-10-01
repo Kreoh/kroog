@@ -24,11 +24,15 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.processor.ResponseProcessor
+import ai.koog.prompt.streaming.IncompleteStreamException
 import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.prompt.streaming.toMessageResponse
 import ai.koog.prompt.structure.StructureDefinition
 import ai.koog.prompt.structure.StructuredRequestConfig
 import ai.koog.prompt.structure.StructuredResponse
 import ai.koog.utils.time.KoogClock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
@@ -185,11 +189,31 @@ public abstract class AIAgentLLMWriteSessionCommon internal constructor(
     }
 
     /**
-     * Sends a streaming request to LLM.
+     * Returns a cold response stream and appends one assistant message after successful collection.
+     *
+     * Collect the entire stream while this session remains open. The stored response includes complete
+     * content and the end marker metadata. Failed, cancelled or incomplete collections append no response.
+     * Each successful collection makes a new request and appends its response once.
      */
     @JvmSynthetic
     public suspend fun requestLLMStreaming(): Flow<StreamFrame> {
-        return readSession.requestLLMStreaming()
+        check(isActive) { "Cannot stream from a closed write session" }
+        return flow {
+            check(isActive) { "Cannot collect a stream from a closed write session" }
+            val completedFrames = mutableListOf<StreamFrame>()
+            readSession.requestLLMStreaming().collect { frame ->
+                if (frame is StreamFrame.CompleteFrame || frame is StreamFrame.End) {
+                    completedFrames.add(frame)
+                }
+                emit(frame)
+            }
+            currentCoroutineContext().ensureActive()
+            if (completedFrames.none { it is StreamFrame.End }) {
+                throw IncompleteStreamException()
+            }
+            val response = completedFrames.toMessageResponse()
+            appendPrompt { message(response) }
+        }
     }
 
     /**
@@ -261,6 +285,7 @@ public abstract class AIAgentLLMWriteSessionCommon internal constructor(
 
     /**
      * Streams a response from LLM, optionally adding a structure definition to the prompt beforehand.
+     * Appends the completed assistant response after successful whole-stream collection in this session.
      */
     @JvmSynthetic
     public suspend fun requestLLMStreaming(definition: StructureDefinition? = null): Flow<StreamFrame> {
@@ -273,7 +298,7 @@ public abstract class AIAgentLLMWriteSessionCommon internal constructor(
             this.prompt = prompt
         }
 
-        return readSession.requestLLMStreaming()
+        return requestLLMStreaming()
     }
 
     public suspend fun <T> requestStreaming(

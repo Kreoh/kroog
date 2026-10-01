@@ -27,12 +27,13 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.prompt.streaming.toStreamFrames
 import ai.koog.prompt.tokenizer.PromptTokenizer
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -1157,7 +1158,7 @@ class TieredHistoryCompressionStrategyTest {
             tools: List<ToolDescriptor>,
         ): Flow<StreamFrame> {
             streamingPrompts += prompt
-            return emptyFlow()
+            return response(prompt).toStreamFrames().asFlow()
         }
 
         override suspend fun moderate(prompt: Prompt, model: LLModel): ModerationResult =

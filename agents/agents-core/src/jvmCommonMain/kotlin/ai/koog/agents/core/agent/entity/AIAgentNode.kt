@@ -40,6 +40,7 @@ import ai.koog.prompt.structure.StructuredResponse
 import ai.koog.serialization.TypeToken
 import ai.koog.serialization.typeToken
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.jdk9.asFlow
 import kotlinx.coroutines.jdk9.asPublisher
 import java.util.concurrent.Flow.Publisher
@@ -429,10 +430,12 @@ public actual open class AIAgentNode<TInput, TOutput> internal actual constructo
                 .withInput(Message.User::class.java)
                 .withOutput<Publisher<T>>(typeToken(Publisher::class, listOf(TypeToken.of(outputClass))))
                 .executeOnLLMDispatcher { message ->
-                    llm.writeSession {
-                        appendPrompt { message(message) }
-                        requestStreaming(structureDefinition) { streamFrameFlow ->
-                            transformStreamData(streamFrameFlow.asPublisher()).asFlow()
+                    flow {
+                        llm.writeSession {
+                            appendPrompt { message(message) }
+                            requestStreaming(structureDefinition) { streamFrameFlow ->
+                                transformStreamData(streamFrameFlow.asPublisher()).asFlow()
+                            }.collect { emit(it) }
                         }
                     }.asPublisher()
                 }

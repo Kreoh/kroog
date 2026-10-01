@@ -30,6 +30,7 @@ kotlin {
 
         jvmTest {
             dependencies {
+                implementation(project(":prompt:prompt-cache:prompt-cache-files"))
                 implementation(project(":http-client:http-client-ktor"))
                 implementation(libs.ktor.client.cio)
             }

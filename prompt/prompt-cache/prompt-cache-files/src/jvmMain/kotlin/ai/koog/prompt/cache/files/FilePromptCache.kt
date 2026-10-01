@@ -1,6 +1,7 @@
 package ai.koog.prompt.cache.files
 
 import ai.koog.prompt.cache.model.PromptCache
+import ai.koog.prompt.cache.model.PromptCacheSerialization
 import ai.koog.prompt.message.Message
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,30 +20,26 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-internal val defaultJson = Json {
-    ignoreUnknownKeys = true
-    allowStructuredMapKeys = true
-}
-
-internal val prettyJson = Json {
-    ignoreUnknownKeys = true
-    allowStructuredMapKeys = true
-    prettyPrint = true
-    prettyPrintIndent = "  "
-}
-
 /**
  * File-based implementation of [PromptCache].
  * This implementation stores cache entries in files on the file system.
  *
+ * @param serialization Registrations shared by cache keys and persisted entries.
  * @param storage The directory where cache files will be stored
  * @param maxFiles The maximum number of files to store in the cache (default: 3000).
  *                When this limit is reached, the least recently accessed files will be removed.
  */
 public class FilePromptCache(
     storage: Path,
-    private val maxFiles: Int? = 3000
+    private val maxFiles: Int?,
+    private val serialization: PromptCacheSerialization,
 ) : PromptCache {
+    /** Creates a file cache with default provider-neutral directive registrations. */
+    public constructor(storage: Path, maxFiles: Int? = 3000) : this(storage, maxFiles, PromptCacheSerialization.Default)
+
+    private val defaultJson = serialization.json
+    private val prettyJson = Json(defaultJson) { prettyPrint = true }
+
     /**
      * Factory implementation for creating `FilePromptCache` instances based on the provided configuration.
      *
@@ -85,7 +82,7 @@ public class FilePromptCache(
         val response = getOrNull(request)
 
         if (response != null) {
-            access[request.asCacheKey] = Instant.now()
+            access[request.asCacheKey(serialization)] = Instant.now()
         }
 
         return response
@@ -103,10 +100,10 @@ public class FilePromptCache(
 
         // Update timestamps
         val now = Instant.now()
-        access[request.asCacheKey] = now
+        access[request.asCacheKey(serialization)] = now
     }
 
-    private fun file(request: PromptCache.Request): Path = requestsDir / request.asCacheKey
+    private fun file(request: PromptCache.Request): Path = requestsDir / request.asCacheKey(serialization)
 
     private fun getOrNull(request: PromptCache.Request): Message.Assistant? {
         val file = file(request)

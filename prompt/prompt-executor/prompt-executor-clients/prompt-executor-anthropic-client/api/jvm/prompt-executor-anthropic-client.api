@@ -1046,3 +1046,6 @@ public class ai/koog/prompt/executor/clients/anthropic/structure/AnthropicStanda
 
 public final class ai/koog/prompt/executor/clients/anthropic/structure/AnthropicStandardJsonSchemaGenerator$Companion : ai/koog/prompt/executor/clients/anthropic/structure/AnthropicStandardJsonSchemaGenerator {
 }
+public final class ai/koog/prompt/executor/clients/anthropic/AnthropicCacheControlSerializersKt {
+	public static final fun getAnthropicCacheControlSerializersModule ()Lkotlinx/serialization/modules/SerializersModule;
+}

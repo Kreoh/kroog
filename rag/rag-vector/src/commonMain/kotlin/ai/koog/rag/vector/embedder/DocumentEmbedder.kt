@@ -25,8 +25,8 @@ public interface DocumentEmbedder<Document> : Embedder {
  * A class that provides functionality for embedding text documents and comparing their embeddings.
  *
  * This class uses a `DocumentProvider` to extract textual content from a generic document type,
- * and then utilizes an `Embedder` to convert the text into vector representations (embeddings).
- * The embeddings can be used to analyze or compare the documents.
+ * and then uses an `Embedder` to convert the text into vector representations (embeddings).
+ * The embeddings can be used to analyse or compare the documents.
  *
  * @param Document The type representing the document to be processed.
  * @property documentReader Reads content from documents of type [Document].
@@ -43,6 +43,10 @@ public open class TextDocumentEmbedder<Document, Path>(
      * @return A vector representation of the document.
      */
     override suspend fun embed(document: Document): Vector = embedder.embed(documentReader.text(document).toString())
+
+    /** Embeds [texts] through the wrapped embedder's batch implementation in input order. */
+    override suspend fun embed(texts: List<String>): List<Vector> =
+        if (texts.isEmpty()) emptyList() else embedder.embed(texts)
 
     /**
      * Embeds the given text into a vector representation.

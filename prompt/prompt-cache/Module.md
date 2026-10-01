@@ -70,3 +70,30 @@ if (cachedResponse != null) {
     println("Generated new response: ${response.first().content}")
 }
 ```
+
+### Serialising cache directives
+
+The default `PromptCacheSerialization` registers provider-neutral `PromptCacheControl` directives.
+Cache keys retain directive types and values, including TTL. Caches use the same JSON configuration
+for keys and stored entries; messages without directives keep their existing keys.
+
+Register concrete provider or application directives explicitly. Provider registrations remain in their
+provider modules, so the cache modules do not require a provider dependency:
+
+```kotlin
+import ai.koog.prompt.cache.files.FilePromptCache
+import ai.koog.prompt.cache.memory.InMemoryPromptCache
+import ai.koog.prompt.cache.model.PromptCacheSerialization
+import ai.koog.prompt.executor.clients.anthropic.AnthropicCacheControlSerializersModule
+
+val serialization = PromptCacheSerialization(AnthropicCacheControlSerializersModule)
+val memory = InMemoryPromptCache(maxEntries = 1000, serialization = serialization)
+val files = FilePromptCache(storage = cacheDirectory, maxFiles = 3000, serialization = serialization)
+// RedisPromptCache also accepts serialization with Kotlin or Java duration constructors.
+```
+
+Custom modules register each concrete `CacheControl` subtype through `polymorphic(CacheControl::class)`.
+Use compatible registrations for every reader and writer sharing a cache. Missing registrations raise
+`SerializationException`; directives are never silently converted to another type. Existing constructors
+retain their default configuration. String-based factories create caches with the default registrations;
+construct configured caches directly when provider or custom directives are needed.

@@ -40,6 +40,7 @@ import ai.koog.prompt.structure.StructuredResponse
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.serialization.typeToken
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import kotlin.jvm.JvmSynthetic
@@ -191,12 +192,13 @@ public open class AIAgentFunctionalContextBaseCommon<Pipeline : AIAgentPipeline>
         message: String,
         structureDefinition: StructureDefinition? = null
     ): Flow<StreamFrame> {
-        return llm.writeSession {
-            appendPrompt {
-                user(message)
+        return flow {
+            llm.writeSession {
+                appendPrompt {
+                    user(message)
+                }
+                requestLLMStreaming(structureDefinition).collect { emit(it) }
             }
-
-            requestLLMStreaming(structureDefinition)
         }
     }
 

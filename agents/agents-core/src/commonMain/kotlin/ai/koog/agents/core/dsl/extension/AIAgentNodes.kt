@@ -27,6 +27,7 @@ import ai.koog.prompt.structure.StructureDefinition
 import ai.koog.prompt.structure.StructuredRequestConfig
 import ai.koog.prompt.structure.StructuredResponse
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 
 /**
@@ -200,11 +201,13 @@ public fun <T> nodeLLMRequestStreaming(
     transformStreamData: suspend (Flow<StreamFrame>) -> Flow<T>
 ): AIAgentNodeDelegate<String, Flow<T>> =
     node(name) { message ->
-        llm.writeSession {
-            appendPrompt {
-                user(message)
+        flow {
+            llm.writeSession {
+                appendPrompt {
+                    user(message)
+                }
+                requestStreaming(structureDefinition, transformStreamData).collect { emit(it) }
             }
-            requestStreaming(structureDefinition, transformStreamData)
         }
     }
 
@@ -288,9 +291,11 @@ public suspend fun <T> AIAgentGraphContextBase.requestStreamingImpl(
     input: String,
     structureDefinition: StructureDefinition? = null,
     transformStreamData: suspend (Flow<StreamFrame>) -> Flow<T>
-): Flow<T> = llm.writeSession {
-    appendPrompt { user(input) }
-    requestStreaming(structureDefinition, transformStreamData)
+): Flow<T> = flow {
+    llm.writeSession {
+        appendPrompt { user(input) }
+        requestStreaming(structureDefinition, transformStreamData).collect { emit(it) }
+    }
 }
 
 /**
@@ -601,14 +606,16 @@ public fun nodeLLMSendToolResultsStreaming(
     beforeRequest: suspend ai.koog.agents.core.agent.session.AIAgentLLMWriteSession.() -> Unit,
 ): AIAgentNodeDelegate<ReceivedToolResults, Flow<StreamFrame>> =
     node(name) { toolResults ->
-        llm.writeSession {
-            appendPrompt {
-                user {
-                    toolResults.toolResults.forEach { toolResult -> toolResult(toolResult.toMessagePart()) }
+        flow {
+            llm.writeSession {
+                appendPrompt {
+                    user {
+                        toolResults.toolResults.forEach { toolResult -> toolResult(toolResult.toMessagePart()) }
+                    }
                 }
+                beforeRequest()
+                requestStreaming(structureDefinition) { it }.collect { emit(it) }
             }
-            beforeRequest()
-            requestStreaming(structureDefinition, { it })
         }
     }
 
@@ -846,11 +853,13 @@ public fun <T> nodeLLMSendMessageStreaming(
     transformStreamData: suspend (Flow<StreamFrame>) -> Flow<T>
 ): AIAgentNodeDelegate<Message.User, Flow<T>> =
     node(name) { message ->
-        llm.writeSession {
-            appendPrompt {
-                message(message)
+        flow {
+            llm.writeSession {
+                appendPrompt {
+                    message(message)
+                }
+                requestStreaming(structureDefinition, transformStreamData).collect { emit(it) }
             }
-            requestStreaming(structureDefinition, transformStreamData)
         }
     }
 

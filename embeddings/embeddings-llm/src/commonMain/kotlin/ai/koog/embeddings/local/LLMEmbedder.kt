@@ -6,19 +6,32 @@ import ai.koog.prompt.executor.clients.LLMEmbeddingProvider
 import ai.koog.prompt.llm.LLModel
 
 /**
- * Implementation of the [Embedder] interface that uses Ollama models for embedding text.
+ * Implementation of the [Embedder] interface that uses provider models for embedding text.
  *
- * @property client The Ollama model client to use for embedding text.
+ * @property client The embedding provider to use for embedding text.
  */
-public class LLMEmbedder(private val client: LLMEmbeddingProvider, private val model: LLModel) : Embedder {
+public class LLMEmbedder(
+    private val client: LLMEmbeddingProvider,
+    private val model: LLModel
+) : Embedder {
     /**
-     * Embeds the given text using the Ollama model.
+     * Embeds the given text using the configured model.
      *
      * @param text The text to embed.
      * @return A vector representation of the text.
      */
     override suspend fun embed(text: String): Vector {
         return Vector(client.embed(text, model))
+    }
+
+    /** Embeds [texts] in one provider batch and preserves their input order. */
+    override suspend fun embed(texts: List<String>): List<Vector> {
+        if (texts.isEmpty()) return emptyList()
+        val vectors = client.embed(texts, model)
+        require(vectors.size == texts.size) {
+            "Expected ${texts.size} embeddings but received ${vectors.size}"
+        }
+        return vectors.map { Vector(it) }
     }
 
     /**

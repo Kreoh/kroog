@@ -124,10 +124,9 @@ private fun anthropicAgent(
 )
 
 fun streamingWithToolsStrategy() = strategy("streaming_loop") {
-    // Streaming node: appends the user message to the prompt, issues a streaming LLM call (so the
-    // onLLMStreamingFrameReceived / onLLMStreamingFailed / onLLMStreamingCompleted event handlers
-    // fire frame-by-frame), then collapses the stream into a Message.Assistant for downstream
-    // tool-call / text-part dispatch.
+    // The streaming node appends user input and delivers frames to streaming event handlers.
+    // Successful collection automatically stores the completed assistant response in history.
+    // Convert the collected frames for downstream tool and text routing without appending them again.
     val nodeCallLLM by nodeLLMRequestStreaming().transform {
         it.toList().toMessageResponse()
     }
