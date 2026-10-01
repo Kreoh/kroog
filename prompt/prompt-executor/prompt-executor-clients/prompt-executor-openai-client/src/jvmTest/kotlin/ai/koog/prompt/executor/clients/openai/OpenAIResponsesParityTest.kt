@@ -5,6 +5,7 @@ import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.LLMClientException
+import ai.koog.prompt.executor.clients.openai.azure.AzureOpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.OpenAIAnnotations
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
@@ -25,7 +26,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -37,15 +40,28 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class OpenAIResponsesParityTest {
+    @OptIn(ExperimentalSerializationApi::class)
     @Test
     fun testUsageSurvivesCompleteAndIncompleteResponses() = runTest {
-        listOf(null, 0, 12).forEach { breakdown ->
-            val usage = OpenAIResponsesAPIResponse.Usage(
-                inputTokens = 100,
-                outputTokens = 40,
-                totalTokens = 140,
-                inputTokensDetails = breakdown?.let { OpenAIResponsesAPIResponse.Usage.InputTokensDetails(it) },
-                outputTokensDetails = breakdown?.let { OpenAIResponsesAPIResponse.Usage.OutputTokensDetails(it) },
+        val json = Json { namingStrategy = JsonNamingStrategy.SnakeCase }
+        val settings = listOf(
+            OpenAIClientSettings(),
+            AzureOpenAIClientSettings("https://resource.openai.azure.com", "chat-deployment", "v1"),
+        )
+        val counts = listOf(null, 0, 12)
+        val cases = settings.flatMap { config -> counts.flatMap { read -> counts.map { write -> Triple(config, read, write) } } }
+        cases.forEach { (config, breakdown, cacheWrite) ->
+            val inputDetails = listOfNotNull(
+                breakdown?.let { "\"cached_tokens\":$it" },
+                cacheWrite?.let { "\"cache_write_tokens\":$it" },
+            ).joinToString(",")
+            val details = if (inputDetails.isEmpty()) {
+                ""
+            } else {
+                ""","input_tokens_details":{$inputDetails},"output_tokens_details":{"reasoning_tokens":${breakdown ?: "null"}}"""
+            }
+            val usage = json.decodeFromString<OpenAIResponsesAPIResponse.Usage>(
+                """{"input_tokens":100,"output_tokens":40,"total_tokens":140$details}"""
             )
             val output = response(usage = usage)
             val transport = ScriptedResponsesTransport(
@@ -57,7 +73,7 @@ class OpenAIResponsesParityTest {
                     )
                 ),
             )
-            val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+            val client = OpenAILLMClient(config, transport)
             val prompt = Prompt.build("usage", params = OpenAIResponsesParams()) { user("Hello") }
             val metadata = listOf(
                 client.execute(prompt, OpenAIModels.Chat.GPT4o).metaInfo,
@@ -70,7 +86,7 @@ class OpenAIResponsesParityTest {
                 assertEquals(140, meta.totalTokensCount)
                 assertEquals(breakdown, meta.cacheReadTokensCount)
                 assertEquals(breakdown, meta.reasoningTokensCount)
-                assertEquals(null, meta.cacheWriteTokensCount)
+                assertEquals(cacheWrite, meta.cacheWriteTokensCount)
             }
         }
     }

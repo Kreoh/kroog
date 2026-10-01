@@ -1217,7 +1217,10 @@ public final class ai/koog/prompt/executor/clients/openai/base/models/PromptToke
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;)V
 	public synthetic fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getAudioTokens ()Ljava/lang/Integer;
+	public final fun getCacheWriteTokens ()Ljava/lang/Integer;
 	public final fun getCachedTokens ()Ljava/lang/Integer;
 }
 

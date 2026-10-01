@@ -495,10 +495,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         } else {
             request["reasoning_effort"]?.jsonPrimitive?.contentOrNull
         }
-        require(effort == null || effort in setOf("low", "medium", "high", "xhigh", "max") ||
-            (!model.isGpt6ReasoningOnly() && effort == "none")) {
-            if (model.isGpt6ReasoningOnly()) "Use low instead of none or minimal for ${model.id}."
-            else "${model.id} does not support reasoning effort $effort. Use low instead of minimal."
+        require(
+            effort == null ||
+                effort in setOf("low", "medium", "high", "xhigh", "max") ||
+                (!model.isGpt6ReasoningOnly() && effort == "none")
+        ) {
+            if (model.isGpt6ReasoningOnly()) {
+                "Use low instead of none or minimal for ${model.id}."
+            } else {
+                "${model.id} does not support reasoning effort $effort. Use low instead of minimal."
+            }
         }
         if (!responses && (model.isGpt6ReasoningOnly() || effort != "none")) {
             require(
@@ -529,11 +535,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         id == OpenAIModels.Chat.GPT6Astra.id || id == OpenAIModels.Chat.GPT6_1Sol.id || matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
 
     private fun LLModel.isGpt6(): Boolean = isGpt6ReasoningOnly() ||
-        id == OpenAIModels.Chat.GPT6Sol.id || id == OpenAIModels.Chat.GPT6Luna.id ||
+        id == OpenAIModels.Chat.GPT6Sol.id ||
+        id == OpenAIModels.Chat.GPT6Luna.id ||
         matchesGpt6Profile(OpenAIModels.Chat.GPT6Sol)
 
     private fun LLModel.matchesGpt6Profile(profile: LLModel): Boolean =
-        contextLength == profile.contextLength && maxOutputTokens == profile.maxOutputTokens &&
+        contextLength == profile.contextLength &&
+            maxOutputTokens == profile.maxOutputTokens &&
             capabilities == profile.capabilities
 
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
@@ -623,6 +631,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     totalTokensCount = input?.let { i -> output?.let { o -> i + o } }
                         ?: update.totalTokensCount ?: metaInfo?.totalTokensCount.takeUnless { countsChanged },
                     cacheReadTokensCount = update.cacheReadTokensCount ?: metaInfo?.cacheReadTokensCount,
+                    cacheWriteTokensCount = update.cacheWriteTokensCount ?: metaInfo?.cacheWriteTokensCount,
                     reasoningTokensCount = update.reasoningTokensCount ?: metaInfo?.reasoningTokensCount,
                 )
             }
@@ -1559,6 +1568,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             totalTokensCount = usage?.inputTokens?.let { input -> usage.outputTokens?.let { input + it } }
                 ?: usage?.totalTokens,
             cacheReadTokensCount = usage?.inputTokensDetails?.cachedTokens,
+            cacheWriteTokensCount = usage?.inputTokensDetails?.cacheWriteTokens,
             reasoningTokensCount = usage?.outputTokensDetails?.reasoningTokens,
         )
 

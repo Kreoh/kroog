@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.openai.azure.AzureOpenAIClientSettings
 import ai.koog.prompt.streaming.StreamFrame
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -34,11 +35,50 @@ class OpenAITokenUsageTest {
     }
 
     @Test
+    fun testStreamingCacheWriteUpdatesPreserveZeroAndMissingValues() = runTest {
+        for ((update, expected) in listOf(
+            "{}" to 20,
+            "{\"cache_write_tokens\":null}" to 20,
+            "{\"cache_write_tokens\":0}" to 0,
+            "{\"cache_write_tokens\":30}" to 30,
+        )) {
+            val usages = listOf(
+                """{"prompt_tokens":100,"completion_tokens":40,"prompt_tokens_details":{"cached_tokens":10,"cache_write_tokens":20}}""",
+                """{"prompt_tokens_details":$update}""",
+            )
+            val chunks = usages.map { usage ->
+                """{"id":"id","object":"chat.completion.chunk","created":1,"model":"gpt-4o","choices":[],"usage":$usage}"""
+            } + "[DONE]"
+            val client = OpenAILLMClient(OpenAIClientSettings(), UsageTransport("", chunks))
+            val prompt = Prompt.build("cache-write-update", params = OpenAIChatParams()) { user("hello") }
+            val meta = client.executeStreaming(prompt, OpenAIModels.Chat.GPT4o).toList()
+                .filterIsInstance<StreamFrame.End>().single().metaInfo!!
+            assertEquals(expected, meta.cacheWriteTokensCount)
+            assertEquals(10, meta.cacheReadTokensCount)
+            assertEquals(100, meta.inputTokensCount)
+            assertEquals(40, meta.outputTokensCount)
+            assertEquals(140, meta.totalTokensCount)
+        }
+    }
+
+    @Test
     fun testChatUsageKeepsInclusiveTotalsAndOptionalDetails() = runTest {
-        listOf(null, 0, 20).forEach { breakdown ->
-            val details = breakdown?.let {
-                ""","prompt_tokens_details":{"cached_tokens":$it},"completion_tokens_details":{"reasoning_tokens":$it}"""
-            }.orEmpty()
+        val settings = listOf(
+            OpenAIClientSettings(),
+            AzureOpenAIClientSettings("https://resource.openai.azure.com", "chat-deployment", "v1"),
+        )
+        val counts = listOf(null, 0, 20)
+        val cases = settings.flatMap { config -> counts.flatMap { read -> counts.map { write -> Triple(config, read, write) } } }
+        cases.forEach { (config, breakdown, cacheWrite) ->
+            val promptDetails = listOfNotNull(
+                breakdown?.let { "\"cached_tokens\":$it" },
+                cacheWrite?.let { "\"cache_write_tokens\":$it" },
+            ).joinToString(",")
+            val details = if (promptDetails.isEmpty()) {
+                ""
+            } else {
+                ""","prompt_tokens_details":{$promptDetails},"completion_tokens_details":{"reasoning_tokens":${breakdown ?: "null"}}"""
+            }
             val usage = """{"prompt_tokens":100,"completion_tokens":40,"total_tokens":140$details}"""
             val response = """{"id":"id","object":"chat.completion","created":1,"model":"gpt-4o","choices":[{"index":0,"message":{"role":"assistant","content":"answer"},"finish_reason":"stop"}],"usage":$usage}"""
             val chunks = listOf(
@@ -47,7 +87,7 @@ class OpenAITokenUsageTest {
                 """{"id":"id","object":"chat.completion.chunk","created":1,"model":"gpt-4o","choices":[],"usage":null}""",
                 "[DONE]",
             )
-            val client = OpenAILLMClient(OpenAIClientSettings(), UsageTransport(response, chunks))
+            val client = OpenAILLMClient(config, UsageTransport(response, chunks))
             val prompt = Prompt.build("usage", params = OpenAIChatParams()) { user("hello") }
             val metas = listOf(
                 client.execute(prompt, OpenAIModels.Chat.GPT4o).metaInfo,
@@ -59,7 +99,7 @@ class OpenAITokenUsageTest {
                 assertEquals(140, meta.totalTokensCount)
                 assertEquals(breakdown, meta.cacheReadTokensCount)
                 assertEquals(breakdown, meta.reasoningTokensCount)
-                assertEquals(null, meta.cacheWriteTokensCount)
+                assertEquals(cacheWrite, meta.cacheWriteTokensCount)
             }
         }
     }

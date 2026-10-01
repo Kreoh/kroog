@@ -530,6 +530,7 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
         inputTokensCount = usage?.promptTokens,
         outputTokensCount = usage?.completionTokens,
         cacheReadTokensCount = usage?.promptTokensDetails?.cachedTokens,
+        cacheWriteTokensCount = usage?.promptTokensDetails?.cacheWriteTokens,
         reasoningTokensCount = usage?.completionTokensDetails?.reasoningTokens
     )
 

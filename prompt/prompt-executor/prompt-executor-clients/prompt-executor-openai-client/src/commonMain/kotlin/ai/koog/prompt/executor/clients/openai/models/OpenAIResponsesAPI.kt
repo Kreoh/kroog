@@ -1502,7 +1502,10 @@ internal class OpenAIResponsesAPIResponse(
         val totalTokens: Int? = null
     ) {
         @Serializable
-        class InputTokensDetails(val cachedTokens: Int? = null)
+        class InputTokensDetails(
+            val cachedTokens: Int? = null,
+            val cacheWriteTokens: Int? = null,
+        )
 
         @Serializable
         class OutputTokensDetails(val reasoningTokens: Int? = null)

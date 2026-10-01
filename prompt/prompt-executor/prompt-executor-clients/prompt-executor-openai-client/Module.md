@@ -1,5 +1,10 @@
 # Module prompt-executor-openai-client
 
+Chat Completions and Responses usage maps `cached_tokens` to `ResponseMetaInfo.cacheReadTokensCount`
+and `cache_write_tokens` to `cacheWriteTokensCount`, including streamed responses and Azure routes.
+Both counts are subsets of input tokens. Missing counts remain `null`; reported zero values remain zero.
+Cache writes must be priced separately when the provider charges a different rate.
+
 A client implementation for executing prompts using OpenAI's GPT models with support for images, audio, and custom
 parameters. Includes support for both Chat Completions and Responses APIs.
 
