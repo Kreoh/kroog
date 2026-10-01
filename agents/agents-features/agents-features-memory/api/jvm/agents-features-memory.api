@@ -24,6 +24,7 @@ public final class ai/koog/agents/chatMemory/feature/ChatMemoryConfig : ai/koog/
 	public fun <init> ()V
 	public final fun addPreProcessor (Lai/koog/agents/chatMemory/feature/ChatMemoryPreProcessor;)Lai/koog/agents/chatMemory/feature/ChatMemoryConfig;
 	public final fun chatHistoryProvider (Lai/koog/agents/chatMemory/feature/ChatHistoryProvider;)Lai/koog/agents/chatMemory/feature/ChatMemoryConfig;
+	public final fun dropSystemMessages ()Lai/koog/agents/chatMemory/feature/ChatMemoryConfig;
 	public final fun filterMessages (Lai/koog/agents/chatMemory/feature/MessageFilter;)Lai/koog/agents/chatMemory/feature/ChatMemoryConfig;
 	public final fun getChatHistoryProvider ()Lai/koog/agents/chatMemory/feature/ChatHistoryProvider;
 	public final fun getPreprocessors ()Ljava/util/List;
@@ -33,6 +34,11 @@ public final class ai/koog/agents/chatMemory/feature/ChatMemoryConfig : ai/koog/
 
 public abstract interface class ai/koog/agents/chatMemory/feature/ChatMemoryPreProcessor {
 	public abstract fun preprocess (Ljava/util/List;)Ljava/util/List;
+}
+
+public final class ai/koog/agents/chatMemory/feature/DropSystemMessagesPreProcessor : ai/koog/agents/chatMemory/feature/ChatMemoryPreProcessor {
+	public fun <init> ()V
+	public fun preprocess (Ljava/util/List;)Ljava/util/List;
 }
 
 public final class ai/koog/agents/chatMemory/feature/FilterMessagesPreProcessor : ai/koog/agents/chatMemory/feature/ChatMemoryPreProcessor {

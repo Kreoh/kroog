@@ -200,7 +200,7 @@ class LangfuseSpanAdapterTest {
 
         // Mirrors the Google client: a signature-only Reasoning part (empty content) alongside
         // the real Text part of the same message. The empty reasoning part must not suppress
-        // the text content or the finish reason.
+        // the text content or the finish reason, and it must not emit a reasoning attribute.
         val assistantAnswer = "It's sunny in Rome."
         val assistantMessage = Message.Assistant(
             parts = listOf(
@@ -220,10 +220,151 @@ class LangfuseSpanAdapterTest {
         assertIs<HiddenString>(actualContent)
         assertEquals(assistantAnswer, actualContent.value)
         assertEquals("stop", attributes.requireValue("gen_ai.completion.0.finish_reason"))
+        assertEquals(null, attributes.firstOrNull { it.key == "gen_ai.completion.0.reasoning" })
     }
 
     @Test
-    fun testPopulatedReasoningRetainsContentFinishReasonAndHiddenString() {
+    fun testCompletionAttributesPreferTextOverReasoning() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+        val inferenceSpan = createInferenceSpan(MockLLMProvider())
+
+        val assistantText = "RELEVANT"
+        val reasoningText = "The user's latest message translates to a coupon question."
+        val assistantMessage = Message.Assistant(
+            parts = listOf(
+                MessagePart.Text(assistantText),
+                MessagePart.Reasoning(reasoningText),
+            ),
+            metaInfo = ResponseMetaInfo.Empty,
+            finishReason = "stop",
+        )
+        inferenceSpan.addAttribute(GenAIAttributes.Output.Messages(listOf(assistantMessage)))
+
+        adapter.onBeforeSpanFinished(inferenceSpan)
+
+        val attributes = inferenceSpan.attributes
+        val actualContent = attributes.requireValue("gen_ai.completion.0.content")
+        assertIs<HiddenString>(actualContent)
+        assertEquals(assistantText, actualContent.value)
+
+        val actualReasoning = attributes.requireValue("gen_ai.completion.0.reasoning")
+        assertIs<HiddenString>(actualReasoning)
+        assertEquals(reasoningText, actualReasoning.value)
+        assertEquals("stop", attributes.requireValue("gen_ai.completion.0.finish_reason"))
+    }
+
+    @Test
+    fun testCompletionAttributesReasoningOnlyLeavesContentEmpty() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+        val inferenceSpan = createInferenceSpan(MockLLMProvider())
+
+        val reasoningText = "Need to classify the latest user message."
+        val assistantMessage = Message.Assistant(
+            parts = listOf(MessagePart.Reasoning(reasoningText)),
+            metaInfo = ResponseMetaInfo.Empty,
+            finishReason = "stop",
+        )
+        inferenceSpan.addAttribute(GenAIAttributes.Output.Messages(listOf(assistantMessage)))
+
+        adapter.onBeforeSpanFinished(inferenceSpan)
+
+        val attributes = inferenceSpan.attributes
+        val actualContent = attributes.requireValue("gen_ai.completion.0.content")
+        assertIs<HiddenString>(actualContent)
+        assertEquals("", actualContent.value)
+
+        val actualReasoning = attributes.requireValue("gen_ai.completion.0.reasoning")
+        assertIs<HiddenString>(actualReasoning)
+        assertEquals(reasoningText, actualReasoning.value)
+        assertEquals("stop", attributes.requireValue("gen_ai.completion.0.finish_reason"))
+    }
+
+    @Test
+    fun testPromptAttributesPreferTextOverReasoning() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+
+        val assistantText = "I'll look that up."
+        val reasoningText = "The user asked about coupons."
+        val inferenceSpan = createInferenceSpan(
+            MockLLMProvider(),
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.Text(assistantText),
+                        MessagePart.Reasoning(reasoningText),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+        )
+
+        adapter.onBeforeSpanStarted(inferenceSpan)
+
+        val attributes = inferenceSpan.attributes
+        val actualContent = attributes.requireValue("gen_ai.prompt.0.content")
+        assertIs<HiddenString>(actualContent)
+        assertEquals(assistantText, actualContent.value)
+
+        val actualReasoning = attributes.requireValue("gen_ai.prompt.0.reasoning")
+        assertIs<HiddenString>(actualReasoning)
+        assertEquals(reasoningText, actualReasoning.value)
+    }
+
+    @Test
+    fun testToolCallsKeepTheirContentAlongsideSeparateReasoning() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+        val toolCall = MessagePart.Tool.Call(id = "call-id", tool = "getWeather", args = "{}")
+        val message = Message.Assistant(
+            parts = listOf(toolCall, MessagePart.Reasoning("Check the weather first.")),
+            metaInfo = ResponseMetaInfo.Empty,
+            finishReason = "tool_call",
+        )
+        val messages = listOf(message)
+        val span = createInferenceSpan(MockLLMProvider(), messages = messages)
+        span.addAttribute(GenAIAttributes.Output.Messages(messages))
+
+        adapter.onBeforeSpanStarted(span)
+        adapter.onBeforeSpanFinished(span)
+
+        for (prefix in listOf("gen_ai.prompt.0", "gen_ai.completion.0")) {
+            val content = assertIs<HiddenString>(span.attributes.requireValue("$prefix.content"))
+            assertEquals(encodeToolCallsContent(listOf(toolCall)), content.value)
+            val reasoning = assertIs<HiddenString>(span.attributes.requireValue("$prefix.reasoning"))
+            assertEquals("Check the weather first.", reasoning.value)
+        }
+        assertEquals(
+            GenAIAttributes.Response.FinishReasonType.ToolCalls.id,
+            span.attributes.requireValue("gen_ai.completion.0.finish_reason"),
+        )
+        assertEquals(messages, span.attributes.filterIsInstance<GenAIAttributes.Input.Messages>().single().messages)
+        assertEquals(messages, span.attributes.filterIsInstance<GenAIAttributes.Output.Messages>().single().messages)
+    }
+
+    @Test
+    fun testPromptSignatureOnlyReasoningKeepsVisibleText() {
+        val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
+        val span = createInferenceSpan(
+            MockLLMProvider(),
+            messages = listOf(
+                Message.Assistant(
+                    parts = listOf(
+                        MessagePart.Reasoning(content = emptyList(), encrypted = "signature"),
+                        MessagePart.Text("Visible answer"),
+                    ),
+                    metaInfo = ResponseMetaInfo.Empty,
+                )
+            ),
+        )
+
+        adapter.onBeforeSpanStarted(span)
+
+        val content = assertIs<HiddenString>(span.attributes.requireValue("gen_ai.prompt.0.content"))
+        assertEquals("Visible answer", content.value)
+        assertFalse(span.attributes.any { it.key == "gen_ai.prompt.0.reasoning" })
+    }
+
+    @Test
+    fun testPopulatedReasoningRetainsSeparateContentFinishReasonAndHiddenString() {
         for (finishReason in listOf("stop", "length", null)) {
             val adapter = LangfuseSpanAdapter(emptyList(), OpenTelemetryConfig())
             val inferenceSpan = createInferenceSpan(MockLLMProvider())
@@ -243,7 +384,9 @@ class LangfuseSpanAdapterTest {
 
             val attributes = inferenceSpan.attributes
             val content = assertIs<HiddenString>(attributes.requireValue("gen_ai.completion.0.content"))
-            assertEquals("First thought\nSecond thought\nThird thought", content.value)
+            assertEquals("Final answer", content.value)
+            val reasoning = assertIs<HiddenString>(attributes.requireValue("gen_ai.completion.0.reasoning"))
+            assertEquals("First thought\nSecond thought\nThird thought", reasoning.value)
             assertEquals("assistant", attributes.requireValue("gen_ai.completion.0.role"))
             if (finishReason == null) {
                 assertFalse(attributes.any { it.key == "gen_ai.completion.0.finish_reason" })

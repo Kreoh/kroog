@@ -29,6 +29,10 @@ public interface McpToolDescriptorParser {
 
 /**
  * Default implementation of [McpToolDescriptorParser].
+ *
+ * Maps `anyOf` and `oneOf` to union descriptors. The MCP server validates `oneOf` exclusivity.
+ * String `const` values become singleton enums. Constants of other types are rejected because
+ * the descriptor cannot preserve their value types.
  */
 public object DefaultMcpToolDescriptorParser : McpToolDescriptorParser {
     // Maximum depth of recursive parsing
@@ -61,7 +65,12 @@ public object DefaultMcpToolDescriptorParser : McpToolDescriptorParser {
         )
     }
 
-    private fun parseParameterType(element: JsonObject, defs: JsonObject?, depth: Int = 0): ToolParameterType {
+    private fun parseParameterType(
+        schema: JsonObject,
+        defs: JsonObject?,
+        depth: Int = 0,
+        inheritedSchema: JsonObject? = null,
+    ): ToolParameterType {
         if (depth > MAX_DEPTH) {
             throw IllegalArgumentException(
                 "Maximum recursion depth ($MAX_DEPTH) exceeded. " +
@@ -69,43 +78,51 @@ public object DefaultMcpToolDescriptorParser : McpToolDescriptorParser {
             )
         }
 
+        val element = mergeDescriptorShape(inheritedSchema, schema, depth)
+        val declaredType = element["type"]
+
         // Handle $ref resolution
         val ref = element["\$ref"]?.jsonPrimitive?.content
         if (ref != null) {
             val resolved = resolveRef(ref, defs)
-            return parseParameterType(resolved, defs, depth + 1)
+            return parseParameterType(resolved, defs, depth + 1, inheritedSchema = descriptorShape(element))
+        }
+
+        // Only string constants can be represented faithfully by the string enum descriptor.
+        element["const"]?.let { constant ->
+            require(constant is JsonPrimitive && constant.isString) {
+                "Only string constants can be represented by MCP tool descriptors"
+            }
+            require(
+                declaredType == null ||
+                    declaredType == JsonPrimitive("string") ||
+                    (declaredType is JsonArray && JsonPrimitive("string") in declaredType)
+            ) {
+                "String constants require a type that permits strings"
+            }
+            return ToolParameterType.Enum(arrayOf(constant.content))
+        }
+
+        // The descriptor exposes union shapes; the MCP server enforces oneOf exclusivity.
+        val alternatives = element["anyOf"]?.jsonArray ?: element["oneOf"]?.jsonArray
+        if (alternatives != null) {
+            require(alternatives.isNotEmpty()) { "Schema alternatives must not be empty" }
+            return ToolParameterType.AnyOf(
+                types = alternatives.map { alternative ->
+                    val schema = alternative.jsonObject
+                    ToolParameterDescriptor(
+                        name = "",
+                        description = schema["description"]?.jsonPrimitive?.content.orEmpty(),
+                        type = parseParameterType(schema, defs, depth + 1, inheritedSchema = descriptorShape(element)),
+                    )
+                }.toTypedArray()
+            )
         }
 
         // Extract the type - can be a string or an array of strings (JSON Schema type-array)
-        val (typeStr, isNullableTypeArray) = parseTypeInfo(element["type"])
+        val (typeStr, isNullableTypeArray) = parseTypeInfo(declaredType)
 
         if (typeStr == null) {
-            val anyOf = element["anyOf"]?.jsonArray
-            if (anyOf != null) {
-                /**
-                 * anyOf with multiple types.
-                 * Schema example:
-                 * {
-                 *   "anyOfParam": {
-                 *     "anyOf": [
-                 *       { "type": "string" },
-                 *       { "type": "number" }
-                 *     ],
-                 *     "title": "string or number parameter"
-                 *   }
-                 * }
-                 */
-                return ToolParameterType.AnyOf(
-                    types = anyOf.map { it.jsonObject }.map {
-                        ToolParameterDescriptor(
-                            name = "",
-                            description = it["description"]?.jsonPrimitive?.content.orEmpty(),
-                            type = parseParameterType(it.jsonObject, defs)
-                        )
-                    }.toTypedArray()
-                )
-            }
-
             /**
              * Special case for enum string types.
              * Schema example:
@@ -218,6 +235,53 @@ public object DefaultMcpToolDescriptorParser : McpToolDescriptorParser {
         } else {
             parsedType
         }
+    }
+
+    private val descriptorShapeKeys = setOf("type", "items", "properties", "required", "additionalProperties", "enum")
+
+    private fun descriptorShape(schema: JsonObject): JsonObject =
+        JsonObject(schema.filterKeys { it in descriptorShapeKeys })
+
+    // Alternatives constrain the parent schema. Keep its descriptor shape when a branch only
+    // adds constraints, and combine common object fields with branch-specific fields.
+    private fun mergeDescriptorShape(parent: JsonObject?, branch: JsonObject, depth: Int): JsonObject {
+        if (parent == null || parent.isEmpty()) return branch
+        require(depth <= MAX_DEPTH) { "Maximum recursion depth ($MAX_DEPTH) exceeded while combining schema shapes" }
+        val merged = parent.toMutableMap().apply { putAll(branch) }
+        val parentProperties = parent["properties"] as? JsonObject
+        val branchProperties = branch["properties"] as? JsonObject
+        if (parentProperties != null && branchProperties != null) {
+            val properties = parentProperties.toMutableMap()
+            branchProperties.forEach { (name, property) ->
+                properties[name] = if (property is JsonObject && properties[name] is JsonObject) {
+                    mergeDescriptorShape(properties[name] as JsonObject, property, depth + 1)
+                } else {
+                    property
+                }
+            }
+            merged["properties"] = JsonObject(properties)
+        }
+        val parentRequired = parent["required"] as? JsonArray
+        val branchRequired = branch["required"] as? JsonArray
+        if (parentRequired != null && branchRequired != null) {
+            merged["required"] = JsonArray((parentRequired + branchRequired).distinct())
+        }
+        val parentItems = parent["items"] as? JsonObject
+        val branchItems = branch["items"] as? JsonObject
+        if (parentItems != null && branchItems != null) {
+            merged["items"] = mergeDescriptorShape(parentItems, branchItems, depth + 1)
+        }
+        val parentAdditional = parent["additionalProperties"]
+        val branchAdditional = branch["additionalProperties"]
+        when {
+            parentAdditional == JsonPrimitive(false) || branchAdditional == JsonPrimitive(false) ->
+                merged["additionalProperties"] = JsonPrimitive(false)
+            parentAdditional is JsonObject && branchAdditional is JsonObject ->
+                merged["additionalProperties"] = mergeDescriptorShape(parentAdditional, branchAdditional, depth + 1)
+            parentAdditional is JsonObject && branchAdditional == JsonPrimitive(true) ->
+                merged["additionalProperties"] = parentAdditional
+        }
+        return JsonObject(merged)
     }
 
     /**

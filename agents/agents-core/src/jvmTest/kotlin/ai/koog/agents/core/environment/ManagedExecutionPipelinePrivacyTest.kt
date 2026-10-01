@@ -137,6 +137,21 @@ class ManagedExecutionPipelinePrivacyTest : AgentTestBase() {
     }
 
     @Test
+    fun testManagedParallelBatchRedactsCallbacksAndPreservesResult() = runTest {
+        val secret = "parallel-managed-private-output"
+        val execution = executeManaged(
+            tool = PrivacyManagedTool(events = { flowOf(request("private-code"), result(sequence = 1, output = secret)) }),
+            args = """{"code":"private-code"}""",
+            parallelBatch = true,
+        )
+        assertEquals(ToolResultKind.Success, execution.result.resultKind)
+        assertEquals(secret, execution.result.output)
+        assertEquals(listOf("starting", "metadata", "completed"), execution.pipelineEvents.map { it.stage })
+        assertManagedPipelineValuesRedacted(execution)
+        assertSecretsAbsent(execution.logs, "private-code", secret)
+    }
+
+    @Test
     fun testManagedRawJsonFailureUsesOnlySafeValidationPipelineValues() = runTest {
         val decodeSecret = "pipeline-raw-json-decode-sentinel"
         val execution = executeManaged(
@@ -288,6 +303,7 @@ class ManagedExecutionPipelinePrivacyTest : AgentTestBase() {
         tool: PrivacyManagedTool,
         args: String,
         unrelatedCorrelationId: String? = null,
+        parallelBatch: Boolean = false,
     ): CapturedExecution = execute(
         registry = ToolRegistry {
             tool(tool)
@@ -304,6 +320,7 @@ class ManagedExecutionPipelinePrivacyTest : AgentTestBase() {
             args = args,
         ),
         unrelatedCorrelationId = unrelatedCorrelationId,
+        parallelBatch = parallelBatch,
     )
 
     private suspend fun executeOrdinary(
@@ -322,6 +339,7 @@ class ManagedExecutionPipelinePrivacyTest : AgentTestBase() {
         registry: ToolRegistry,
         call: MessagePart.Tool.Call,
         unrelatedCorrelationId: String? = null,
+        parallelBatch: Boolean = false,
     ): CapturedExecution {
         val genericLogger = KotlinLogging.logger(GENERIC_LOGGER)
         val generic = GenericAgentEnvironment(
@@ -365,7 +383,7 @@ class ManagedExecutionPipelinePrivacyTest : AgentTestBase() {
 
         JvmLogCapture(requireNotNull(call.id), CONTEXTUAL_LOGGER, GENERIC_LOGGER, PIPELINE_LOGGER).use { logs ->
             if (unrelatedCorrelationId == null) {
-                val result = contextual.executeTool(call)
+                val result = if (parallelBatch) contextual.executeTools(listOf(call)).single() else contextual.executeTool(call)
                 return CapturedExecution(
                     result = result,
                     pipelineEvents = pipelineEvents,

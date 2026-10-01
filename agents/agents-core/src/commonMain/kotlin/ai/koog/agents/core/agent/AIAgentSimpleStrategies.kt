@@ -28,7 +28,7 @@ import kotlin.jvm.JvmOverloads
 @JvmOverloads
 public fun singleRunStrategy(parallelTools: Boolean = false): AIAgentGraphStrategy<String, String> = strategy<String, String>("single_run") {
     val nodeCallLLM by nodeLLMRequest()
-    val nodeExecuteTool by nodeExecuteTools()
+    val nodeExecuteTool by nodeExecuteTools(parallel = parallelTools)
     val nodeSendToolResult by nodeLLMSendToolResults()
 
     edge(nodeStart forwardTo nodeCallLLM)

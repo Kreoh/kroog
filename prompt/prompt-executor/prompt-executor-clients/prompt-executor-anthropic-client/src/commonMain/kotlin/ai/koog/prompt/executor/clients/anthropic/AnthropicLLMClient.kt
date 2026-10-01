@@ -657,8 +657,18 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         return JsonObject(request.filterKeys { it !in setOf("temperature", "top_p", "top_k") })
     }
 
-    private fun modelVersion(model: LLModel): String =
-        requestDialect.modelVersionsMap[model] ?: throw IllegalArgumentException("Unsupported model: $model")
+    private fun modelVersion(model: LLModel): String {
+        require(model.provider == LLMProvider.Anthropic) {
+            "Model provider must be Anthropic, but ${model.id} declares ${model.provider}"
+        }
+        return requestDialect.modelVersionsMap[model]
+            ?: when (requestDialect) {
+                is AnthropicRequestDialect.Direct -> model.id
+                is AnthropicRequestDialect.Vertex -> throw IllegalArgumentException(
+                    "Vertex Anthropic requires an explicit model version for ${model.id}"
+                )
+            }
+    }
 
     private fun effortValue(effort: AnthropicEffort): String =
         when (effort) {

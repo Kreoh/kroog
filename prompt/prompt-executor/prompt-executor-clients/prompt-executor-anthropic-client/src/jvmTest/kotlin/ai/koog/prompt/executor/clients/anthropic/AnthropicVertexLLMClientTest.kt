@@ -40,6 +40,17 @@ import kotlin.test.Test
 
 class AnthropicVertexLLMClientTest {
     @Test
+    fun testUnmappedVertexModelStillRequiresExplicitVersion() {
+        val client = vertexClient(RecordingAnthropicVertexHttpClient())
+        shouldThrow<IllegalArgumentException> {
+            client.createAnthropicRequest(
+                Prompt.build("unmapped") { user("Hello") }, emptyList(),
+                model.copy(contextLength = 100_000), false,
+            )
+        }.message shouldContain "requires an explicit model version"
+    }
+
+    @Test
     fun `maps provider-neutral cache metadata through Vertex Anthropic`() {
         val client = vertexClient(RecordingAnthropicVertexHttpClient())
         val prompt = Prompt.build("vertex-cache") {

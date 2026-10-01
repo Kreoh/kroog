@@ -5,6 +5,7 @@ import ai.koog.agents.features.eventHandler.feature.EventHandler
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.prompt.executor.ollama.client.OllamaModels
 import ai.koog.serialization.kotlinx.KotlinxSerializer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -340,4 +341,30 @@ class SingleRunStrategyTests {
         assertEquals(finalResponse, result)
     }
 
+    @Test
+    fun testParallelToolsFlagStartsBothCallsBeforeEitherCompletes() = runTest {
+        val events = mutableListOf<String>()
+        val executor = getMockExecutor(serializer) {
+            mockLLMToolCall(
+                listOf(CreateTool to CreateTool.Args("first"), CreateTool to CreateTool.Args("second"))
+            ) onRequestEquals "Solve task"
+            mockLLMAnswer("Done").asDefaultResponse
+        }
+        val agent = AIAgent(
+            executor,
+            OllamaModels.Meta.LLAMA_3_2,
+            strategy = singleRunStrategy(parallelTools = true),
+            toolRegistry = ToolRegistry { tool(CreateTool) },
+        ) {
+            install(EventHandler) {
+                onToolCallStarting {
+                    events += "starting"
+                    delay(10)
+                }
+                onToolCallCompleted { events += "completed" }
+            }
+        }
+        assertEquals("Done", agent.run("Solve task", null))
+        assertEquals(listOf("starting", "starting", "completed", "completed"), events)
+    }
 }

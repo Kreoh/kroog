@@ -71,7 +71,7 @@ public class ChatMemoryConfig : FeatureConfig() {
      * Adds a [WindowSizePreProcessor] that limits messages to the most recent [size] entries.
      *
      * This prevents unbounded prompt growth in long conversations by keeping only a
-     * sliding window of messages.
+     * sliding window of messages. Results whose tool call falls outside the window are dropped.
      *
      * Example:
      * ```kotlin
@@ -108,6 +108,29 @@ public class ChatMemoryConfig : FeatureConfig() {
      */
     public fun filterMessages(predicate: MessageFilter): ChatMemoryConfig {
         addPreProcessor(FilterMessagesPreProcessor(predicate))
+        return this
+    }
+
+    /**
+     * Adds a [DropSystemMessagesPreProcessor] that removes system messages from stored history.
+     *
+     * The system prompt is owned by the live agent and re-applied on each agent creation, so it is
+     * usually redundant to persist. [ChatMemory] always keeps the live agent's system prompt and
+     * ignores any system messages in loaded history regardless of this setting, so adding this
+     * preprocessor removes stored system messages on load and store.
+     *
+     * Example:
+     * ```kotlin
+     * installChatMemory {
+     *     chatHistoryProvider = MyChatHistoryProvider()
+     *     dropSystemMessages()
+     * }
+     * ```
+     *
+     * @return This [ChatMemoryConfig] instance for fluent chaining.
+     */
+    public fun dropSystemMessages(): ChatMemoryConfig {
+        addPreProcessor(DropSystemMessagesPreProcessor())
         return this
     }
 }

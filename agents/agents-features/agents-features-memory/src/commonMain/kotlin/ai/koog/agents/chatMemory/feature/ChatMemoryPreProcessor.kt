@@ -1,13 +1,14 @@
 package ai.koog.agents.chatMemory.feature
 
 import ai.koog.prompt.message.Message
+import ai.koog.prompt.message.MessagePart
 
 /**
  * An interface for pre-processing messages before they are stored or loaded in the chat memory.
  *
  * Preprocessors are applied in order when messages are loaded from or stored to the history provider.
  * They allow transforming the message list at each stage, enabling use cases such as
- * sliding window truncation, message filtering, summarization, etc.
+ * sliding window truncation, message filtering, summarisation, etc.
  *
  * Note that the order of preprocessors matters. For example:
  * ```kotlin
@@ -22,9 +23,35 @@ import ai.koog.prompt.message.Message
  *
  * @see WindowSizePreProcessor
  * @see FilterMessagesPreProcessor
+ * @see DropSystemMessagesPreProcessor
  */
 public interface ChatMemoryPreProcessor {
     public fun preprocess(messages: List<Message>): List<Message>
+}
+
+/**
+ * A [ChatMemoryPreProcessor] that removes all [Message.System] messages from the list.
+ *
+ * The system prompt is owned by the live agent and re-applied on each agent creation, so it is
+ * usually redundant to persist it in conversation history. Adding this preprocessor keeps the
+ * stored history free of system messages. This is opt-in: by default [ChatMemory] persists
+ * messages as-is.
+ *
+ * [ChatMemory] restores the live agent's system messages when loading history. This preprocessor
+ * removes system messages before history is loaded or stored by the [ChatHistoryProvider].
+ *
+ * Example usage:
+ * ```kotlin
+ * installChatMemory {
+ *     chatHistoryProvider = MyChatHistoryProvider()
+ *     dropSystemMessages()
+ * }
+ * ```
+ */
+public class DropSystemMessagesPreProcessor : ChatMemoryPreProcessor {
+    override fun preprocess(messages: List<Message>): List<Message> {
+        return messages.filterNot { it is Message.System }
+    }
 }
 
 /**
@@ -39,12 +66,54 @@ public interface ChatMemoryPreProcessor {
  * }
  * ```
  *
+ * Tool results are retained only when their preceding call remains in the window. Calls without IDs
+ * are paired in order for each tool. Other message parts are preserved, and empty result messages
+ * are dropped, so the result can contain fewer than [windowSize] messages.
+ *
  * @param windowSize The maximum number of recent messages to keep.
  */
 public class WindowSizePreProcessor(private val windowSize: Int) : ChatMemoryPreProcessor {
     override fun preprocess(messages: List<Message>): List<Message> {
-        return messages.takeLast(windowSize)
+        val windowStart = messages.size - messages.takeLast(windowSize).size
+        val calls = mutableMapOf<PairingKey, ArrayDeque<Int>>()
+        return messages.mapIndexedNotNull { index, message ->
+            fun keepPart(part: MessagePart): Boolean =
+                when (part) {
+                    is MessagePart.Tool.Call -> {
+                        calls.getOrPut(part.pairingKey) { ArrayDeque() }.addLast(index)
+                        true
+                    }
+                    is MessagePart.Tool.Result -> {
+                        val callIndex = calls[part.pairingKey]?.removeFirstOrNull()
+                        message !is Message.User || (callIndex != null && callIndex >= windowStart)
+                    }
+                    else -> true
+                }
+            val parts = if (message is Message.User) {
+                message.parts.filter { keepPart(it) }
+            } else {
+                message.parts.forEach { keepPart(it) }
+                emptyList()
+            }
+            when {
+                index < windowStart -> null
+                message !is Message.User || parts.size == message.parts.size -> message
+                parts.isEmpty() -> null
+                else -> message.copy(parts = parts)
+            }
+        }
     }
+
+    private sealed interface PairingKey {
+        data class Identified(val id: String) : PairingKey
+        data class Anonymous(val tool: String) : PairingKey
+    }
+
+    private val MessagePart.Tool.pairingKey: PairingKey
+        get() = when (this) {
+            is MessagePart.Tool.Call -> id?.let { PairingKey.Identified(it) } ?: PairingKey.Anonymous(tool)
+            is MessagePart.Tool.Result -> id?.let { PairingKey.Identified(it) } ?: PairingKey.Anonymous(tool)
+        }
 }
 
 /**

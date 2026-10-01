@@ -4,14 +4,17 @@ import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.agent.config.MissingToolsConversionStrategy
 import ai.koog.agents.core.agent.config.ToolCallDescriber
 import ai.koog.agents.core.agent.context.AIAgentContext
+import ai.koog.agents.core.agent.context.AIAgentGraphContextBase
 import ai.koog.agents.core.agent.context.AIAgentLLMContext
 import ai.koog.agents.core.agent.context.DetachedPromptExecutorAPI
+import ai.koog.agents.core.agent.context.with
 import ai.koog.agents.core.agent.entity.AIAgentStateManager
 import ai.koog.agents.core.agent.entity.AIAgentStorage
 import ai.koog.agents.core.agent.execution.AgentExecutionInfo
 import ai.koog.agents.core.agent.tools.AgentContextAwareTool
 import ai.koog.agents.core.agent.tools.ManagedExecutionTool
 import ai.koog.agents.core.annotation.InternalAgentsApi
+import ai.koog.agents.core.feature.ContextualPromptExecutor
 import ai.koog.agents.core.feature.pipeline.AIAgentGraphPipeline
 import ai.koog.agents.core.feature.pipeline.AIAgentPipeline
 import ai.koog.agents.core.tools.ToolCallMetadata
@@ -35,8 +38,11 @@ import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONObject
 import ai.koog.utils.time.KoogClock
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.supervisorScope
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 import kotlin.uuid.ExperimentalUuidApi
@@ -82,12 +88,59 @@ public class ContextualAgentEnvironment(
             IllegalStateException(MANAGED_EXECUTION_DATA_REDACTED)
     }
 
+    /** Executes graph tool calls with separate LLM contexts and execution paths. */
+    override suspend fun executeTools(toolCalls: List<MessagePart.Tool.Call>): List<ReceivedToolResult> =
+        executeTools(toolCalls, ToolCallMetadata.EMPTY)
+
+    /**
+     * Executes graph tool calls with isolated prompts and paths, sharing agent storage and state.
+     * Every context is prepared before any tool starts. Other context types retain the default batch execution.
+     */
+    @OptIn(DetachedPromptExecutorAPI::class)
+    override suspend fun executeTools(
+        toolCalls: List<MessagePart.Tool.Call>,
+        metadata: ToolCallMetadata,
+    ): List<ReceivedToolResult> {
+        val graphContext = context as? AIAgentGraphContextBase
+            ?: return super.executeTools(toolCalls, metadata)
+        val environments = toolCalls.map {
+            val toolContext = graphContext.copy(llm = graphContext.llm.copy())
+            val toolEnvironment = ContextualAgentEnvironment(environment, toolContext)
+            val executor = toolContext.llm.promptExecutor
+            toolContext.replace(
+                toolContext.copy(
+                    environment = toolEnvironment,
+                    llm = toolContext.llm.copy(
+                        environment = toolEnvironment,
+                        promptExecutor = if (executor is ContextualPromptExecutor) {
+                            executor.withContext(toolContext)
+                        } else {
+                            executor
+                        },
+                    ),
+                )
+            )
+            toolEnvironment
+        }
+        return supervisorScope {
+            toolCalls.zip(environments).map { (call, toolEnvironment) ->
+                async { toolEnvironment.executeTool(call, metadata, scopeExecutionPath = true) }
+            }.awaitAll()
+        }
+    }
+
     override suspend fun executeTool(toolCall: MessagePart.Tool.Call): ReceivedToolResult =
         executeTool(toolCall, ToolCallMetadata.EMPTY)
 
     override suspend fun executeTool(
         toolCall: MessagePart.Tool.Call,
         metadata: ToolCallMetadata,
+    ): ReceivedToolResult = executeTool(toolCall, metadata, scopeExecutionPath = false)
+
+    private suspend fun executeTool(
+        toolCall: MessagePart.Tool.Call,
+        metadata: ToolCallMetadata,
+        scopeExecutionPath: Boolean,
     ): ReceivedToolResult {
         @OptIn(ExperimentalUuidApi::class)
         val eventId = Uuid.random().toString()
@@ -186,7 +239,13 @@ public class ContextualAgentEnvironment(
         val mergedMetadata = featureMetadata + metadata +
             ToolCallMetadata.of(AgentContextAwareTool.AgentContextKey to context)
 
-        val toolResult = environment.executeTool(toolCall, mergedMetadata)
+        val toolResult = if (scopeExecutionPath) {
+            context.with(AgentExecutionInfo(context.executionInfo, eventId)) { _, _ ->
+                environment.executeTool(toolCall, mergedMetadata)
+            }
+        } else {
+            environment.executeTool(toolCall, mergedMetadata)
+        }
         processToolResult(eventId, callbackContext, toolResult)
 
         if (isManagedExecution) {

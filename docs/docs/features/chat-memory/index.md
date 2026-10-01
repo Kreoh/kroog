@@ -141,10 +141,13 @@ They run sequentially in the order you add them to the `ChatMemory` feature conf
 
 ### Built-in preprocessors
 
-| Config method            | Preprocessor class           | Behavior                              |
-|--------------------------|------------------------------|---------------------------------------|
-| `windowSize(n)`          | `WindowSizePreProcessor`     | Keeps only the last `n` messages      |
+| Config method | Preprocessor class | Behaviour |
+| --- | --- | --- |
+| `windowSize(n)` | `WindowSizePreProcessor` | Keeps at most the last `n` messages and drops orphan tool results |
 | `filterMessages { ... }` | `FilterMessagesPreProcessor` | Keeps messages matching the predicate |
+| `dropSystemMessages()` | `DropSystemMessagesPreProcessor` | Removes system messages before loading and storing history |
+
+The current agent supplies the system messages on every run. Loaded system messages are ignored, while the remaining conversation is restored. Empty history preserves the initial prompt. By default, storing history retains system messages; `dropSystemMessages()` removes them.
 
 ### Order of preprocessors
 
