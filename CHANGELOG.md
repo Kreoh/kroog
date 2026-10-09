@@ -1,3 +1,16 @@
+# Kroog 1.3.0-kroog.2
+
+Unpublished release preparation on the unchanged upstream Koog 1.3.0 baseline.
+Stable modules use `1.3.0-kroog.2`; beta modules use `1.3.0-beta-kroog.2`.
+
+- Complete absent or exactly empty streamed tool arguments as `{}` in the native stream builder. Preserve argument deltas, independent call identities, valid JSON and rejection of invalid non-empty content.
+- Cover the failure with builder regressions and Anthropic and Vertex fake HTTP streams. The affected JVM suites passed 383 tests with three existing skips.
+- Repair the stale prompt-model JVM API baseline to match the actual published revision 1 JAR. The published baseline and compiled fix have identical public JVM signatures. No non-JVM API dump changes are included.
+- Keep model definitions and the central catalogue unchanged. Installation examples use published revision 1 until the candidate is published and verified.
+
+See [release preparation evidence](docs/releases/1.3.0-kroog.2-validation.md).
+Exact-commit local publication validation and external publication remain pending.
+
 # Kroog 1.3.0-kroog.1
 
 One unpublished release preparation contains the streamed tool-call identity fix and

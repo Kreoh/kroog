@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.3.0-kroog.1`; modules which apply a beta version transform
+stable version is `1.3.0-kroog.2`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -39,23 +39,22 @@ examples on confirmed published coordinates until new artefacts are available
 from Central and dependency resolution has been verified.
 See `VERSIONING.md` for the policy and beta-module version forms.
 
-For the current release configured as `1.3.0-kroog.1`, the version forms are:
+For the current release configured as `1.3.0-kroog.2`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.3.0-kroog.1` |
-| Beta modules, derived automatically | `1.3.0-beta-kroog.1` |
-| Stable module snapshots | `1.3.0-kroog.1-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.1-SNAPSHOT` |
-| Annotated release tag | `1.3.0-kroog.1` |
+| Stable modules | `1.3.0-kroog.2` |
+| Beta modules, derived automatically | `1.3.0-beta-kroog.2` |
+| Stable module snapshots | `1.3.0-kroog.2-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.2-SNAPSHOT` |
+| Annotated release tag | `1.3.0-kroog.2` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
 forms describe the configured release revision. Local preparation does not
-publish artefacts to Maven Central. Revision `1` contains the streamed tool-call
-identity fix and all three correctness batches in one unpublished release
-preparation. Installation examples retain confirmed published
-`1.1.1-kroog.15` and `1.1.1-beta-kroog.15` until the new release is verified.
+publish artefacts to Maven Central. Revision `2` prepares the empty streamed
+tool-argument completion fix. Installation examples use confirmed published
+`1.3.0-kroog.1` and `1.3.0-beta-kroog.1` until revision 2 is published and verified.
 
 ## Exact target closure
 
@@ -78,8 +77,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.3.0-beta-kroog.1-SNAPSHOT`, and its release version is
-`1.3.0-beta-kroog.1`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.3.0-beta-kroog.2-SNAPSHOT`, and its release version is
+`1.3.0-beta-kroog.2`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.

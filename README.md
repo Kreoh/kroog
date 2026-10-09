@@ -8,9 +8,9 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Comparison checked on **1 October 2026**: this README describes the implementation at [commit `7ca670394e`][release-source], now consolidated into `1.3.0-kroog.1` (beta modules: `1.3.0-beta-kroog.1`). The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Source comparison checked on **9 October 2026**: this preparation adds the [empty streamed tool-argument fix](docs/upstream/empty-streamed-tool-arguments.md) from commit `ec50d6e1a951261353282b77250fff2b5c35ce40` to published `1.3.0-kroog.1`. The configured candidate is **`1.3.0-kroog.2`** (beta modules: **`1.3.0-beta-kroog.2`**), which remains unpublished. The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
-The streamed tool-call identity fix and all three correctness batches form **one unpublished release preparation, `1.3.0-kroog.1`**. Installation examples below use confirmed published revision 15. The [correctness import record][correctness-imports] identifies the three batches and pinned upstream authorship.
+Revision 2 completes absent or exactly empty streamed tool arguments as `{}` while preserving invalid non-empty argument rejection. It changes no model definitions, catalogue entries or public JVM signatures. See the [revision 2 preparation evidence](docs/releases/1.3.0-kroog.2-validation.md). The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
 
 Compared with that upstream baseline, Kroog retains these additions and adaptations:
 
@@ -117,7 +117,7 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
 ### Published dependencies
 
-Checked on **1 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.1.1-kroog.15` and the [beta additions umbrella POM][beta-pom] at `1.1.1-beta-kroog.15`. The prepared stable `1.3.0-kroog.1` umbrella POM was also checked on that date and returned HTTP 404. Keep the following published coordinates until the prepared release is published and verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
+Checked on **9 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.3.0-kroog.1` and the [beta additions umbrella POM][beta-pom] at `1.3.0-beta-kroog.1`. Both candidate revision 2 umbrella POMs return HTTP 404. Installation examples therefore retain published revision 1 until revision 2 is published and dependency resolution is verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
 
 The stable umbrella supplies the main agent APIs. Add the beta umbrella only when using its additional modules. Gradle consumers should resolve these JVM publications through POMs, using the repository configuration below. See [PUBLISHING.md](PUBLISHING.md) for the publication inventory and resolution checks.
 
@@ -135,9 +135,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.15")
+    implementation("com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.1")
     // Optional beta modules:
-    implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.15")
+    implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.1")
 }
 ```
 
@@ -155,9 +155,9 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.kreoh.kroog:koog-agents-jvm:1.1.1-kroog.15'
+    implementation 'com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.1'
     // Optional beta modules:
-    implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.1.1-beta-kroog.15'
+    implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.1'
 }
 ```
 
@@ -169,13 +169,13 @@ Maven Central is enabled by default. Add these entries inside `dependencies` in 
 <dependency>
     <groupId>com.kreoh.kroog</groupId>
     <artifactId>koog-agents-jvm</artifactId>
-    <version>1.1.1-kroog.15</version>
+    <version>1.3.0-kroog.1</version>
 </dependency>
 <!-- Optional beta modules: -->
 <dependency>
     <groupId>com.kreoh.kroog</groupId>
     <artifactId>koog-agents-additions-jvm</artifactId>
-    <version>1.1.1-beta-kroog.15</version>
+    <version>1.3.0-beta-kroog.1</version>
 </dependency>
 ```
 
@@ -197,8 +197,8 @@ Kroog is licensed under the [Apache 2.0 licence](LICENSE.txt).
 [release-notes]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/CHANGELOG.md
 [cache-policy]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt
 [catalogue]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt
-[stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.1.1-kroog.15/koog-agents-jvm-1.1.1-kroog.15.pom
-[beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.1.1-beta-kroog.15/koog-agents-additions-jvm-1.1.1-beta-kroog.15.pom
+[stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.3.0-kroog.1/koog-agents-jvm-1.3.0-kroog.1.pom
+[beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.3.0-beta-kroog.1/koog-agents-additions-jvm-1.3.0-beta-kroog.1.pom
 [openai-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt
 [anthropic-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt
 [google-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt

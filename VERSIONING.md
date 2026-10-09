@@ -19,7 +19,7 @@ on that upstream baseline.
    Record additional features, fixes and any compatibility changes.
 
 The current source incorporates Koog `1.3.0`, so its configured version is
-`1.3.0-kroog.1`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
+`1.3.0-kroog.2`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
 is incorrect. A mismatch between the incorporated upstream version and the
 configured Kroog base blocks release preparation.
 
@@ -35,16 +35,16 @@ The upstream semantic version supplies the base. Kroog's suffix is its fork
 release convention; it is a prerelease identifier under SemVer ordering.
 Do not describe a suffixed version as a plain SemVer final release.
 
-The streamed tool-call identity fix and all three correctness batches form one unpublished release preparation, `1.3.0-kroog.1`. Installation examples use confirmed published `1.1.1-kroog.15` and `1.1.1-beta-kroog.15` until the new coordinates are published and verified.
+Revision `2` prepares the empty streamed tool-argument completion fix on published revision `1`. Installation examples use confirmed published `1.3.0-kroog.1` and `1.3.0-beta-kroog.1` until the new coordinates are published and verified.
 
 ## Stable modules, beta modules and snapshots
 
 | Publication | Current source version |
 | --- | --- |
-| Stable modules and annotated release tag | `1.3.0-kroog.1` |
-| Beta modules | `1.3.0-beta-kroog.1` |
-| Stable module snapshots | `1.3.0-kroog.1-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.1-SNAPSHOT` |
+| Stable modules and annotated release tag | `1.3.0-kroog.2` |
+| Beta modules | `1.3.0-beta-kroog.2` |
+| Stable module snapshots | `1.3.0-kroog.2-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.2-SNAPSHOT` |
 
 Beta versions are derived automatically. All modules share the same upstream
 base and Kroog revision. The stable umbrella is `koog-agents-jvm`; the beta
