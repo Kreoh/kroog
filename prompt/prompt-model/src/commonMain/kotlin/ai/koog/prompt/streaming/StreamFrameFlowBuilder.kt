@@ -475,7 +475,7 @@ public class StreamFrameFlowBuilder(
             flowCollector.emitToolCallComplete(
                 id = pendingToolCall.id,
                 name = pendingToolCall.name,
-                content = pendingToolCall.argumentsDelta ?: "{}",
+                content = pendingToolCall.argumentsDelta?.takeUnless { it.isEmpty() } ?: "{}",
                 index = pendingToolCall.index,
                 providerItemId = pendingToolCall.providerItemId,
             )

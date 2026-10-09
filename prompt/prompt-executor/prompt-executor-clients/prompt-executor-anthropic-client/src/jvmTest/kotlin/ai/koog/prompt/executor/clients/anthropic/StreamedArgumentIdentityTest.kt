@@ -2,7 +2,9 @@ package ai.koog.prompt.executor.clients.anthropic
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
+import ai.koog.prompt.streaming.toMessageResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
@@ -13,6 +15,37 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class StreamedArgumentIdentityTest {
+    @Test
+    fun testAnthropicAndVertexEmptyArgumentFragmentsCompleteAsEmptyObject() = runTest {
+        val model = AnthropicModels.Fable_5
+        val events = listOf(
+            """{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"empty","name":"list_files","input":{}}}""",
+            """{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":""}}""",
+            """{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":""}}""",
+            """{"type":"content_block_stop","index":0}""",
+            """{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":5}}""",
+            """{"type":"message_stop"}""",
+        )
+        val clients = listOf(
+            AnthropicLLMClient(settings = AnthropicClientSettings(modelVersionsMap = mapOf(model to model.id)), httpClient = IdentityFixtureHttp(events)),
+            AnthropicVertexLLMClient(settings = AnthropicVertexClientSettings("project", "us-east1", mapOf(model to "claude-fable-5@20260701")), httpClient = IdentityFixtureHttp(events)),
+        )
+        clients.forEach { client ->
+            val frames = client.executeStreaming(Prompt.build("empty-arguments") { user("List files") }, model).toList()
+
+            val call = frames.toMessageResponse().parts.filterIsInstance<MessagePart.Tool.Call>().single()
+            assertEquals("empty", call.id)
+            assertEquals("list_files", call.tool)
+            assertEquals("{}", call.args)
+            val complete = frames.filterIsInstance<StreamFrame.ToolCallComplete>().single()
+            assertEquals("{}", complete.content)
+            assertEquals(0, complete.index)
+            val deltas = frames.filterIsInstance<StreamFrame.ToolCallDelta>()
+            assertEquals(2, deltas.count { it.content == "" })
+            assertTrue(deltas.all { it.id == "empty" && it.name == "list_files" && it.index == 0 })
+        }
+    }
+
     @Test
     fun testAnthropicAndVertexArgumentsCarryResolvedIdentity() = runTest {
         val model = AnthropicModels.Fable_5
