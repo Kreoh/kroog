@@ -115,11 +115,15 @@ public data class OpenAIContainerResource(
     public val `object`: String = "container",
 )
 
-/** Metadata for a file attached to a hosted-execution container. */
+/**
+ * Metadata for a file attached to a hosted-execution container.
+ *
+ * @property bytes File size in bytes, or null when the provider does not supply a size.
+ */
 @Serializable
 public data class OpenAIContainerFileResource(
     public val id: String,
-    public val bytes: Long,
+    public val bytes: Long? = null,
     @SerialName("container_id") public val containerId: String,
     @SerialName("created_at") public val createdAt: Long,
     public val path: String,

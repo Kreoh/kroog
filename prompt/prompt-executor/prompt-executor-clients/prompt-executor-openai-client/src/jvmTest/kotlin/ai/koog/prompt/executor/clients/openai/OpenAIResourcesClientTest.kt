@@ -84,6 +84,46 @@ class OpenAIFilesClientTest {
 
 class OpenAIContainersClientTest {
     @Test
+    fun testListFilesWithMissingSize() = runTest {
+        assertListedFileSize(CONTAINER_FILE_JSON.replace("\"bytes\":4,", ""), null)
+    }
+
+    @Test
+    fun testListFilesWithNullSize() = runTest {
+        assertListedFileSize(CONTAINER_FILE_JSON.replace("\"bytes\":4", "\"bytes\":null"), null)
+    }
+
+    @Test
+    fun testListFilesWithNumericSize() = runTest {
+        assertListedFileSize(CONTAINER_FILE_JSON.replace("\"bytes\":4", "\"bytes\":4294967296"), 4294967296L)
+        assertListedFileSize(CONTAINER_FILE_JSON.replace("\"bytes\":4", "\"bytes\":0"), 0L)
+    }
+
+    private suspend fun assertListedFileSize(fileJson: String, expectedBytes: Long?) {
+        val client = OpenAIContainersClient(
+            ResourceTransport {
+                response(CONTAINER_FILE_LIST_JSON.replace(CONTAINER_FILE_JSON, fileJson))
+            }
+        )
+
+        val result = assertIs<OpenAIResourceResult.Success<OpenAIContainerFileList>>(
+            client.listFiles("container_1")
+        )
+        val page = requireNotNull(result.value)
+        val file = page.data.single()
+        assertEquals(expectedBytes, file.bytes)
+        assertEquals("cfile_1", file.id)
+        assertEquals("container_1", file.containerId)
+        assertEquals(1L, file.createdAt)
+        assertEquals("/mnt/data/zero.bin", file.path)
+        assertEquals("user", file.source)
+        assertEquals("container.file", file.`object`)
+        assertEquals("cfile_1", page.firstId)
+        assertEquals("cfile_1", page.lastId)
+        assertEquals(false, page.hasMore)
+    }
+
+    @Test
     fun testCompleteContainerAndContainerFileLifecycle() = runTest {
         val requests = mutableListOf<ResourceRequest>()
         val binary = byteArrayOf(0, 9, 0, -1)
