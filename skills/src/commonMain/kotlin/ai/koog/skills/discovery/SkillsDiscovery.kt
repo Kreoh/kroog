@@ -36,6 +36,8 @@ public enum class SkillCollisionPrecedence {
  * Warnings (ignored roots/directories, malformed skill files, collisions, and format mismatches)
  * are reported through [warningLogger].
  *
+ * Host filesystem access through this legacy overload fails before I/O without explicit attestation.
+ * Use the overload with [SkillFileSystemTrust] for operator-controlled immutable trees.
  * Strict parsing rejects duplicate fields, aliases, invalid names and directory-name mismatches.
  * The JVM provider uses scoped secure directory descriptors. Unknown providers fail closed;
  * use [SkillFileSystemSnapshot] for bounded immutable in-memory discovery.
@@ -65,6 +67,27 @@ public suspend fun <Path> discoverSkills(
     skippedDirectoryNames: Set<String> = DEFAULT_SKIPPED_DIRECTORY_NAMES,
     skillNamePattern: Regex = DEFAULT_SKILL_NAME_PATTERN,
     warningLogger: (String) -> Unit = ::defaultWarningLogger,
+): List<Skill> = discoverSkills(
+    fs, directoriesToSearch, SkillFileSystemTrust.UNATTESTED, maxDepth, maxDirectories,
+    precedenceRule, skillFileName, skippedDirectoryNames, skillNamePattern, warningLogger,
+)
+
+/**
+ * Discovers skills with an explicit host-filesystem trust declaration.
+ * See [SkillFileSystemTrust.TRUSTED_IMMUTABLE] for the deployment precondition and its limits.
+ * Immutable [SkillFileSystemSnapshot] input needs no attestation; unknown providers remain rejected.
+ */
+public suspend fun <Path> discoverSkills(
+    fs: FileSystemProvider.ReadOnly<Path>,
+    directoriesToSearch: List<String>,
+    trust: SkillFileSystemTrust,
+    maxDepth: Int = 4,
+    maxDirectories: Int = 2000,
+    precedenceRule: SkillCollisionPrecedence = SkillCollisionPrecedence.LAST_FOUND,
+    skillFileName: String = DEFAULT_SKILL_FILE_NAME,
+    skippedDirectoryNames: Set<String> = DEFAULT_SKIPPED_DIRECTORY_NAMES,
+    skillNamePattern: Regex = DEFAULT_SKILL_NAME_PATTERN,
+    warningLogger: (String) -> Unit = ::defaultWarningLogger,
 ): List<Skill> {
     require(maxDepth >= 0) { "maxDepth must be >= 0" }
     require(maxDirectories > 0) { "maxDirectories must be > 0" }
@@ -80,7 +103,7 @@ public suspend fun <Path> discoverSkills(
             DuplicateSkillPolicy.KEEP_LAST else DuplicateSkillPolicy.KEEP_FIRST,
     )
     val result = discoverRecords(
-        openSkillSession(fs, policy), directoriesToSearch, policy,
+        openSkillSession(fs, policy, trust), directoriesToSearch, policy,
         upstream = true, maxDepth = maxDepth, skillFileName = skillFileName,
         skippedDirectoryNames = skippedDirectoryNames, skillNamePattern = skillNamePattern,
     )
@@ -104,11 +127,11 @@ internal interface SecureSkillSession {
     fun openDirectory(entry: SkillEntry): SkillEntry
     fun child(directory: SkillEntry, name: String): SkillEntry
     fun list(directory: SkillEntry, maximum: Int): List<SkillEntry>
-    suspend fun read(entry: SkillEntry): String
+    suspend fun read(entry: SkillEntry, maximumBytes: Long = Long.MAX_VALUE): String
     fun close()
 }
 
-internal expect fun <Path> openSkillSession(fs: FileSystemProvider.ReadOnly<Path>, policy: SkillLoadPolicy): SecureSkillSession
+internal expect fun <Path> openSkillSession(fs: FileSystemProvider.ReadOnly<Path>, policy: SkillLoadPolicy, trust: SkillFileSystemTrust): SecureSkillSession
 
 internal data class SkillDiscoveryResult(val records: List<ParsedSkillDocument>, val diagnostics: List<SkillDiagnostic>, val warnings: List<String>)
 
@@ -153,7 +176,50 @@ internal suspend fun discoverRecords(
         }
         return type
     }
-    suspend fun load(directory: SkillEntry) {
+    val resourceLimits = SkillResourceLimits()
+    val resourceBudget = SkillResourceBudget()
+    suspend fun resources(directory: SkillEntry, skillDepth: Int): SkillResources {
+        val root = session.child(directory, "references")
+        val rootKind = session.inspect(root) ?: return SkillResources.Empty
+        if (rootKind == SkillEntryKind.SYMLINK) throw SkillException(SkillError.SymlinkRejected())
+        if (rootKind != SkillEntryKind.DIRECTORY) throw SkillException(SkillError.InvalidField("references", "must be a directory"))
+        val files = linkedMapOf<String, String>()
+        var total = 0L
+        suspend fun walk(current: SkillEntry, prefix: String, depth: Int) {
+            checkResourceLimit(depth.toLong(), policy.limits.maxRecursiveDepth.toLong(), "resource depth")
+            if (++directories > policy.limits.maxDirectories) throw SkillException(SkillError.LimitExceeded("directories", policy.limits.maxDirectories.toLong()))
+            val remaining = policy.limits.maxDirectories - entries
+            val children = session.list(current, if (remaining == Int.MAX_VALUE) remaining else remaining + 1)
+            entries += children.size
+            checkResourceLimit(entries.toLong(), policy.limits.maxDirectories.toLong(), "directory entries")
+            for (child in children) {
+                currentCoroutineContext().ensureActive()
+                val prefixBytes = resourceUtf8Size(prefix, resourceLimits.maxNameBytes)
+                resourceUtf8Size(child.name, resourceLimits.maxNameBytes - prefixBytes)
+                val name = prefix + child.name
+                val nameBytes = validateResourceName(name, resourceLimits)
+                when (session.inspect(child)) {
+                    SkillEntryKind.DIRECTORY -> walk(session.openDirectory(child), "$name/", depth + 1)
+                    SkillEntryKind.FILE -> {
+                        checkResourceLimit(files.size.toLong() + 1, resourceLimits.maxResources.toLong(), "resource count")
+                        checkResourceLimit(nameBytes, resourceLimits.maxSkillBytes - total, "skill resource bytes")
+                        total += nameBytes
+                        resourceBudget.checkCandidate(total)
+                        val body = session.read(child, minOf(resourceLimits.maxBodyBytes, resourceLimits.maxSkillBytes - total, resourceBudget.remainingBytes - total))
+                        currentCoroutineContext().ensureActive()
+                        total += resourceUtf8Size(body, minOf(resourceLimits.maxBodyBytes, resourceLimits.maxSkillBytes - total, resourceBudget.remainingBytes - total))
+                        resourceBudget.checkCandidate(total)
+                        files[name] = body
+                    }
+                    SkillEntryKind.SYMLINK -> throw SkillException(SkillError.SymlinkRejected())
+                    else -> throw SkillException(SkillError.InvalidField("resource", "must be a regular file or directory"))
+                }
+            }
+        }
+        walk(session.openDirectory(root), "references/", skillDepth + 1)
+        return SkillResources(files).also { resourceBudget.add(it) }
+    }
+    suspend fun load(directory: SkillEntry, depth: Int) {
         val file = session.child(directory, skillFileName)
         if (kind(file) != SkillEntryKind.FILE) return
         // File-byte limits and secure read errors are fatal, as in the legacy source.
@@ -173,7 +239,8 @@ internal suspend fun discoverRecords(
             malformed(error.error.withSource(reference(file)))
             return
         }
-        candidates += record
+        val complete = if (upstream) record else record.copy(legacy = record.toLegacy().copy(resources = resources(directory, depth)))
+        candidates += complete
         if (candidates.size > policy.limits.maxSkills) throw SkillException(
             SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong(), reference(file)), policy.diagnosticPaths,
         )
@@ -206,7 +273,7 @@ internal suspend fun discoverRecords(
                     break
                 }
             }
-            if (upstream || depth > 0) load(directory)
+            if (upstream || depth > 0) load(directory, depth)
             if (!upstream && policy.discoveryMode == SkillDiscoveryMode.DIRECT_CHILDREN && depth > 0) continue
             if (upstream && depth >= maxDepth) continue
             val children = list(directory)
@@ -258,7 +325,7 @@ internal fun SkillError.withSource(source: SkillSourceReference?): SkillError = 
     is SkillError.SymlinkRejected -> copy(source = source)
     is SkillError.DecodingFailure -> copy(source = source)
     is SkillError.IoFailure -> copy(source = source)
-    is SkillError.UnknownSkill, SkillError.CatalogueOverflow, SkillError.ToolCollision -> this
+    is SkillError.UnknownSkill, SkillError.UntrustedFileSystem, SkillError.UnknownResource, SkillError.ResourceToolCollision, SkillError.CatalogueOverflow, SkillError.ToolCollision -> this
 }
 
 /**
@@ -364,10 +431,11 @@ public class SkillFileSystemSnapshot(
             return (directories.asSequence() + contents.keys.asSequence())
                 .filter { parent(it) == path }.take(maximum).sorted().map(::Entry).toList()
         }
-        override suspend fun read(entry: SkillEntry): String {
+        override suspend fun read(entry: SkillEntry, maximumBytes: Long): String {
             val bytes = checkNotNull(contents[checked(entry).location])
-            if (bytes.size > policy.limits.maxFileBytes) throw SkillException(
-                SkillError.LimitExceeded("file bytes", policy.limits.maxFileBytes), policy.diagnosticPaths,
+            val maximum = minOf(policy.limits.maxFileBytes, maximumBytes)
+            if (bytes.size > maximum) throw SkillException(
+                SkillError.LimitExceeded("file bytes", maximum), policy.diagnosticPaths,
             )
             return try { bytes.decodeToString(throwOnInvalidSequence = true) } catch (_: CharacterCodingException) {
                 throw SkillException(SkillError.DecodingFailure("UTF-8"), policy.diagnosticPaths)

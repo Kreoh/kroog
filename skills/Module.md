@@ -6,3 +6,11 @@ A module that provides core utilities for defining skill metadata, discovering s
 Kroog retains the upstream skill descriptor, discovery and XML, YAML and JSON prompt APIs. JVM discovery uses strict parsing and secure no-follow filesystem sessions, with a bounded immutable adapter for memory-backed providers. Legacy registries provide metadata-only catalogues and a typed `load_skill` tool over captured instructions.
 
 The current source prepares `1.3.0-beta-kroog.1`. Install the confirmed published standalone beta module as `com.kreoh.kroog:skills-jvm:1.1.1-beta-kroog.15`; preparation does not imply publication. See the module README for policies and compatibility details.
+
+Immutable skill snapshots include bounded `references/` text. The maintained
+`load_skill` and `read_skill_resource` tools expose names and exact captured
+text through the same filtered registry.
+
+Host filesystem discovery requires explicit caller attestation of trusted,
+immutable roots. Legacy host entrypoints fail before I/O without that declaration.
+Immutable in-memory input requires no filesystem trust declaration.

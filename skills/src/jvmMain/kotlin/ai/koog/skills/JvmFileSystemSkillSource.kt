@@ -21,27 +21,40 @@ private object DefaultRootDirectoryOpener : RootDirectoryOpener {
 
 private object NoSkillFileSystemHooks : SkillFileSystemHooks
 
-/** Bounded, deterministic skill discovery rooted at explicitly configured JVM paths. */
+/**
+ * Bounded discovery from explicitly attested trusted immutable JVM roots.
+ * The legacy constructor remains callable but [load] fails before host I/O without attestation.
+ * See [SkillFileSystemTrust.TRUSTED_IMMUTABLE] for the caller's deployment precondition.
+ */
 public class JvmFileSystemSkillSource internal constructor(
     roots: Collection<Path>,
     private val policy: SkillLoadPolicy,
     private val rootDirectoryOpener: RootDirectoryOpener,
     private val hooks: SkillFileSystemHooks,
+    private val trust: SkillFileSystemTrust = SkillFileSystemTrust.UNATTESTED,
 ) : SkillSource {
     public constructor(
         roots: Collection<Path>,
         policy: SkillLoadPolicy = SkillLoadPolicy(),
     ) : this(roots, policy, DefaultRootDirectoryOpener, NoSkillFileSystemHooks)
 
+    /** Constructs a source with an explicit caller trust declaration. */
+    public constructor(
+        roots: Collection<Path>,
+        trust: SkillFileSystemTrust,
+        policy: SkillLoadPolicy = SkillLoadPolicy(),
+    ) : this(roots, policy, DefaultRootDirectoryOpener, NoSkillFileSystemHooks, trust)
+
     private val roots: List<Path> = roots.map { it.toAbsolutePath().normalize() }.sortedBy { it.toString() }
 
     override suspend fun load(): SkillSourceResult {
+        requireTrustedFileSystem(trust, policy)
         val configuredRoots = roots.associateBy { it.toString() }
         if (roots.any { configuredRoots.getValue(it.toString()) != it }) throw SkillException(
             SkillError.IoFailure("configured roots have ambiguous filesystem identities"), policy.diagnosticPaths,
         )
         val result = discoverRecords(
-            JvmSecureSkillSession(policy, rootDirectoryOpener, hooks, configuredRoots = configuredRoots),
+            JvmSecureSkillSession(policy, rootDirectoryOpener, hooks, configuredRoots = configuredRoots, trust = trust),
             roots.map { it.toString() }, policy, upstream = false,
         )
         return SkillSourceResult(result.records.map { it.toLegacy() }.sortedBy { it.name }, result.diagnostics)

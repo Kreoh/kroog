@@ -30,7 +30,7 @@ class JvmFileSystemSkillSourceTest {
 
     @Test
     fun `empty input produces an empty immutable snapshot`() = runTest {
-        val result = JvmFileSystemSkillSource(emptyList()).load()
+        val result = trustedSkillSource(emptyList()).load()
         assertTrue(result.skills.isEmpty())
         assertTrue(result.diagnostics.isEmpty())
     }
@@ -43,7 +43,7 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(aRoot, "zulu")
         writeSkill(aRoot, "alpha")
 
-        val names = JvmFileSystemSkillSource(listOf(zRoot, aRoot)).load().skills.map { it.name }
+        val names = trustedSkillSource(listOf(zRoot, aRoot)).load().skills.map { it.name }
         assertEquals(listOf("alpha", "middle", "zulu"), names)
     }
 
@@ -54,7 +54,7 @@ class JvmFileSystemSkillSourceTest {
         root.resolve("empty").createDirectories()
         writeSkill(root, "valid")
 
-        assertEquals(listOf("valid"), JvmFileSystemSkillSource(listOf(root)).load().skills.map { it.name })
+        assertEquals(listOf("valid"), trustedSkillSource(listOf(root)).load().skills.map { it.name })
     }
 
     @Test
@@ -62,25 +62,25 @@ class JvmFileSystemSkillSourceTest {
         val root = tempDir.resolve("root").createDirectories()
         writeSkill(root.resolve("group").createDirectories(), "nested")
 
-        assertTrue(JvmFileSystemSkillSource(listOf(root)).load().skills.isEmpty())
+        assertTrue(trustedSkillSource(listOf(root)).load().skills.isEmpty())
         val recursive = SkillLoadPolicy(discoveryMode = SkillDiscoveryMode.RECURSIVE)
-        assertEquals(listOf("nested"), JvmFileSystemSkillSource(listOf(root), recursive).load().skills.map { it.name })
+        assertEquals(listOf("nested"), trustedSkillSource(listOf(root), recursive).load().skills.map { it.name })
     }
 
     @Test
     fun `missing roots follow every policy without disclosing paths by default`() = runTest {
         val missing = tempDir.resolve("secret-missing")
-        val failure = assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(missing)).load() }
+        val failure = assertFailsWith<SkillException> { trustedSkillSource(listOf(missing)).load() }
         assertIs<SkillError.MissingRoot>(failure.error)
         assertFalse(failure.message.orEmpty().contains(missing.toString()))
 
         assertTrue(
-            JvmFileSystemSkillSource(
+            trustedSkillSource(
                 listOf(missing),
                 SkillLoadPolicy(missingRoot = MissingRootPolicy.IGNORE),
             ).load().diagnostics.isEmpty()
         )
-        val diagnostic = JvmFileSystemSkillSource(
+        val diagnostic = trustedSkillSource(
             listOf(missing),
             SkillLoadPolicy(missingRoot = MissingRootPolicy.DIAGNOSTIC),
         ).load().diagnostics.single()
@@ -92,7 +92,7 @@ class JvmFileSystemSkillSourceTest {
     fun `path disclosure is explicit`() = runTest {
         val missing = tempDir.resolve("visible-missing")
         val policy = SkillLoadPolicy(diagnosticPaths = DiagnosticPathPolicy.DISCLOSE)
-        val failure = assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(missing), policy).load() }
+        val failure = assertFailsWith<SkillException> { trustedSkillSource(listOf(missing), policy).load() }
         assertTrue(failure.message.orEmpty().contains(missing.toString()))
     }
 
@@ -102,7 +102,7 @@ class JvmFileSystemSkillSourceTest {
         val invalidFile = invalidRoot.resolve("broken").createDirectories().resolve("SKILL.md")
         Files.write(invalidFile, byteArrayOf(0xC3.toByte(), 0x28))
         assertIs<SkillError.DecodingFailure>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(invalidRoot)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(invalidRoot)).load() }.error
         )
 
         val utf16Root = tempDir.resolve("utf16").createDirectories()
@@ -110,7 +110,7 @@ class JvmFileSystemSkillSourceTest {
         val file = utf16Root.resolve("encoded").createDirectories().resolve("SKILL.md")
         Files.write(file, content.toByteArray(StandardCharsets.UTF_16BE))
         val policy = SkillLoadPolicy(charsetName = "UTF-16BE")
-        assertEquals("encoded", JvmFileSystemSkillSource(listOf(utf16Root), policy).load().skills.single().name)
+        assertEquals("encoded", trustedSkillSource(listOf(utf16Root), policy).load().skills.single().name)
     }
 
     @Test
@@ -121,7 +121,7 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(root, "valid")
         val policy = SkillLoadPolicy(malformedSkill = MalformedSkillPolicy.SKIP_WITH_DIAGNOSTIC)
 
-        val result = JvmFileSystemSkillSource(listOf(root), policy).load()
+        val result = trustedSkillSource(listOf(root), policy).load()
         assertEquals(listOf("valid"), result.skills.map { it.name })
         assertIs<SkillError.DecodingFailure>(result.diagnostics.single().error)
     }
@@ -133,13 +133,13 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(firstRoot, "same", "alpha")
         writeSkill(lastRoot, "same", "zulu")
         assertIs<SkillError.DuplicateName>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(lastRoot, firstRoot)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(lastRoot, firstRoot)).load() }.error
         )
 
         val firstPolicy = SkillLoadPolicy(duplicateSkill = DuplicateSkillPolicy.KEEP_FIRST)
         val lastPolicy = SkillLoadPolicy(duplicateSkill = DuplicateSkillPolicy.KEEP_LAST)
-        assertEquals("alpha", JvmFileSystemSkillSource(listOf(lastRoot, firstRoot), firstPolicy).load().skills.single().description)
-        assertEquals("zulu", JvmFileSystemSkillSource(listOf(lastRoot, firstRoot), lastPolicy).load().skills.single().description)
+        assertEquals("alpha", trustedSkillSource(listOf(lastRoot, firstRoot), firstPolicy).load().skills.single().description)
+        assertEquals("zulu", trustedSkillSource(listOf(lastRoot, firstRoot), lastPolicy).load().skills.single().description)
     }
 
     @Test
@@ -149,11 +149,11 @@ class JvmFileSystemSkillSourceTest {
         val bad = root.resolve("bad").createDirectories().resolve("SKILL.md")
         Files.writeString(bad, "not frontmatter")
         assertIs<SkillError.MalformedFrontmatter>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root)).load() }.error
         )
 
         val policy = SkillLoadPolicy(malformedSkill = MalformedSkillPolicy.SKIP_WITH_DIAGNOSTIC)
-        val result = JvmFileSystemSkillSource(listOf(root), policy).load()
+        val result = trustedSkillSource(listOf(root), policy).load()
         assertEquals(listOf("valid"), result.skills.map { it.name })
         assertEquals(1, result.diagnostics.size)
     }
@@ -164,7 +164,7 @@ class JvmFileSystemSkillSourceTest {
         val file = root.resolve("directory").createDirectories().resolve("SKILL.md")
         Files.writeString(file, skillDocument("different"))
         assertIs<SkillError.InvalidField>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root)).load() }.error
         )
     }
 
@@ -172,7 +172,7 @@ class JvmFileSystemSkillSourceTest {
     fun `root directory skill and empty root are ignored`() = runTest {
         val root = tempDir.resolve("root").createDirectories()
         Files.writeString(root.resolve("SKILL.md"), skillDocument("root"))
-        assertTrue(JvmFileSystemSkillSource(listOf(root)).load().skills.isEmpty())
+        assertTrue(trustedSkillSource(listOf(root)).load().skills.isEmpty())
     }
 
     @Test
@@ -181,7 +181,7 @@ class JvmFileSystemSkillSourceTest {
         val rootB = tempDir.resolve("b").createDirectories()
         assertIs<SkillError.LimitExceeded>(
             assertFailsWith<SkillException> {
-                JvmFileSystemSkillSource(listOf(rootA, rootB), SkillLoadPolicy(limits = SkillLimits(maxRoots = 1))).load()
+                trustedSkillSource(listOf(rootA, rootB), SkillLoadPolicy(limits = SkillLimits(maxRoots = 1))).load()
             }.error
         )
 
@@ -189,12 +189,12 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(rootA, "two")
         assertIs<SkillError.LimitExceeded>(
             assertFailsWith<SkillException> {
-                JvmFileSystemSkillSource(listOf(rootA), SkillLoadPolicy(limits = SkillLimits(maxDirectories = 1))).load()
+                trustedSkillSource(listOf(rootA), SkillLoadPolicy(limits = SkillLimits(maxDirectories = 1))).load()
             }.error
         )
         assertIs<SkillError.LimitExceeded>(
             assertFailsWith<SkillException> {
-                JvmFileSystemSkillSource(listOf(rootA), SkillLoadPolicy(limits = SkillLimits(maxSkills = 1))).load()
+                trustedSkillSource(listOf(rootA), SkillLoadPolicy(limits = SkillLimits(maxSkills = 1))).load()
             }.error
         )
     }
@@ -208,7 +208,7 @@ class JvmFileSystemSkillSourceTest {
             limits = SkillLimits(maxRecursiveDepth = 1),
         )
         assertIs<SkillError.LimitExceeded>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root), policy).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root), policy).load() }.error
         )
     }
 
@@ -218,7 +218,7 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(fileRoot, "large", body = "x".repeat(200))
         assertIs<SkillError.LimitExceeded>(
             assertFailsWith<SkillException> {
-                JvmFileSystemSkillSource(
+                trustedSkillSource(
                     listOf(fileRoot),
                     SkillLoadPolicy(limits = SkillLimits(maxFileBytes = 32)),
                 ).load()
@@ -226,7 +226,7 @@ class JvmFileSystemSkillSourceTest {
         )
         assertIs<SkillError.LimitExceeded>(
             assertFailsWith<SkillException> {
-                JvmFileSystemSkillSource(
+                trustedSkillSource(
                     listOf(fileRoot),
                     SkillLoadPolicy(limits = SkillLimits(maxInstructionCharacters = 10)),
                 ).load()
@@ -243,7 +243,7 @@ class JvmFileSystemSkillSourceTest {
         Files.createSymbolicLink(link, backing)
 
         assertIs<SkillError.SymlinkRejected>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root)).load() }.error
         )
     }
 
@@ -254,7 +254,7 @@ class JvmFileSystemSkillSourceTest {
         Files.writeString(outsideFile, skillDocument("escape"))
         Files.createSymbolicLink(root.resolve("escape").createDirectories().resolve("SKILL.md"), outsideFile)
         assertIs<SkillError.SymlinkRejected>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root)).load() }.error
         )
 
         Files.delete(root.resolve("escape").resolve("SKILL.md"))
@@ -262,7 +262,7 @@ class JvmFileSystemSkillSourceTest {
         writeSkill(outsideDirectory, "linked-dir")
         Files.createSymbolicLink(root.resolve("linked-dir"), outsideDirectory.resolve("linked-dir"))
         assertIs<SkillError.SymlinkRejected>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(root)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(root)).load() }.error
         )
     }
 
@@ -271,7 +271,7 @@ class JvmFileSystemSkillSourceTest {
         val rootFile = tempDir.resolve("not-a-directory")
         Files.writeString(rootFile, "content")
         assertIs<SkillError.IoFailure>(
-            assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(rootFile)).load() }.error
+            assertFailsWith<SkillException> { trustedSkillSource(listOf(rootFile)).load() }.error
         )
     }
 
@@ -358,7 +358,7 @@ class JvmFileSystemSkillSourceTest {
     fun `returned snapshots do not change after files change`() = runTest {
         val root = tempDir.resolve("root").createDirectories()
         val file = writeSkill(root, "stable", "before")
-        val snapshot = JvmFileSystemSkillSource(listOf(root)).load()
+        val snapshot = trustedSkillSource(listOf(root)).load()
         Files.writeString(file, skillDocument("stable", "after"))
         assertEquals("before", snapshot.skills.single().description)
     }
@@ -471,5 +471,5 @@ class JvmFileSystemSkillSourceTest {
         policy: SkillLoadPolicy = SkillLoadPolicy(),
         rootDirectoryOpener: RootDirectoryOpener = RootDirectoryOpener(Files::newDirectoryStream),
         hooks: SkillFileSystemHooks = object : SkillFileSystemHooks {},
-    ): JvmFileSystemSkillSource = JvmFileSystemSkillSource(roots, policy, rootDirectoryOpener, hooks)
+    ): JvmFileSystemSkillSource = trustedSkillSource(roots, policy, rootDirectoryOpener, hooks)
 }

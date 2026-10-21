@@ -25,6 +25,51 @@ class SkillsCompatibilityTest {
         "---\nname: $name\ndescription: $description\n$fields---\n$body"
 
     @Test
+    fun testCancellationDuringReferenceReadClosesSnapshotSession() = runTest {
+        val policy = SkillLoadPolicy()
+        val fs = SkillFileSystemSnapshot(mapOf(
+            "/root/alpha/SKILL.md" to document().encodeToByteArray(),
+            "/root/alpha/references/guide.md" to "text".encodeToByteArray(),
+        ))
+        val delegate = fs.openSession(policy)
+        var closed = false
+        var returned = false
+        val session = object : SecureSkillSession by delegate {
+            override suspend fun read(entry: SkillEntry, maximumBytes: Long): String {
+                val text = delegate.read(entry, maximumBytes)
+                if (entry.name == "guide.md") currentCoroutineContext().cancel()
+                return text
+            }
+            override fun close() { closed = true; delegate.close() }
+        }
+        val job = launch {
+            discoverRecords(session, listOf("/root"), policy, false)
+            returned = true
+        }
+        job.join()
+        assertTrue(closed)
+        assertFalse(returned)
+    }
+
+    @Test
+    fun testNonRegularReferenceFailsAndClosesSession() = runTest {
+        val policy = SkillLoadPolicy()
+        val fs = SkillFileSystemSnapshot(mapOf(
+            "/root/alpha/SKILL.md" to document().encodeToByteArray(),
+            "/root/alpha/references/guide.md" to "text".encodeToByteArray(),
+        ))
+        val delegate = fs.openSession(policy)
+        var closed = false
+        val session = object : SecureSkillSession by delegate {
+            override fun inspect(entry: SkillEntry): SkillEntryKind? =
+                if (entry.name == "guide.md") SkillEntryKind.OTHER else delegate.inspect(entry)
+            override fun close() { closed = true; delegate.close() }
+        }
+        assertFailsWith<SkillException> { discoverRecords(session, listOf("/root"), policy, false) }
+        assertTrue(closed)
+    }
+
+    @Test
     fun testCanonicalParserAndLegacyShimAgreeAndRejectTheSameMalformedYaml() {
         val policy = SkillLoadPolicy()
         val text = document()
@@ -148,9 +193,9 @@ class SkillsCompatibilityTest {
             val reads = mutableMapOf<String, Int>()
             var closed = false
             val counted = object : SecureSkillSession by session {
-                override suspend fun read(entry: SkillEntry): String {
+                override suspend fun read(entry: SkillEntry, maximumBytes: Long): String {
                     reads[entry.location] = reads.getOrDefault(entry.location, 0) + 1
-                    return session.read(entry)
+                    return session.read(entry, maximumBytes)
                 }
                 override fun close() { closed = true; session.close() }
             }
@@ -182,15 +227,15 @@ class SkillsCompatibilityTest {
         val directory = Files.createDirectory(tempDir.resolve("alpha"))
         val path = directory.resolve("SKILL.md")
         Files.writeString(path, document())
-        val upstream = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(tempDir.toString())).single()
-        val legacy = JvmFileSystemSkillSource(listOf(tempDir)).load().skills.single()
+        val upstream = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(tempDir.toString()), trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE).single()
+        val legacy = trustedSkillSource(listOf(tempDir)).load().skills.single()
         assertEquals(legacy.name, upstream.name)
         assertEquals(legacy.description, upstream.description)
         assertEquals(path.toString(), upstream.location)
         Files.writeString(path, document(fields = "name: beta\n"))
         val warnings = mutableListOf<String>()
-        assertTrue(discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(tempDir.toString()), warningLogger = warnings::add).isEmpty())
-        assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(tempDir)).load() }
+        assertTrue(discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(tempDir.toString()), warningLogger = warnings::add, trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE).isEmpty())
+        assertFailsWith<SkillException> { trustedSkillSource(listOf(tempDir)).load() }
         assertTrue(warnings.isNotEmpty())
         assertTrue(warnings.none { tempDir.toString() in it })
     }
@@ -210,7 +255,7 @@ class SkillsCompatibilityTest {
                     override fun close() { closed++; stream.close() }
                 }
             }
-            val source = JvmFileSystemSkillSource(listOf(tempDir), SkillLoadPolicy(),
+            val source = trustedSkillSource(listOf(tempDir), SkillLoadPolicy(),
                 RootDirectoryOpener { tracked(Files.newDirectoryStream(it) as SecureDirectoryStream<Path>) },
                 object : SkillFileSystemHooks {
                     override fun beforeAttributes(path: Path) {
@@ -280,8 +325,8 @@ class SkillsCompatibilityTest {
         var closed = false
         var returned = false
         val session = object : SecureSkillSession by delegate {
-            override suspend fun read(entry: SkillEntry): String {
-                val result = delegate.read(entry)
+            override suspend fun read(entry: SkillEntry, maximumBytes: Long): String {
+                val result = delegate.read(entry, maximumBytes)
                 currentCoroutineContext().cancel()
                 return result
             }
@@ -301,11 +346,11 @@ class SkillsCompatibilityTest {
     fun testUpstreamIgnoresNonDirectoryRootWhileLegacyReportsTypedFailure() = runTest {
         val file = Files.writeString(tempDir.resolve("file"), "text")
         val warnings = mutableListOf<String>()
-        assertTrue(discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(file.toString()), warningLogger = warnings::add).isEmpty())
+        assertTrue(discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(file.toString()), warningLogger = warnings::add, trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE).isEmpty())
         assertEquals(1, warnings.size)
         assertFalse(warnings.single().contains(file.toString()))
-        assertFailsWith<IllegalArgumentException> { discoverSkills(JVMFileSystemProvider.ReadOnly, listOf("relative-root")) }
-        assertIs<SkillError.IoFailure>(assertFailsWith<SkillException> { JvmFileSystemSkillSource(listOf(file)).load() }.error)
+        assertFailsWith<IllegalArgumentException> { discoverSkills(JVMFileSystemProvider.ReadOnly, listOf("relative-root"), trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE) }
+        assertIs<SkillError.IoFailure>(assertFailsWith<SkillException> { trustedSkillSource(listOf(file)).load() }.error)
     }
 
     @Test
@@ -352,7 +397,7 @@ class SkillsCompatibilityTest {
         java.nio.file.FileSystems.newFileSystem(java.net.URI.create("jar:${zip.toUri()}"), mapOf("create" to "true")).use { fs ->
             val root = fs.getPath("/")
             var observed: Path? = null
-            val source = JvmFileSystemSkillSource(listOf(root), SkillLoadPolicy(), RootDirectoryOpener {
+            val source = trustedSkillSource(listOf(root), SkillLoadPolicy(), RootDirectoryOpener {
                 observed = it
                 Files.newDirectoryStream(it)
             }, object : SkillFileSystemHooks {})
@@ -376,7 +421,7 @@ class SkillsCompatibilityTest {
                     if (fail) throw SecurityException("private filesystem detail")
                 }
             }
-        val source = JvmFileSystemSkillSource(listOf(tempDir), SkillLoadPolicy(), RootDirectoryOpener {
+        val source = trustedSkillSource(listOf(tempDir), SkillLoadPolicy(), RootDirectoryOpener {
             tracked(Files.newDirectoryStream(it) as SecureDirectoryStream<Path>, false)
         }, object : SkillFileSystemHooks {})
         val failure = assertFailsWith<SkillException> { source.load() }

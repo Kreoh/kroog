@@ -1,11 +1,11 @@
 package ai.koog.skills
 
 import ai.koog.agents.core.tools.Tool
-import ai.koog.agents.core.tools.ToolBase
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.serialization.typeToken
 import kotlinx.serialization.Serializable
+import kotlin.jvm.JvmOverloads
 
 /** Arguments accepted by [LoadSkillTool]. */
 @Serializable
@@ -14,13 +14,18 @@ public data class LoadSkillArgs(
     public val name: String,
 )
 
-/** Metadata and complete instructions returned by [LoadSkillTool]. */
+/** Metadata, complete instructions and reference names returned by [LoadSkillTool]. */
 @Serializable
-public data class LoadSkillResult(
+public data class LoadSkillResult @JvmOverloads constructor(
     public val name: String,
     public val description: String,
     public val instructions: String,
-)
+    public val resourceNames: List<String> = emptyList(),
+) {
+    /** Preserves the former three-field JVM copy signature and captured resource names. */
+    public fun copy(name: String, description: String, instructions: String): LoadSkillResult =
+        LoadSkillResult(name, description, instructions, resourceNames)
+}
 
 /** Loads complete instructions from an immutable [SkillRegistry] snapshot. */
 public class LoadSkillTool(private val registry: SkillRegistry) : Tool<LoadSkillArgs, LoadSkillResult>(
@@ -33,7 +38,7 @@ public class LoadSkillTool(private val registry: SkillRegistry) : Tool<LoadSkill
     override suspend fun execute(args: LoadSkillArgs): LoadSkillResult {
         val skill: Skill = registry.findExact(args.name)
             ?: throw SkillException(SkillError.UnknownSkill(args.name))
-        return LoadSkillResult(skill.name, skill.description, skill.instructions)
+        return LoadSkillResult(skill.name, skill.description, skill.instructions, skill.resources.names)
     }
 
     public companion object {
@@ -43,37 +48,33 @@ public class LoadSkillTool(private val registry: SkillRegistry) : Tool<LoadSkill
 }
 
 /**
- * Adds this snapshot's skill-loading tool to [target] using explicit collision semantics.
+ * Adds this snapshot's instruction and resource tools atomically to [target].
  * Empty snapshots and keep-existing collisions preserve [target]'s identity.
  */
 public fun SkillRegistry.mergeToolInto(
     target: ToolRegistry,
     collisionPolicy: ToolCollisionPolicy = ToolCollisionPolicy.FAIL,
 ): ToolRegistry {
-    val existing: ToolBase<*, *>? = target.getToolOrNull(LoadSkillTool.NAME)
     if (isEmpty()) return target
-
-    if (existing != null) {
+    val names = setOf(LoadSkillTool.NAME, ReadSkillResourceTool.NAME)
+    val collision = names.firstOrNull { target.getToolOrNull(it) != null }
+    if (collision != null) {
         when (collisionPolicy) {
-            ToolCollisionPolicy.FAIL -> throw SkillException(SkillError.ToolCollision)
+            ToolCollisionPolicy.FAIL -> throw SkillException(
+                if (collision == LoadSkillTool.NAME) SkillError.ToolCollision else SkillError.ResourceToolCollision,
+            )
             ToolCollisionPolicy.KEEP_EXISTING -> return target
             ToolCollisionPolicy.REPLACE -> Unit
         }
     }
-
-    val skillTool = LoadSkillTool(this)
+    val replacements = listOf(LoadSkillTool(this), ReadSkillResourceTool(this))
     return ToolRegistry {
-        var replacementEmitted = false
-        target.tools.forEach { existingTool ->
-            if (existingTool.name == LoadSkillTool.NAME) {
-                if (!replacementEmitted) {
-                    tool(skillTool)
-                    replacementEmitted = true
-                }
-            } else {
-                tool(existingTool)
-            }
+        val emitted = mutableSetOf<String>()
+        target.tools.forEach { existing ->
+            val replacement = replacements.firstOrNull { it.name == existing.name }
+            if (replacement == null) tool(existing)
+            else if (emitted.add(existing.name)) tool(replacement)
         }
-        if (!replacementEmitted) tool(skillTool)
+        replacements.forEach { if (emitted.add(it.name)) tool(it) }
     }
 }

@@ -54,7 +54,7 @@ class LoadSkillToolAgentIntegrationTest {
             "---\nname: $SKILL_NAME\ndescription: $SKILL_DESCRIPTION\n---\n$SKILL_INSTRUCTIONS",
         )
         var loads = 0
-        val filesystemSource = JvmFileSystemSkillSource(listOf(tempDir))
+        val filesystemSource = trustedSkillSource(listOf(tempDir))
         val source = SkillSource {
             loads++
             check(loads == 1) { "Source accessed after snapshot capture" }
@@ -67,6 +67,32 @@ class LoadSkillToolAgentIntegrationTest {
 
         assertAgentCarriesCapturedInstructions(registry)
         assertEquals(1, loads)
+    }
+
+    @Test
+    fun testResourceToolRunsInFilteredAgentRegistry() = runTest {
+        val resources = SkillResources(mapOf("references/guide.md" to "Captured reference body"))
+        val skills = listOf(
+            Skill("allowed", "Description", "Instructions", resources),
+            Skill("denied", "Description", "Instructions", resources),
+        )
+        val parent = SkillRegistry.build(listOf(InMemorySkillSource(skills)))
+        val child = SkillRegistry.build(listOf(InMemorySkillSource(parent.filter { it.name == "allowed" })))
+        val tools = child.mergeToolInto(ToolRegistry.EMPTY)
+        val read = assertIs<ReadSkillResourceTool>(tools.getTool(ReadSkillResourceTool.NAME))
+        kotlin.test.assertFailsWith<SkillException> { read.execute(ReadSkillResourceArgs("denied", "references/guide.md")) }
+        val executor = getMockExecutor {
+            mockLLMToolCall(read, ReadSkillResourceArgs("allowed", "references/guide.md")) onRequestEquals "Read the guide"
+            mockLLMAnswer("Reference received") onRequestContains "Captured reference body"
+        }
+        val answer = AIAgent(
+            promptExecutor = executor,
+            llmModel = TEST_MODEL,
+            systemPrompt = "Read the reference before answering.",
+            toolRegistry = tools,
+            maxIterations = 5,
+        ).run("Read the guide")
+        assertEquals("Reference received", answer)
     }
 
     private suspend fun assertAgentCarriesCapturedInstructions(registry: SkillRegistry) {

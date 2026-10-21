@@ -1,5 +1,6 @@
 package ai.koog.skills.discovery
 
+import ai.koog.skills.SkillFileSystemTrust
 import ai.koog.rag.base.files.JVMFileSystemProvider
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
@@ -38,7 +39,7 @@ class SkillsDiscoveryTest {
             """.trimIndent()
         )
 
-        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()))
+        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()), trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE)
 
         assertEquals(1, discovered.size)
         val skill = discovered.single()
@@ -77,6 +78,7 @@ class SkillsDiscoveryTest {
         val discovered = discoverSkills(
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(firstRoot.absolutePathString(), secondRoot.absolutePathString()),
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals(1, discovered.size)
@@ -110,6 +112,7 @@ class SkillsDiscoveryTest {
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(firstRoot.absolutePathString(), secondRoot.absolutePathString()),
             precedenceRule = SkillCollisionPrecedence.FIRST_FOUND,
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals(1, discovered.size)
@@ -128,7 +131,7 @@ class SkillsDiscoveryTest {
             """.trimIndent()
         )
 
-        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()))
+        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()), trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE)
 
         assertEquals(0, discovered.size)
     }
@@ -186,6 +189,7 @@ class SkillsDiscoveryTest {
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(firstRoot.absolutePathString(), secondRoot.absolutePathString()),
             warningLogger = warnings::add,
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertTrue(warnings.any { it.contains("ignored directory 'node_modules'") })
@@ -212,11 +216,13 @@ class SkillsDiscoveryTest {
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(root.absolutePathString()),
             maxDepth = 2,
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
         val discoveredWithEnoughDepth = discoverSkills(
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(root.absolutePathString()),
             maxDepth = 4,
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals(0, discoveredWithLowDepth.size)
@@ -246,7 +252,7 @@ class SkillsDiscoveryTest {
             """.trimIndent()
         )
 
-        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()), maxDepth = 4)
+        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()), maxDepth = 4, trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE)
         assertEquals(0, discovered.size)
     }
 
@@ -263,7 +269,7 @@ class SkillsDiscoveryTest {
             """.trimIndent()
         )
 
-        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()))
+        val discovered = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(root.absolutePathString()), trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE)
 
         assertEquals(1, discovered.size)
         assertNull(discovered.single().metadata)
@@ -286,6 +292,7 @@ class SkillsDiscoveryTest {
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(root.absolutePathString()),
             skillFileName = "CUSTOM_SKILL.md",
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals(1, discovered.size)
@@ -309,6 +316,7 @@ class SkillsDiscoveryTest {
             JVMFileSystemProvider.ReadOnly,
             directoriesToSearch = listOf(root.absolutePathString()),
             skippedDirectoryNames = setOf("vendor"),
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals(0, discovered.size)
@@ -333,6 +341,7 @@ class SkillsDiscoveryTest {
             directoriesToSearch = listOf(root.absolutePathString()),
             skillNamePattern = Regex("^my-[a-z]+$"),
             warningLogger = warnings::add,
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
         )
 
         assertEquals("my-skill", discovered.single().name)

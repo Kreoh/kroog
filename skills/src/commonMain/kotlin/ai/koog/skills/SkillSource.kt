@@ -8,7 +8,10 @@ public fun interface SkillSource {
 }
 
 public class SkillSourceResult(skills: Collection<Skill>, diagnostics: Collection<SkillDiagnostic> = emptyList()) {
-    public val skills: List<Skill> = ImmutableSnapshotList(skills)
+    public val skills: List<Skill> = ImmutableSnapshotList(skills.also { candidates ->
+        val budget = SkillResourceBudget()
+        candidates.forEach { budget.add(it.resources) }
+    })
     public val diagnostics: List<SkillDiagnostic> = ImmutableSnapshotList(diagnostics)
 }
 
@@ -16,13 +19,18 @@ public class InMemorySkillSource(
     skills: Collection<Skill>,
     private val policy: SkillLoadPolicy = SkillLoadPolicy(),
 ) : SkillSource {
-    private val snapshot: List<Skill> = skills.toList()
+    private val snapshot: List<Skill> = skills.also { candidates ->
+        val budget = SkillResourceBudget()
+        candidates.forEach { budget.add(it.resources) }
+    }.toList()
 
     override suspend fun load(): SkillSourceResult {
         if (snapshot.size > policy.limits.maxSkills) {
             throw SkillException(SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong()), policy.diagnosticPaths)
         }
         val selected = SkillSnapshot(policy)
+        val resourceBudget = SkillResourceBudget()
+        snapshot.forEach { resourceBudget.add(it.resources) }
         snapshot.sortedWith(compareBy<Skill>({ it.name }, { it.description }, { it.instructions })).forEach { skill ->
             SkillValidation.validate(skill, policy.limits)
             selected.add(skill.asRecord())

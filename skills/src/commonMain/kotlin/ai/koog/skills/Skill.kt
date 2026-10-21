@@ -1,13 +1,21 @@
 package ai.koog.skills
 
-public data class Skill(
+import kotlin.jvm.JvmOverloads
+
+/** Validated instructions and immutable reference text for one skill. */
+public data class Skill @JvmOverloads constructor(
     public val name: String,
     public val description: String,
     public val instructions: String,
+    public val resources: SkillResources = SkillResources.Empty,
 ) {
     init {
         SkillValidation.validate(name, description, instructions)
     }
+
+    /** Preserves the former three-field JVM copy signature and this snapshot's resources. */
+    public fun copy(name: String, description: String, instructions: String): Skill =
+        Skill(name, description, instructions, resources)
 
     public val metadata: SkillMetadata get() = SkillMetadata(name, description)
 }

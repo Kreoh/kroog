@@ -56,7 +56,10 @@ val registry = SkillRegistry.build(listOf(source))
 On the JVM, load consumer-owned roots with bounded filesystem discovery:
 
 ```kotlin
-val source = JvmFileSystemSkillSource(listOf(Path.of("configured-skills")))
+val source = JvmFileSystemSkillSource(
+    listOf(Path.of("configured-skills")),
+    trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
+)
 val registry = SkillRegistry.build(listOf(source))
 ```
 
@@ -147,6 +150,7 @@ separate loadable value with its existing constructors and components.
 val discovered = discoverSkills(
     JVMFileSystemProvider.ReadOnly,
     listOf(Path.of("configured-skills").toAbsolutePath().toString()),
+    trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
 )
 val prompt = generateSkillsPrompt(discovered, SkillsPromptFormat.JSON)
 ```
@@ -201,3 +205,55 @@ surrogates; excluded fields are not checked. Legacy rendering uses its
 metadata-only compact array projection, still returns `null` when empty and
 still enforces its final encoded code-point limit. Registry and tool lookups
 use captured bodies and never read a descriptor a second time.
+
+
+## Immutable reference resources
+
+`JvmFileSystemSkillSource` captures regular text files below each skill's
+`references/` directory during loading. `Skill.resources` retains exact text
+through `InMemorySkillSource`, filtering, copying and registry reconstruction.
+Explicit reload creates a new snapshot. Tool execution never rereads files.
+
+`load_skill` returns sorted `resourceNames`. Use `read_skill_resource` with the
+exact skill `name` and `resource` returned by the loader to retrieve text.
+`mergeToolInto` installs both tools atomically. A collision with either name
+fails by default; `KEEP_EXISTING` preserves the entire target, while `REPLACE`
+installs both tools from the same snapshot.
+
+Resources have fixed source and registry safety ceilings: 64 files per skill,
+1 KiB per UTF-8 resource name, 256 KiB per UTF-8 body, 1 MiB per skill and
+16 MiB across candidates before duplicate selection. Names count towards byte
+budgets even for empty bodies. `SkillResources` accepts stricter construction
+limits; source and registry validation always enforce their default ceilings.
+Existing discovery bounds additionally restrict file bytes, entries and depth.
+Reference paths must be canonical names below `references/`; symlinks,
+stable non-regular reference entries, traversal and invalid text fail loading
+within the declared trusted immutable filesystem boundary. Diagnostics do
+not disclose filesystem paths by default.
+
+The three-argument `Skill` and `LoadSkillResult` constructors remain available.
+Adding resource fields changes generated Kotlin data-class copy signatures;
+consumers using those signatures must recompile for this API revision.
+
+
+## Host filesystem trust precondition
+
+Host filesystem discovery requires explicit `SkillFileSystemTrust.TRUSTED_IMMUTABLE`.
+The caller attests that the roots, their ancestor resolution, directories and
+contained files remain operator-controlled and immutable throughout discovery.
+No untrusted or concurrent writer may change those entries. The caller must
+also select storage with suitable ordinary I/O latency for its application.
+
+This is a deployment precondition, not runtime proof of immutability. A false
+attestation permits hostile replacement races, including a FIFO open that
+blocks before cancellation or size checks. Secure directory descriptors,
+no-follow operations and type inspection do not prevent every such race.
+The API provides no wall-clock deadline for arbitrary or failing storage.
+
+The old `JvmFileSystemSkillSource(roots, policy)` constructor and host
+`discoverSkills` overload remain binary callable, but now reject loading with
+`SkillError.UntrustedFileSystem` before host I/O, including empty roots.
+Missing-root and malformed-document policies cannot waive this requirement.
+Use the explicit-trust overload only when the deployment meets the invariant.
+`InMemorySkillSource` and `SkillFileSystemSnapshot` require no attestation;
+unknown filesystem providers remain unsupported even with a trust declaration.

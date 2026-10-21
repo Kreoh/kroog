@@ -54,6 +54,7 @@ public class SkillRegistry private constructor(
             policy: SkillLoadPolicy = SkillLoadPolicy(),
         ): SkillRegistry {
             val snapshot = SkillSnapshot(policy)
+            val resourceBudget = SkillResourceBudget()
             val diagnostics = mutableListOf<SkillDiagnostic>()
             var loadedSkillCount = 0L
             var diagnosticCount = 0
@@ -64,6 +65,7 @@ public class SkillRegistry private constructor(
                 if (loadedSkillCount > policy.limits.maxSkills) throw SkillException(
                     SkillError.LimitExceeded("skills", policy.limits.maxSkills.toLong()), policy.diagnosticPaths,
                 )
+                result.skills.forEach { resourceBudget.add(it.resources) }
                 result.skills.sortedWith(compareBy<Skill>({ it.name }, { it.description }, { it.instructions }))
                     .forEach { skill ->
                         SkillValidation.validate(skill, policy.limits)

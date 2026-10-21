@@ -84,7 +84,7 @@ class LoadSkillToolTest {
         val merged = registryOf(skill("alpha")).mergeToolInto(target)
 
         assertNotSame(target, merged)
-        assertEquals(listOf("first", "second", "load_skill"), merged.tools.map { it.name })
+        assertEquals(listOf("first", "second", "load_skill", "read_skill_resource"), merged.tools.map { it.name })
         assertSame(first, merged.tools[0])
         assertSame(second, merged.tools[1])
         assertIs<LoadSkillTool>(merged.tools[2])
@@ -125,7 +125,7 @@ class LoadSkillToolTest {
 
         val merged = registryOf(skill("alpha")).mergeToolInto(target, ToolCollisionPolicy.REPLACE)
 
-        assertEquals(listOf("before", "load_skill", "after"), merged.tools.map { it.name })
+        assertEquals(listOf("before", "load_skill", "after", "read_skill_resource"), merged.tools.map { it.name })
         assertSame(before, merged.tools[0])
         assertIs<LoadSkillTool>(merged.tools[1])
         assertSame(after, merged.tools[2])
@@ -148,7 +148,7 @@ class LoadSkillToolTest {
 
         val merged = registryOf(skill("alpha")).mergeToolInto(target, ToolCollisionPolicy.REPLACE)
 
-        assertEquals(listOf("before", "load_skill", "middle", "after"), merged.tools.map { it.name })
+        assertEquals(listOf("before", "load_skill", "middle", "after", "read_skill_resource"), merged.tools.map { it.name })
         assertSame(before, merged.tools[0])
         assertIs<LoadSkillTool>(merged.tools[1])
         assertSame(middle, merged.tools[2])

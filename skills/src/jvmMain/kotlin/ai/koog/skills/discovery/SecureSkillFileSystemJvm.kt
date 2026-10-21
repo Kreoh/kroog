@@ -25,21 +25,27 @@ import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
 
 
-internal actual fun <Path> openSkillSession(fs: FileSystemProvider.ReadOnly<Path>, policy: SkillLoadPolicy): SecureSkillSession =
+internal actual fun <Path> openSkillSession(fs: FileSystemProvider.ReadOnly<Path>, policy: SkillLoadPolicy, trust: SkillFileSystemTrust): SecureSkillSession =
     when (fs) {
-        JVMFileSystemProvider.ReadOnly -> JvmSecureSkillSession(policy, ignoreNonDirectoryRoots = true)
+        JVMFileSystemProvider.ReadOnly -> JvmSecureSkillSession(policy, ignoreNonDirectoryRoots = true, trust = trust)
         is SkillFileSystemSnapshot -> fs.openSession(policy)
         else -> throw SkillException(SkillError.IoFailure("provider has no verified secure skills session"), policy.diagnosticPaths)
     }
 
-/** Owns every descriptor until discovery exits, including failed and cancelled traversals. */
+/**
+ * Owns descriptors until discovery exits. Requires caller-attested immutable host trees.
+ * No-follow access and attribute checks do not prevent every hostile concurrent replacement.
+ */
 internal class JvmSecureSkillSession(
     private val policy: SkillLoadPolicy,
     private val rootDirectoryOpener: RootDirectoryOpener = RootDirectoryOpener { Files.newDirectoryStream(it) },
     private val hooks: SkillFileSystemHooks = object : SkillFileSystemHooks {},
     private val ignoreNonDirectoryRoots: Boolean = false,
     private val configuredRoots: Map<String, Path>? = null,
+    trust: SkillFileSystemTrust = SkillFileSystemTrust.UNATTESTED,
 ) : SecureSkillSession {
+    init { requireTrustedFileSystem(trust, policy) }
+
     private val directories = mutableListOf<SecureDirectoryStream<Path>>()
     private var closed = false
     private inner class Entry(
@@ -112,14 +118,15 @@ internal class JvmSecureSkillSession(
         }
         return entries.sortedBy { it.name }
     }
-    override suspend fun read(entry: SkillEntry): String {
+    override suspend fun read(entry: SkillEntry, maximumBytes: Long): String {
         val token = checked(entry)
         val attributes = checkNotNull(token.attributes)
-        if (attributes.size() > policy.limits.maxFileBytes) throw failure(
-            SkillError.LimitExceeded("file bytes", policy.limits.maxFileBytes, reference(token.path)),
+        val maximum = minOf(policy.limits.maxFileBytes, maximumBytes)
+        if (attributes.size() > maximum) throw failure(
+            SkillError.LimitExceeded("file bytes", maximum, reference(token.path)),
         )
         afterAttributes(token.path)
-        return decode(readBounded(checkNotNull(token.parent), token.path.fileName, token.path), token.path)
+        return decode(readBounded(checkNotNull(token.parent), token.path.fileName, token.path, maximum), token.path)
     }
     override fun close() {
         if (closed) return
@@ -162,16 +169,17 @@ internal class JvmSecureSkillSession(
         directory: SecureDirectoryStream<Path>,
         name: Path,
         path: Path,
+        maximum: Long,
     ): ByteArray = secureIo("read skill document", path) {
         val output = ByteArrayOutputStream()
         val options = setOf(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)
         directory.newByteChannel(name, options).use { channel ->
-            copyBounded(channel, output, path)
+            copyBounded(channel, output, path, maximum)
         }
         output.toByteArray()
     }
 
-    private suspend fun copyBounded(channel: SeekableByteChannel, output: ByteArrayOutputStream, path: Path) {
+    private suspend fun copyBounded(channel: SeekableByteChannel, output: ByteArrayOutputStream, path: Path, maximum: Long) {
         val buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE)
         var total: Long = 0
         while (true) {
@@ -181,8 +189,8 @@ internal class JvmSecureSkillSession(
             if (count < 0) break
             if (count == 0) continue
             total += count
-            if (total > policy.limits.maxFileBytes) {
-                throw failure(SkillError.LimitExceeded("file bytes", policy.limits.maxFileBytes, reference(path)))
+            if (total > maximum) {
+                throw failure(SkillError.LimitExceeded("file bytes", maximum, reference(path)))
             }
             output.write(buffer.array(), 0, count)
         }

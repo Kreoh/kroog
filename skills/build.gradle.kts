@@ -50,3 +50,8 @@ kotlin {
 }
 
 publishToMaven()
+
+// Disposable JVM probes keep blocking-open regressions out of the Gradle test worker.
+tasks.named<Test>("jvmTest") {
+    doFirst { systemProperty("skills.test.runtimeClasspath", classpath.asPath) }
+}

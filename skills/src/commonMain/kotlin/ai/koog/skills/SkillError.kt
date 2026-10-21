@@ -13,6 +13,9 @@ public sealed class SkillError(public open val source: SkillSourceReference? = n
     public data class DecodingFailure(public val charsetName: String, override val source: SkillSourceReference? = null) : SkillError(source)
     public data class IoFailure(public val operation: String, override val source: SkillSourceReference? = null) : SkillError(source)
     public data class UnknownSkill(public val name: String) : SkillError()
+    public data object UntrustedFileSystem : SkillError()
+    public data object UnknownResource : SkillError()
+    public data object ResourceToolCollision : SkillError()
     public data object CatalogueOverflow : SkillError()
     public data object ToolCollision : SkillError()
 
@@ -28,6 +31,9 @@ public sealed class SkillError(public open val source: SkillSourceReference? = n
             is DecodingFailure -> "Skill document is not valid $charsetName"
             is IoFailure -> "Skill I/O operation failed: $operation"
             is UnknownSkill -> "Unknown skill '$name'"
+            UntrustedFileSystem -> "Host skill discovery requires trusted immutable filesystem attestation"
+            UnknownResource -> "Unknown skill resource"
+            ResourceToolCollision -> "A tool named 'read_skill_resource' is already registered"
             CatalogueOverflow -> "Skill catalogue exceeds its configured limit"
             ToolCollision -> "A tool named 'load_skill' is already registered"
         }
