@@ -468,7 +468,7 @@ class ManagedExecutionToolTest : AgentTestBase() {
     }
 
     @Test
-    fun testOrdinaryToolRetainsArgumentAndResultDiagnostics() = runTest {
+    fun testOrdinaryToolRetainsSafeDiagnosticsWithoutPayloads() = runTest {
         val logger = RecordingLogger()
         val registry = ToolRegistry { tool(OrdinaryTool()) }
         val call = MessagePart.Tool.Call(
@@ -477,11 +477,15 @@ class ManagedExecutionToolTest : AgentTestBase() {
             args = """{"code":"ordinary-argument-sentinel"}""",
         )
 
-        environment(registry, logger).executeTool(call)
+        val result = environment(registry, logger).executeTool(call)
+        assertEquals("ordinary:ordinary-argument-sentinel", result.output)
 
         val logs = logger.rendered()
-        assertTrue(logs.contains("ordinary-argument-sentinel"))
-        assertTrue(logs.contains("ordinary:ordinary-argument-sentinel"))
+        assertFalse(logs.contains("ordinary-argument-sentinel"))
+        assertFalse(logs.contains("ordinary:ordinary-argument-sentinel"))
+        assertTrue(logs.contains("category=execution_started"))
+        assertTrue(logs.contains("category=result_received"))
+        assertTrue(logs.contains("category=execution_completed"))
         assertFalse(logs.contains(REDACTED))
     }
 
@@ -528,8 +532,9 @@ class ManagedExecutionToolTest : AgentTestBase() {
 
     private fun assertManagedLogsRedacted(logs: String, vararg secrets: String) {
         assertTrue(logs.contains(REDACTED), logs)
-        assertTrue(logs.contains("managed_execution"), logs)
-        assertTrue(logs.contains("managed-call-id"), logs)
+        assertTrue(logs.contains("kind=managed"), logs)
+        assertTrue(logs.contains("execution_id="), logs)
+        assertTrue(logs.contains("category=execution_started"), logs)
         secrets.forEach { secret -> assertFalse(logs.contains(secret), logs) }
     }
 

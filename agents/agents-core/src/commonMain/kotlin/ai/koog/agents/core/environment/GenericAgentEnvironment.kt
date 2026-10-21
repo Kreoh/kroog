@@ -13,10 +13,13 @@ import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONObject
 import io.github.oshai.kotlinlogging.KLogger
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Represents base agent environment with generic abstractions.
  */
+@OptIn(ExperimentalUuidApi::class)
 public class GenericAgentEnvironment(
     private val agentId: String,
     private val logger: KLogger,
@@ -24,9 +27,7 @@ public class GenericAgentEnvironment(
     private val serializer: JSONSerializer,
 ) : AIAgentEnvironment {
 
-    private companion object {
-        private const val MANAGED_EXECUTION_DATA_REDACTED = "<managed-execution-data-redacted>"
-    }
+    private val diagnosticAgentId = Uuid.random().toString()
 
     override suspend fun executeTool(toolCall: MessagePart.Tool.Call): ReceivedToolResult =
         executeTool(toolCall, ToolCallMetadata.EMPTY)
@@ -35,45 +36,18 @@ public class GenericAgentEnvironment(
         toolCall: MessagePart.Tool.Call,
         metadata: ToolCallMetadata,
     ): ReceivedToolResult {
-        val isManagedExecution = toolRegistry.getToolOrNull(toolCall.tool) is ManagedExecutionTool<*, *>
-        if (isManagedExecution) {
-            logger.info {
-                formatLog(
-                    "Executing managed tool (name: ${toolCall.tool}, call id: ${toolCall.id}, " +
-                        "data: $MANAGED_EXECUTION_DATA_REDACTED)"
-                )
-            }
-        } else {
-            logger.info {
-                formatLog("Executing tool (name: ${toolCall.tool}, args: ${toolCall.args}")
-            }
-        }
-
-        val environmentToolResult = processToolCall(toolCall, metadata)
-
-        if (isManagedExecution) {
-            logger.debug {
-                formatLog(
-                    "Received managed tool result (tool: ${toolCall.tool}, call id: ${toolCall.id}, " +
-                        "data: $MANAGED_EXECUTION_DATA_REDACTED)"
-                )
-            }
-        } else {
-            logger.debug {
-                formatLog(
-                    "Received tool result (\ntool: ${toolCall.tool},\n" +
-                        "result: ${environmentToolResult.result},\ncontent: ${environmentToolResult.output}\n)"
-                )
-            }
-        }
+        val managed = toolRegistry.getToolOrNull(toolCall.tool) is ManagedExecutionTool<*, *>
+        val invocation = "execution_id=" + Uuid.random() +
+            if (managed) " kind=managed data=<managed-execution-data-redacted>" else " kind=ordinary"
+        logger.info { formatLog("execution_started", invocation) }
+        val environmentToolResult = processToolCall(toolCall, metadata, invocation)
+        logger.debug { formatLog("result_received", invocation) }
 
         return environmentToolResult
     }
 
     override suspend fun reportProblem(exception: Throwable) {
-        logger.error(exception) {
-            formatLog("Agent report a problem: ${exception.message}")
-        }
+        logger.error { formatLog("agent_problem", "") }
         throw exception
     }
 
@@ -81,8 +55,9 @@ public class GenericAgentEnvironment(
     private suspend fun processToolCall(
         toolCall: MessagePart.Tool.Call,
         metadata: ToolCallMetadata,
+        invocation: String,
     ): ReceivedToolResult {
-        logger.debug { "Handling tool call sent by server..." }
+        logger.debug { formatLog("tool_call_received", invocation) }
 
         // Tool
         val id = toolCall.id
@@ -106,7 +81,7 @@ public class GenericAgentEnvironment(
 
         val tool = toolRegistry.getToolOrNull(toolName)
             ?: run {
-                logger.error { formatLog("Tool with name '$toolName' not found in the tool registry.") }
+                logger.error { formatLog("tool_not_found", invocation) }
                 return ReceivedToolResult(
                     id = id,
                     tool = toolName,
@@ -127,16 +102,8 @@ public class GenericAgentEnvironment(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (tool is ManagedExecutionTool<*, *>) {
-                logger.error {
-                    formatLog(
-                        "Managed tool with name '$toolName' and call id '$id' failed to parse arguments " +
-                            "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
-                    )
-                }
-            } else {
-                logger.error(e) { formatLog("Tool with name '$toolName' failed to parse arguments: $toolArgsJson") }
-            }
+            logger.error { formatLog("argument_decode_failed", invocation) }
+
             return ReceivedToolResult(
                 id = id,
                 tool = toolName,
@@ -179,10 +146,7 @@ public class GenericAgentEnvironment(
                 resultObject = null
             )
         } catch (e: ManagedExecutionProtocolException) {
-            logger.error {
-                "Managed tool with name '$toolName' and call id '$id' received an invalid event stream " +
-                    "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
-            }
+            logger.error { formatLog("execution_protocol_failed", invocation) }
             return ReceivedToolResult(
                 id = id,
                 tool = toolName,
@@ -194,14 +158,7 @@ public class GenericAgentEnvironment(
                 resultObject = null
             )
         } catch (e: Exception) {
-            if (tool is ManagedExecutionTool<*, *>) {
-                logger.error {
-                    "Managed tool with name '$toolName' and call id '$id' failed to execute " +
-                        "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
-                }
-            } else {
-                logger.error(e) { "Tool with name '$toolName' failed to execute with arguments: $toolArgs" }
-            }
+            logger.error { formatLog("execution_failed", invocation) }
 
             return ReceivedToolResult(
                 id = id,
@@ -215,14 +172,7 @@ public class GenericAgentEnvironment(
             )
         }
 
-        if (tool is ManagedExecutionTool<*, *>) {
-            logger.trace {
-                "Completed execution of managed tool '$toolName' with call id '$id' " +
-                    "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
-            }
-        } else {
-            logger.trace { "Completed execution of the tool '$toolName' with result: $toolResult" }
-        }
+        logger.trace { formatLog("execution_completed", invocation) }
 
         val (content, result, parts) = try {
             val content = tool.encodeResultToStringUnsafe(toolResult, serializer)
@@ -232,14 +182,8 @@ public class GenericAgentEnvironment(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (tool is ManagedExecutionTool<*, *>) {
-                logger.error {
-                    "Managed tool with name '$toolName' and call id '$id' failed to encode its result " +
-                        "(data: $MANAGED_EXECUTION_DATA_REDACTED)"
-                }
-            } else {
-                logger.error(e) { "Tool with name '$toolName' failed to encode result: $toolResult" }
-            }
+            logger.error { formatLog("result_encode_failed", invocation) }
+
             return ReceivedToolResult(
                 id = id,
                 tool = toolName,
@@ -265,6 +209,7 @@ public class GenericAgentEnvironment(
         )
     }
 
-    private fun formatLog(message: String): String =
-        "(agent id: $agentId) $message"
+    // Correlation is local: supplied identifiers and payloads never enter diagnostics.
+    private fun formatLog(category: String, invocation: String): String =
+        "agent_id=$diagnosticAgentId $invocation category=$category"
 }
