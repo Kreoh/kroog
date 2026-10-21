@@ -8,7 +8,7 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Source comparison checked on **21 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements and nullable OpenAI container-file byte counts to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Source comparison checked on **21 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements, nullable OpenAI container-file byte counts and private ordinary and managed tool diagnostics to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
 [Revision 2 is published](docs/releases/1.3.0-kroog.2-publication-status.md). Its earlier [preparation evidence](docs/releases/1.3.0-kroog.2-validation.md) remains a historical record. See the [revision 3 preparation evidence](docs/releases/1.3.0-kroog.3-validation.md) for validation and remaining release gates. The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
 

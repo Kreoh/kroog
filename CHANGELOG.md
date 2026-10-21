@@ -8,6 +8,7 @@ Stable modules use `1.3.0-kroog.3`; beta modules use `1.3.0-beta-kroog.3`.
 - Require explicit `SkillFileSystemTrust.TRUSTED_IMMUTABLE` for host discovery. Existing host entrypoints retain their callable signatures but fail before I/O without attestation, including empty roots. The caller must ensure trusted immutable roots and ancestor resolution throughout discovery. A false attestation permits hostile replacement and blocking I/O. Immutable memory sources need no attestation.
 - Preserve unknown OpenAI container-file byte counts as null, while retaining explicit zero and positive values. `OpenAIContainerFileResource.bytes` changes from `Long` to `Long?` with a default.
 - Require consumer recompilation for changed generated Kotlin copy and serialisation signatures and the nullable byte-count API. Old explicit three-argument `Skill` and `LoadSkillResult` constructors and copy methods remain callable.
+- Replace ordinary and managed tool payload diagnostics with fixed categories and locally generated opaque correlation IDs. Preserve diagnostic levels and returned tool behaviour while excluding arguments, results, supplied identifiers and arbitrary throwable messages.
 - Keep model definitions and the central catalogue unchanged. Installation examples now use confirmed published revision 2. Earlier preparation records remain historical evidence.
 
 See [revision 3 validation](docs/releases/1.3.0-kroog.3-validation.md). Exact-source

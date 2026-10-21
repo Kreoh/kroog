@@ -35,7 +35,7 @@ The upstream semantic version supplies the base. Kroog's suffix is its fork
 release convention; it is a prerelease identifier under SemVer ordering.
 Do not describe a suffixed version as a plain SemVer final release.
 
-Revision `2` is published, as verified on 21 October 2026 in the [publication-status record](docs/releases/1.3.0-kroog.2-publication-status.md). Revision `3` prepares bounded skill references, explicit trusted-filesystem loading and nullable OpenAI container-file byte counts. Installation examples use published `1.3.0-kroog.2` and `1.3.0-beta-kroog.2` until revision 3 is published and verified.
+Revision `2` is published, as verified on 21 October 2026 in the [publication-status record](docs/releases/1.3.0-kroog.2-publication-status.md). Revision `3` prepares bounded skill references, explicit trusted-filesystem loading, nullable OpenAI container-file byte counts and private ordinary and managed tool diagnostics. Installation examples use published `1.3.0-kroog.2` and `1.3.0-beta-kroog.2` until revision 3 is published and verified.
 
 ## Stable modules, beta modules and snapshots
 
