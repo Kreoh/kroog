@@ -8,9 +8,11 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Source comparison checked on **9 October 2026**: this preparation adds the [empty streamed tool-argument fix](docs/upstream/empty-streamed-tool-arguments.md) from commit `ec50d6e1a951261353282b77250fff2b5c35ce40` to published `1.3.0-kroog.1`. The configured candidate is **`1.3.0-kroog.2`** (beta modules: **`1.3.0-beta-kroog.2`**), which remains unpublished. The incorporated upstream baseline is [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Source comparison checked on **21 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements and nullable OpenAI container-file byte counts to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
-Revision 2 completes absent or exactly empty streamed tool arguments as `{}` while preserving invalid non-empty argument rejection. It changes no model definitions, catalogue entries or public JVM signatures. See the [revision 2 preparation evidence](docs/releases/1.3.0-kroog.2-validation.md). The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
+[Revision 2 is published](docs/releases/1.3.0-kroog.2-publication-status.md). Its earlier [preparation evidence](docs/releases/1.3.0-kroog.2-validation.md) remains a historical record. See the [revision 3 preparation evidence](docs/releases/1.3.0-kroog.3-validation.md) for validation and remaining release gates. The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
+
+Revision 3 requires consumer recompilation for generated Kotlin copy and serialisation signatures and nullable `OpenAIContainerFileResource.bytes`. Host skill loading now requires an explicit `SkillFileSystemTrust.TRUSTED_IMMUTABLE` declaration. Old host entrypoints remain callable but fail before I/O without it. The caller must ensure operator-controlled roots and path resolution remain immutable throughout discovery; the flag cannot verify that invariant or prevent hostile replacement after a false declaration. Immutable in-memory skills remain supported without filesystem attestation. See [the skills API and migration guidance](skills/README.md).
 
 Compared with that upstream baseline, Kroog retains these additions and adaptations:
 
@@ -22,11 +24,11 @@ Compared with that upstream baseline, Kroog retains these additions and adaptati
 - **Correctness batches:** improve nested tool schemas, discriminator handling, Gemini argument and safety handling, request credentials, memory pairing, parallel context isolation, MCP schemas, tracing and Spring metadata. See the [import record][correctness-imports].
 - **Streamed history and serialisers:** record completed streamed responses automatically within active write sessions, preserving metadata, tools and reasoning. Failed, cancelled or incomplete streams leave history unchanged. Explicit cache directive serializer modules preserve concrete types. See the [correctness imports][correctness-imports].
 - **Batch embeddings and DeepSeek helpers:** add batch embedding APIs with a compatible sequential default, an OpenAI batch path and simple DeepSeek executor helpers. See the [correctness imports][correctness-imports].
-- **Skills discovery safeguards:** retain strict YAML validation, immutable registries, typed loading and secure JVM filesystem discovery while adopting upstream skills APIs. See [the alignment audit][alignment].
+- **Skill references:** retain bounded immutable text below `references/` through filtered registries. `load_skill` lists names and `read_skill_resource` retrieves exact captured text. Host discovery requires caller-attested trusted immutable roots; in-memory snapshots need no attestation. See [the skills API](skills/README.md) and [the alignment audit][alignment].
 
 Upstream features such as skills discovery, Bedrock AgentCore Runtime, Google cache-count parsing and Langfuse reasoning traces are incorporated baseline features. The audit records their fork adaptations.
 
-The source validation covers 26 affected JVM suites and two Spring suites, with 2,665 passing tests and 57 existing skips. These are local test results and do not establish live provider compatibility or Maven Central publication. See the [import record][correctness-imports] for scope.
+The historical correctness-import validation covers 26 affected JVM suites and two Spring suites, with 2,665 passing tests and 57 existing skips. These are local test results and do not establish live provider compatibility or Maven Central publication. See the [import record][correctness-imports] for scope.
 
 ## Recent model support
 
@@ -117,7 +119,7 @@ Kroog currently builds, validates and publishes JVM targets only. Upstream Koog 
 
 ### Published dependencies
 
-Checked on **9 October 2026**: Maven Central serves the [stable umbrella POM][stable-pom] at `1.3.0-kroog.1` and the [beta additions umbrella POM][beta-pom] at `1.3.0-beta-kroog.1`. Both candidate revision 2 umbrella POMs return HTTP 404. Installation examples therefore retain published revision 1 until revision 2 is published and dependency resolution is verified. Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
+Checked on **21 October 2026**: Maven Central serves all 87 revision 2 POMs and all 261 binary, sources and Javadoc JAR endpoints. The [stable umbrella POM][stable-pom] uses `1.3.0-kroog.2`; the [beta additions umbrella POM][beta-pom] uses `1.3.0-beta-kroog.2`. All 87 revision 3 POM endpoints return HTTP 404. Installation examples therefore use published revision 2 until revision 3 is published and dependency resolution is verified. See the [dated publication-status record](docs/releases/1.3.0-kroog.2-publication-status.md). Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
 
 The stable umbrella supplies the main agent APIs. Add the beta umbrella only when using its additional modules. Gradle consumers should resolve these JVM publications through POMs, using the repository configuration below. See [PUBLISHING.md](PUBLISHING.md) for the publication inventory and resolution checks.
 
@@ -135,9 +137,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.1")
+    implementation("com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.2")
     // Optional beta modules:
-    implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.1")
+    implementation("com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.2")
 }
 ```
 
@@ -155,9 +157,9 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.1'
+    implementation 'com.kreoh.kroog:koog-agents-jvm:1.3.0-kroog.2'
     // Optional beta modules:
-    implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.1'
+    implementation 'com.kreoh.kroog:koog-agents-additions-jvm:1.3.0-beta-kroog.2'
 }
 ```
 
@@ -169,13 +171,13 @@ Maven Central is enabled by default. Add these entries inside `dependencies` in 
 <dependency>
     <groupId>com.kreoh.kroog</groupId>
     <artifactId>koog-agents-jvm</artifactId>
-    <version>1.3.0-kroog.1</version>
+    <version>1.3.0-kroog.2</version>
 </dependency>
 <!-- Optional beta modules: -->
 <dependency>
     <groupId>com.kreoh.kroog</groupId>
     <artifactId>koog-agents-additions-jvm</artifactId>
-    <version>1.3.0-beta-kroog.1</version>
+    <version>1.3.0-beta-kroog.2</version>
 </dependency>
 ```
 
@@ -197,8 +199,8 @@ Kroog is licensed under the [Apache 2.0 licence](LICENSE.txt).
 [release-notes]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/CHANGELOG.md
 [cache-policy]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt
 [catalogue]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt
-[stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.3.0-kroog.1/koog-agents-jvm-1.3.0-kroog.1.pom
-[beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.3.0-beta-kroog.1/koog-agents-additions-jvm-1.3.0-beta-kroog.1.pom
+[stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.3.0-kroog.2/koog-agents-jvm-1.3.0-kroog.2.pom
+[beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.3.0-beta-kroog.2/koog-agents-additions-jvm-1.3.0-beta-kroog.2.pom
 [openai-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt
 [anthropic-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt
 [google-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt
