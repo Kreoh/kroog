@@ -137,6 +137,38 @@ class LatestModelsIntegrationTest {
         }
     }
 
+    @Test
+    fun integration_testVertexGemini4Argon() = runTest(timeout = 180.seconds) {
+        val model = GoogleModels.Gemini4Argon
+        Models.assumeAvailable(model.provider)
+        val project = credential("VERTEX_PROJECT_ID")
+        val location = vertexLocation()
+        require(location in setOf("global", "us", "eu")) { "Argon requires global, us or eu" }
+        val settings = GoogleClientSettings(
+            baseUrl = vertexBaseUrl(location),
+            defaultPath = "v1/projects/$project/locations/$location/publishers/google/models",
+        )
+        GoogleLLMClient(settings = settings, httpClient = vertexHttpClient(location)).use { client ->
+            checkGeneration(client, model, GoogleParams(
+                maxTokens = 2048,
+                thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.LOW),
+            ))
+            val response = client.execute(prompt("argon-structured", params = GoogleParams(
+                maxTokens = 2048,
+                thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.LOW),
+                schema = LLMParams.Schema.JSON.Standard(
+                    name = "probe",
+                    schema = Json.parseToJsonElement(
+                        """{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}"""
+                    ).jsonObject,
+                ),
+            )) { user("Return JSON with answer equal to PONG.") }, model)
+            val body = response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }
+            assertEquals("PONG", Json.parseToJsonElement(body).jsonObject.getValue("answer").jsonPrimitive.content)
+            println("Argon structured usage: input=${response.metaInfo.inputTokensCount}, output=${response.metaInfo.outputTokensCount}")
+        }
+    }
+
     private suspend fun checkVertexAnthropic(model: LLModel) {
         Models.assumeAvailable(model.provider)
         val settings = AnthropicVertexClientSettings(
@@ -227,6 +259,11 @@ class LatestModelsIntegrationTest {
         }, model, listOf(probeTool))
         assertTrue(answer.parts.filterIsInstance<MessagePart.Text>().joinToString { it.text }.contains("probe-739"))
         assertTrue((answer.metaInfo.outputTokensCount ?: 0) > 0)
+        if (model == GoogleModels.Gemini4Argon) {
+            listOf(streamed, called, answer).forEachIndexed { index, response ->
+                println("Argon generation ${index + 1} usage: input=${response.metaInfo.inputTokensCount}, output=${response.metaInfo.outputTokensCount}")
+            }
+        }
     }
 
     private fun toolPrompt(params: LLMParams) = prompt("live-tools", params = params) {

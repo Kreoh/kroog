@@ -20,7 +20,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryExpectedSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(50, ModelCatalogue.entries.size)
+        assertEquals(52, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -33,7 +33,7 @@ class ModelCatalogueTest {
         assertEquals(128_000, astra.maxOutputTokens)
         assertEquals(
             setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE,
-                ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS),
+                ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS, ProviderApi.CODEX_RESPONSES),
             astra.providerApis,
         )
         assertEquals(
@@ -45,7 +45,7 @@ class ModelCatalogueTest {
         assertTrue(astra.structuredOutput)
         assertTrue(astra.hostedExecution)
         assertEquals(ModelProviderApiCompatibility.Undeclared, astra.compatibility(ProviderApi.AZURE_RESPONSES))
-        assertEquals(ModelProviderApiCompatibility.Undeclared, astra.compatibility(ProviderApi.CODEX_RESPONSES))
+        assertEquals(ModelProviderApiCompatibility.Supported, astra.compatibility(ProviderApi.CODEX_RESPONSES))
     }
 
     @Test
@@ -350,9 +350,11 @@ class ModelCatalogueTest {
             "gpt-6-sol",
             "gpt-6-luna",
             "gpt-6.1-sol",
+            "gpt-6.1-terra",
             "claude-opus-5-5",
             "claude-sonnet-5-5",
             "gemini-3.8-flash",
+            "gemini-4-argon",
             "deepseek-flash",
             "deepseek-v4-pro",
             "gemma-4-31b",

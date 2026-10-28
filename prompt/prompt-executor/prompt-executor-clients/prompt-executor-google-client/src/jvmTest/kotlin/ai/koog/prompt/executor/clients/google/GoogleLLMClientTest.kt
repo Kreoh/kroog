@@ -47,6 +47,31 @@ import kotlin.time.Instant
 class GoogleLLMClientTest {
 
     @Test
+    fun testArgonOutputBoundsAndExplicitCacheRejection() {
+        val client = GoogleLLMClient(apiKey = "unused")
+        fun request(params: GoogleParams = GoogleParams(), streaming: Boolean = false) = client.createGoogleRequest(
+            Prompt(messages = emptyList(), id = "argon", params = params),
+            GoogleModels.Gemini4Argon, emptyList(), streaming,
+        )
+        request().generationConfig!!.maxOutputTokens shouldBe 32_768
+        request(streaming = true).generationConfig!!.maxOutputTokens shouldBe 32_768
+        request(GoogleParams(maxTokens = 32_768)).generationConfig!!.maxOutputTokens shouldBe 32_768
+        request(GoogleParams(maxTokens = 65_536), true).generationConfig!!.maxOutputTokens shouldBe 65_536
+        listOf(0, -1, 32_769, 65_536).forEach {
+            assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = it)) }
+        }
+        assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = 65_537), true) }
+        listOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens").forEach {
+            assertFailsWith<IllegalArgumentException> {
+                request(GoogleParams(additionalProperties = mapOf(it to JsonPrimitive("override"))))
+            }
+        }
+        val penalties = listOf("frequencyPenalty", "frequency_penalty", "presencePenalty", "presence_penalty")
+        request(GoogleParams(additionalProperties = penalties.associateWith { JsonPrimitive(1) }))
+            .generationConfig!!.additionalProperties shouldBe null
+    }
+
+    @Test
     fun testGemini38ThinkingLevelsAndBudgetRestrictions() {
         val client = GoogleLLMClient(apiKey = "unused")
         fun request(params: GoogleParams) = client.createGoogleRequest(
@@ -65,6 +90,41 @@ class GoogleLLMClientTest {
             GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
                 put("thinking_budget", JsonPrimitive(1024))
             })),
+            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                put("thinkingLevel", JsonPrimitive("extreme"))
+            })),
+            GoogleParams(additionalProperties = mapOf(
+                "thinkingConfig" to buildJsonObject { put("thinkingLevel", JsonPrimitive("low")) },
+                "thinking_config" to buildJsonObject { put("thinking_budget", JsonPrimitive(1)) },
+            )),
+        ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
+    }
+    @Test
+    fun testArgonThinkingLevelsAndBudgetRestrictions() {
+        val client = GoogleLLMClient(apiKey = "unused")
+        fun request(params: GoogleParams) = client.createGoogleRequest(
+            Prompt(messages = emptyList(), id = "thinking", params = params), GoogleModels.Gemini4Argon, emptyList(),
+        )
+        listOf(GoogleThinkingLevel.LOW, GoogleThinkingLevel.MEDIUM, GoogleThinkingLevel.HIGH).forEach { level ->
+            request(GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = level)))
+                .generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe level
+        }
+        listOf(
+            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.MINIMAL)),
+            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingBudget = 1024)),
+            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                put("thinkingLevel", JsonPrimitive("minimal"))
+            })),
+            GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
+                put("thinking_budget", JsonPrimitive(1024))
+            })),
+            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                put("thinkingLevel", JsonPrimitive("extreme"))
+            })),
+            GoogleParams(additionalProperties = mapOf(
+                "thinkingConfig" to buildJsonObject { put("thinkingLevel", JsonPrimitive("low")) },
+                "thinking_config" to buildJsonObject { put("thinking_budget", JsonPrimitive(1)) },
+            )),
         ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
     }
 
@@ -316,6 +376,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
+            GoogleModels.Gemini4Argon,
         ).forEach { model ->
             val config = client.createGoogleRequest(
                 prompt = Prompt(messages = emptyList(), id = "id", params = params),
@@ -340,6 +401,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
+            GoogleModels.Gemini4Argon,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.createGoogleRequest(
@@ -373,6 +435,7 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_6Flash,
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
+            GoogleModels.Gemini4Argon,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.executeMultipleChoices(

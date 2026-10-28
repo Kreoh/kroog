@@ -24,7 +24,7 @@ class LatestModelCatalogueTest {
         ids.forEach { id -> assertNotNull(ModelCatalogue.find(id), "Missing semantic profile: $id") }
         assertNull(ModelCatalogue.find("gpt-6-terra"))
         assertNull(ModelCatalogue.find("gpt-6.1-luna"))
-        assertNull(ModelCatalogue.find("gpt-6.1-terra"))
+        assertNotNull(ModelCatalogue.find("gpt-6.1-terra"))
     }
 
     @Test
@@ -36,7 +36,7 @@ class LatestModelCatalogueTest {
             assertEquals(128_000, model.maxOutputTokens)
             assertEquals(setOf("none", "low", "medium", "high", "xhigh", "max"), efforts(model))
             assertEquals(setOf("none"), model.temperature.allowedReasoningEfforts)
-            assertEquals(setOf(ProviderApi.OPENAI_RESPONSES), model.providerApis)
+            assertEquals(setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.CODEX_RESPONSES), model.providerApis)
             assertTrue(model.supportsImages)
             assertTrue(model.structuredOutput)
             assertTrue(model.hostedExecution)
@@ -49,12 +49,12 @@ class LatestModelCatalogueTest {
         assertEquals(922_000, model.maxInputTokens)
         assertEquals(128_000, model.maxOutputTokens)
         assertEquals(setOf("low", "medium", "high", "xhigh", "max"), efforts(model))
-        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES), model.providerApis)
+        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.CODEX_RESPONSES), model.providerApis)
         assertEquals(model.providerApis, model.temperature.omittedProviderApis)
         assertTrue(model.supportsImages)
         assertTrue(model.structuredOutput)
         assertTrue(model.hostedExecution)
-        assertEquals(ModelProviderApiCompatibility.Undeclared, model.compatibility(ProviderApi.CODEX_RESPONSES))
+        assertEquals(ModelProviderApiCompatibility.Supported, model.compatibility(ProviderApi.CODEX_RESPONSES))
         assertEquals(ModelProviderApiCompatibility.Undeclared, model.compatibility(ProviderApi.AZURE_RESPONSES))
     }
 
@@ -194,6 +194,68 @@ class LatestModelCatalogueTest {
         assertNull(ModelCatalogue.find(flash.id, ProviderApi.BEDROCK_CONVERSE))
         assertNull(ModelCatalogue.find("deepseek-3.2", ProviderApi.AZURE_RESPONSES))
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
+    }
+
+    @Test
+    fun testCodexProfilesPreserveRouteSpecificBudgetsAndCapabilities() {
+        val ids = listOf("gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+            "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna")
+        ids.forEach { id ->
+            val semantic = assertNotNull(ModelCatalogue.find(id))
+            val route = assertNotNull(ModelCatalogue.find(id, ProviderApi.CODEX_RESPONSES))
+            assertEquals(setOf("low", "medium", "high", "xhigh", "max"), efforts(route))
+            assertEquals(if (id.startsWith("gpt-6.1-")) 500_000L else 272_000L, route.maxInputTokens)
+            assertEquals(0, route.maxOutputTokens)
+            assertNull(route.outputTokenLimit)
+            assertEquals(setOf(ProviderApi.CODEX_RESPONSES), route.temperature.omittedProviderApis)
+            assertEquals(1.0, route.temperature.minimum)
+            assertEquals(1.0, route.temperature.maximum)
+            assertFalse(route.hostedExecution)
+            assertTrue(route.supportsImages)
+            assertTrue(route.structuredOutput)
+            assertEquals(semantic, ModelCatalogue.find(id))
+            assertTrue(ModelCatalogue.validate(listOf(route)).isEmpty())
+        }
+    }
+
+    @Test
+    fun testHistoricalCodexRoutesDoNotInheritCurrentModelBudgets() {
+        listOf("gpt-5.4", "gpt-5.5").forEach { id ->
+            val semantic = assertNotNull(ModelCatalogue.find(id))
+            val route = assertNotNull(ModelCatalogue.find(id, ProviderApi.CODEX_RESPONSES))
+            assertEquals(semantic.maxInputTokens, route.maxInputTokens)
+            assertEquals(semantic.maxOutputTokens, route.maxOutputTokens)
+            assertEquals(semantic.reasoning, route.reasoning)
+            assertEquals(semantic.temperature, route.temperature)
+            assertFalse(route.hostedExecution)
+        }
+    }
+
+    @Test
+    fun testTerra61PreservesApiReasoningAndDoesNotInferAzureSupport() {
+        val model = assertNotNull(ModelCatalogue.find("gpt-6.1-terra", ProviderApi.OPENAI_RESPONSES))
+        assertEquals(922_000, model.maxInputTokens)
+        assertEquals(128_000, model.maxOutputTokens)
+        assertEquals(setOf("none", "low", "medium", "high", "xhigh", "max"), efforts(model))
+        assertEquals(setOf("none"), model.temperature.allowedReasoningEfforts)
+        assertTrue(model.hostedExecution)
+        assertNull(ModelCatalogue.find(model.id, ProviderApi.AZURE_RESPONSES))
+        assertNull(ModelCatalogue.find(model.id, ProviderApi.BEDROCK_CONVERSE))
+    }
+
+    @Test
+    fun testArgonReservesUnaryOutputWithinSharedContext() {
+        val model = assertNotNull(ModelCatalogue.find("gemini-4-argon", ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT))
+        assertEquals(ModelPublisher.GOOGLE, model.publisher)
+        assertEquals(1_015_808, model.maxInputTokens)
+        assertEquals(32_768, model.maxOutputTokens)
+        assertEquals(1_048_576, model.maxInputTokens + model.maxOutputTokens)
+        assertEquals(setOf("low", "medium", "high"), efforts(model))
+        assertEquals(model.providerApis, model.temperature.omittedProviderApis)
+        assertEquals(ModelCatalogue.find("gemini-3.8-flash")!!.supportedMimeTypes, model.supportedMimeTypes)
+        assertTrue(model.structuredOutput)
+        assertTrue(model.hostedExecution)
+        assertNull(ModelCatalogue.find(model.id, ProviderApi.OPENAI_RESPONSES))
     }
 
     private fun efforts(model: ModelCatalogueEntry): Set<String> =

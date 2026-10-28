@@ -1,3 +1,42 @@
+public final class ai/koog/prompt/executor/clients/openai/CodexAuthFileSource : ai/koog/prompt/executor/clients/openai/CodexCredentialSource {
+	public fun <init> (Ljava/nio/file/Path;)V
+	public fun load (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/CodexAuthenticationException : java/lang/IllegalStateException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public abstract interface class ai/koog/prompt/executor/clients/openai/CodexCredentialSource {
+	public abstract fun load (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/CodexCredentials {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun getAccessToken ()Ljava/lang/String;
+	public final fun getAccountId ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/CodexLLMClient : ai/koog/prompt/executor/clients/LLMClient {
+	public fun <init> (Lai/koog/prompt/executor/clients/openai/CodexCredentialSource;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;)V
+	public synthetic fun <init> (Lai/koog/prompt/executor/clients/openai/CodexCredentialSource;Lai/koog/http/client/KoogHttpClient$Factory;Lai/koog/prompt/executor/clients/ConnectionTimeoutConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lai/koog/prompt/executor/clients/openai/CodexCredentialSource;Lai/koog/http/client/KoogHttpClient;)V
+	public fun close ()V
+	public fun execute (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeMultipleChoices (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun executeStreaming (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Ljava/util/List;)Lkotlinx/coroutines/flow/Flow;
+	public fun getBasicJsonSchemaGenerator ()Lai/koog/prompt/structure/json/generator/BasicJsonSchemaGenerator;
+	public fun getStandardJsonSchemaGenerator ()Lai/koog/prompt/structure/json/generator/StandardJsonSchemaGenerator;
+	public fun llmProvider ()Lai/koog/prompt/llm/LLMProvider;
+	public fun moderate (Lai/koog/prompt/Prompt;Lai/koog/prompt/llm/LLModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/CodexTransportException : java/lang/IllegalStateException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAIChatParams : ai/koog/prompt/params/LLMParams, ai/koog/prompt/executor/clients/openai/OpenAIParams {
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Double;Ljava/lang/Integer;Ljava/lang/Integer;Ljava/lang/String;Lai/koog/prompt/params/LLMParams$Schema;Lai/koog/prompt/params/LLMParams$ToolChoice;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Double;Ljava/lang/Double;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/base/models/ServiceTier;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/base/models/OpenAIAudioConfig;Ljava/lang/Boolean;Lai/koog/prompt/executor/clients/openai/base/models/ReasoningEffort;Ljava/util/List;Ljava/lang/Integer;Ljava/lang/Double;Lai/koog/prompt/executor/clients/openai/base/models/OpenAIWebSearchOptions;)V
@@ -636,6 +675,7 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIModels$Chat {
 	public static final field GPT6Luna Lai/koog/prompt/llm/LLModel;
 	public static final field GPT6Sol Lai/koog/prompt/llm/LLModel;
 	public static final field GPT6_1Sol Lai/koog/prompt/llm/LLModel;
+	public static final field GPT6_1Terra Lai/koog/prompt/llm/LLModel;
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIModels$Chat;
 	public static final field O1 Lai/koog/prompt/llm/LLModel;
 	public static final field O3 Lai/koog/prompt/llm/LLModel;

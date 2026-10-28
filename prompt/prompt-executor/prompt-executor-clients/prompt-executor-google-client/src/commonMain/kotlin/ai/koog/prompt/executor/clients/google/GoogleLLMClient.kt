@@ -144,6 +144,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
+            "gemini-4-argon",
         )
         private val UNSUPPORTED_SAMPLING_PROPERTY_NAMES = setOf(
             "temperature",
@@ -213,7 +214,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "Model ${model.id} does not support tools"
         }
 
-        val request = createGoogleRequest(prompt, model, tools)
+        val request = createGoogleRequest(prompt, model, tools, streaming = true)
 
         try {
             var latestMeta: ResponseMetaInfo? = null
@@ -535,7 +536,12 @@ public open class GoogleLLMClient @JvmOverloads constructor(
      * @param tools Tools to include in the request
      * @return A formatted GoogleAI request
      */
-    internal fun createGoogleRequest(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): GoogleRequest {
+    internal fun createGoogleRequest(
+        prompt: Prompt,
+        model: LLModel,
+        tools: List<ToolDescriptor>,
+        streaming: Boolean = false,
+    ): GoogleRequest {
         prompt.validateClientManagedExecutionPresentation()
         val systemMessageParts = mutableListOf<GooglePart.Text>()
         val contents = mutableListOf<GoogleContent>()
@@ -615,29 +621,49 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
-        if (model.id == GoogleModels.Gemini3_8Flash.id) {
+        if (model.id == GoogleModels.Gemini3_8Flash.id || model.id == GoogleModels.Gemini4Argon.id) {
             require(googleParams.thinkingConfig?.thinkingBudget == null) {
-                "Gemini 3.8 Flash requires thinkingLevel instead of thinkingBudget."
+                "Model ${model.id} requires thinkingLevel instead of thinkingBudget."
             }
             require(googleParams.thinkingConfig?.thinkingLevel !=
                 ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel.MINIMAL) {
-                "Gemini 3.8 Flash supports low, medium and high thinking; minimal is unsupported."
+                "Model ${model.id} supports low, medium and high thinking; minimal is unsupported."
             }
-            val rawThinking = googleParams.additionalProperties?.get("thinkingConfig")
-                ?: googleParams.additionalProperties?.get("thinking_config")
-            rawThinking?.jsonObject?.let { thinking ->
+            listOfNotNull(
+                googleParams.additionalProperties?.get("thinkingConfig"),
+                googleParams.additionalProperties?.get("thinking_config"),
+            ).forEach { rawThinking ->
+                val thinking = rawThinking.jsonObject
                 require("thinkingBudget" !in thinking && "thinking_budget" !in thinking &&
-                    (thinking["thinkingLevel"] ?: thinking["thinking_level"])?.jsonPrimitive?.content?.lowercase() != "minimal") {
-                    "Gemini 3.8 Flash requires low, medium or high thinkingLevel without a manual budget."
+                    listOfNotNull(thinking["thinkingLevel"], thinking["thinking_level"]).all {
+                        it.jsonPrimitive.content.lowercase() in setOf("low", "medium", "high")
+                    }) {
+                    "Model ${model.id} requires low, medium or high thinkingLevel without a manual budget."
                 }
             }
+        }
+        val isArgon = model.id == GoogleModels.Gemini4Argon.id
+        val maxOutputTokens = if (isArgon) {
+            val limit = if (streaming) 65_536 else 32_768
+            require(googleParams.additionalProperties.orEmpty().keys.none {
+                it in setOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens")
+            }) {
+                "Gemini 4 Argon does not support explicit caching; set the output limit using maxTokens."
+            }
+            (googleParams.maxTokens ?: 32_768).also {
+                require(it in 1..limit) {
+                    "Gemini 4 Argon supports 1..$limit output tokens for this request; long decodes are unsupported."
+                }
+            }
+        } else {
+            googleParams.maxTokens
         }
         val supportsCustomSampling = model.id !in FIXED_SAMPLING_MODEL_IDS
         val generationConfig = GoogleGenerationConfig(
             responseMimeType = responseFormat?.responseMimeType,
             responseSchema = responseFormat?.responseSchema,
             responseJsonSchema = responseFormat?.responseJsonSchema,
-            maxOutputTokens = googleParams.maxTokens,
+            maxOutputTokens = maxOutputTokens,
             temperature = if (model.supports(LLMCapability.Temperature)) googleParams.temperature else null,
             candidateCount = if (model.supports(LLMCapability.MultipleChoices)) googleParams.numberOfChoices else null,
             topP = googleParams.topP.takeIf { supportsCustomSampling },
@@ -645,6 +671,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             thinkingConfig = googleParams.thinkingConfig,
             additionalProperties = googleParams.additionalProperties
                 ?.filterKeys { supportsCustomSampling || it !in UNSUPPORTED_SAMPLING_PROPERTY_NAMES }
+                ?.filterKeys { !isArgon || it !in setOf(
+                    "frequencyPenalty", "frequency_penalty", "presencePenalty", "presence_penalty"
+                ) }
                 ?.takeIf { it.isNotEmpty() }
         )
 

@@ -282,6 +282,23 @@ public object GoogleModels : LLModelDefinitions {
     )
 
     /**
+     * Gemini 4 Argon on Vertex AI. Input and output share a 1,048,576-token context.
+     * The conservative output limit covers non-streaming REST; streaming requests may explicitly
+     * request up to 65,536 tokens. Long-decode continuation is not implemented.
+     * Supports low, medium (default), and high thinking, with no explicit context cache or sampling.
+     *
+     * @see <a href="https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-argon">
+     */
+    @JvmField
+    public val Gemini4Argon: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-4-argon",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 32_768,
+    )
+
+    /**
      * Models for generating text embeddings.
      */
     public object Embeddings {
@@ -318,6 +335,7 @@ public object GoogleModels : LLModelDefinitions {
         Gemini3_6Flash,
         Gemini3_7Flash,
         Gemini3_8Flash,
+        Gemini4Argon,
         Embeddings.GeminiEmbedding001,
     )
 

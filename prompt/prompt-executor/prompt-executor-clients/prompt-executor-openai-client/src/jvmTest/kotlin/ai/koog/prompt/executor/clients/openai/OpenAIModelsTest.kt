@@ -13,6 +13,19 @@ import kotlin.test.assertNotNull
 class OpenAIModelsTest {
 
     @Test
+    fun testTerra61MetadataAndRegistration() {
+        val model = OpenAIModels.Chat.GPT6_1Terra
+        model.id shouldBe "gpt-6.1-terra"
+        model.provider shouldBe LLMProvider.OpenAI
+        model.contextLength shouldBe 1_050_000
+        model.maxOutputTokens shouldBe 128_000
+        model.capabilities shouldContainExactly OpenAIModels.Chat.GPT6Sol.capabilities.orEmpty()
+        model.capabilities.orEmpty() shouldContain LLMCapability.Temperature
+        model.capabilities.orEmpty() shouldNotContain LLMCapability.Document
+        OpenAIModels.models.count { it.id == model.id } shouldBe 1
+    }
+
+    @Test
     fun testSol61MetadataAndRegistration() {
         val model = OpenAIModels.Chat.GPT6_1Sol
         model.id shouldBe "gpt-6.1-sol"
