@@ -52,6 +52,20 @@ private val badRequest: String = """
 class GoogleModelsTest {
 
     @Test
+    fun testArgonProfileUsesUnifiedContextAndConservativeOutput() {
+        val model = GoogleModels.Gemini4Argon
+        assertEquals("gemini-4-argon", model.id)
+        assertEquals(1_048_576, model.contextLength)
+        assertEquals(32_768, model.maxOutputTokens)
+        assertTrue(model in GoogleModels.models)
+        assertTrue(model.supports(LLMCapability.Thinking))
+        assertTrue(model.supports(LLMCapability.Tools))
+        assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+        assertFalse(model.supports(LLMCapability.Temperature))
+        assertFalse(model.supports(LLMCapability.MultipleChoices))
+    }
+
+    @Test
     fun `Google models should have Google provider`() {
         val models = GoogleModels.list()
 

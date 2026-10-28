@@ -1018,6 +1018,18 @@ public object OpenAIModels : LLModelDefinitions {
         @JvmField
         public val GPT6_1Sol: LLModel = GPT6Astra.copy(id = "gpt-6.1-sol")
 
+        /**
+         * GPT-6.1 Terra accepts text and images within a 1,050,000-token context,
+         * reserving up to 128,000 tokens for output. Tool calling requires Responses.
+         * Supports `none`, `low`, `medium`, `high`, `xhigh` and `max` reasoning;
+         * sampling controls are available only with `none` reasoning on the OpenAI API.
+         * Codex route restrictions are available through the provider-aware model catalogue.
+         *
+         * @see <a href="https://developers.openai.com/api/docs/models/gpt-6.1-terra">Model page</a>
+         */
+        @JvmField
+        public val GPT6_1Terra: LLModel = GPT6Sol.copy(id = "gpt-6.1-terra")
+
         private val gpt5_6Capabilities: List<LLMCapability> = listOf(
             LLMCapability.Completion,
             LLMCapability.Speculation,
@@ -1311,6 +1323,7 @@ public object OpenAIModels : LLModelDefinitions {
             Chat.GPT6Astra,
             Chat.GPT6Sol,
             Chat.GPT6_1Sol,
+            Chat.GPT6_1Terra,
             Chat.GPT6Luna,
             Chat.GPT5Mini,
 

@@ -230,16 +230,16 @@ public object ModelCatalogue {
         openAiReasoning(
             id = "gpt-6-sol",
             efforts = frontierReasoning,
-            temperature = conditionalTemperature,
+            temperature = conditionalTemperatureWithCodex,
             input = 922_000,
-            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+            providerApis = openAiCodex,
         ),
         openAiReasoning(
             id = "gpt-6-luna",
             efforts = frontierReasoning,
-            temperature = conditionalTemperature,
+            temperature = conditionalTemperatureWithCodex,
             input = 922_000,
-            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+            providerApis = openAiCodex,
         ),
         // https://developers.openai.com/api/docs/models/gpt-6.1-sol
         // The input budget reserves 128,000 output tokens from the shared 1,050,000-token context.
@@ -247,10 +247,18 @@ public object ModelCatalogue {
             id = "gpt-6.1-sol",
             efforts = frontierReasoning - "none",
             temperature = TemperatureSupport(
-                1.0, 1.0, omittedProviderApis = setOf(ProviderApi.OPENAI_RESPONSES),
+                1.0, 1.0, omittedProviderApis = openAiCodex,
             ),
             input = 922_000,
-            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+            providerApis = openAiCodex,
+        ),
+        // https://developers.openai.com/api/docs/models/gpt-6.1-terra
+        openAiReasoning(
+            id = "gpt-6.1-terra",
+            efforts = frontierReasoning,
+            temperature = conditionalTemperatureWithCodex,
+            input = 922_000,
+            providerApis = openAiCodex,
         ),
         realtime(
             id = "gpt-realtime",
@@ -449,6 +457,17 @@ public object ModelCatalogue {
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes,
         ),
+        // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-argon
+        // Reserve the normal unary output allowance from the shared 1,048,576-token context.
+        // Streaming can explicitly request 65,536 output tokens; continuation is not implemented.
+        gemini(
+            id = "gemini-4-argon",
+            input = 1_015_808,
+            output = 32_768,
+            reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0)),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes,
+        ),
         gemini(
             id = "gemini-3.1-pro",
             input = 983_040,
@@ -490,6 +509,20 @@ public object ModelCatalogue {
         val model = find(idOrAlias) ?: return null
         if (model.compatibility(api) !is ModelProviderApiCompatibility.Supported) return null
         return when {
+            api == ProviderApi.CODEX_RESPONSES && model.id in codexContextWindows -> model.copy(
+                reasoning = (model.reasoning as ReasoningSupport.Supported).let {
+                    it.copy(efforts = it.efforts - "none")
+                },
+                // Codex model discovery (2026-10-28) reports default shared context windows, not API input ceilings.
+                // Generated output shares this budget; no independent output ceiling is established.
+                maxInputTokens = codexContextWindows.getValue(model.id),
+                maxOutputTokens = 0,
+                temperature = TemperatureSupport(1.0, 1.0, omittedProviderApis = setOf(api)),
+                hostedExecution = false,
+            )
+
+            api == ProviderApi.CODEX_RESPONSES -> model.copy(hostedExecution = false)
+
             model.id == "gpt-6-astra" && api == ProviderApi.BEDROCK_CONVERSE ->
                 model.copy(structuredOutput = false, hostedExecution = false)
 
@@ -712,6 +745,19 @@ public object ModelCatalogue {
     }
 }
 
+// Verified default shared context windows from Codex model discovery on 2026-10-28.
+// Keep this explicit: older or future models must not inherit an unevidenced route budget.
+private val codexContextWindows: Map<String, Long> = mapOf(
+    "gpt-6.1-sol" to 500_000L,
+    "gpt-6.1-terra" to 500_000L,
+    "gpt-6-astra" to 272_000L,
+    "gpt-6-sol" to 272_000L,
+    "gpt-6-luna" to 272_000L,
+    "gpt-5.6-sol" to 272_000L,
+    "gpt-5.6-terra" to 272_000L,
+    "gpt-5.6-luna" to 272_000L,
+)
+
 private val textModelApis: Set<ProviderApi> = setOf(
     ProviderApi.OPENAI_RESPONSES,
     ProviderApi.AZURE_RESPONSES,
@@ -730,9 +776,10 @@ private val realtimeModelApis: Set<ProviderApi> =
 private val compatibleApis: Set<ProviderApi> =
     setOf(ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS)
 private val astraApis: Set<ProviderApi> =
-    setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE) + compatibleApis
+    setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE, ProviderApi.CODEX_RESPONSES) + compatibleApis
 private val openAiAzure: Set<ProviderApi> =
     setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES)
+private val openAiCodex: Set<ProviderApi> = setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.CODEX_RESPONSES)
 private val openAiAzureCodex: Set<ProviderApi> = openAiAzure + ProviderApi.CODEX_RESPONSES
 private val claudeApis: Set<ProviderApi> =
     setOf(

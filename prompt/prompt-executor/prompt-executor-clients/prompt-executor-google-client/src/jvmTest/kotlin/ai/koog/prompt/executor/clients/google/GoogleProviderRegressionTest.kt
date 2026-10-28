@@ -29,6 +29,17 @@ class GoogleProviderRegressionTest {
     private val testPrompt = prompt("provider-regression") { user("Hello") }
 
     @Test
+    fun testArgonStreamingUsesStreamingOutputLimit() = runTest {
+        withClient(noArgsResponse, streaming = true) { client ->
+            val response = client.executeStreaming(
+                prompt("argon-stream", params = GoogleParams(maxTokens = 65_536)) { user("Call noArgsTool") },
+                GoogleModels.Gemini4Argon,
+            ).toList().toMessageResponse()
+            assertEquals("noArgsTool", assertIs<MessagePart.Tool.Call>(response.parts.single()).tool)
+        }
+    }
+
+    @Test
     fun testMissingArgumentsBecomeEmptyObject() = runTest {
         withClient(noArgsResponse) { client ->
             val call = assertIs<MessagePart.Tool.Call>(client.execute(testPrompt, GoogleModels.Gemini2_5Pro).parts.single())
