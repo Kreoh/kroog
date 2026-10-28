@@ -10,6 +10,8 @@ Stable modules use `1.3.0-kroog.3`; beta modules use `1.3.0-beta-kroog.3`.
 - Require consumer recompilation for changed generated Kotlin copy and serialisation signatures and the nullable byte-count API. Old explicit three-argument `Skill` and `LoadSkillResult` constructors and copy methods remain callable.
 - Replace ordinary and managed tool payload diagnostics with fixed categories and locally generated opaque correlation IDs. Preserve diagnostic levels and returned tool behaviour while excluding arguments, results, supplied identifiers and arbitrary throwable messages.
 - Add an explicit-account Codex Responses client, route-specific profiles for eight Codex models, GPT-6.1 Terra and Gemini 4 Argon on Vertex. See [transport usage and restrictions](docs/codex-and-argon.md). Live validation and release gates are tracked separately.
+- Merge upstream #2292: frame every line of Bedrock AgentCore SSE text with its own data field, preserving multiline chunks.
+- Merge upstream #2298: export complete Langfuse message lists, including reasoning, text, tool calls and parallel tool results. The adapter now uses JSON arrays in `gen_ai.prompt` and `gen_ai.completion`; custom consumers of indexed attributes must migrate.
 - Installation examples retain confirmed published revision 2. Earlier preparation records remain historical evidence.
 
 See [revision 3 validation](docs/releases/1.3.0-kroog.3-validation.md). Exact-source

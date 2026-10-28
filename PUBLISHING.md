@@ -53,7 +53,7 @@ The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
 forms describe the configured release revision. Local preparation does not
 publish artefacts to Maven Central. Revision `3` prepares bounded skill references,
-explicit trusted-filesystem loading, nullable OpenAI container-file byte counts and private ordinary and managed tool diagnostics.
+explicit trusted-filesystem loading, nullable OpenAI container-file byte counts, private ordinary and managed tool diagnostics, Codex account transport, GPT-6.1 Terra, Gemini 4 Argon, multiline SSE framing and complete Langfuse message export.
 Revision `2` is published, as recorded in the [dated status check](docs/releases/1.3.0-kroog.2-publication-status.md).
 Installation examples use `1.3.0-kroog.2` and `1.3.0-beta-kroog.2` until revision 3
 is published and verified.

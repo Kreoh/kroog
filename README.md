@@ -8,7 +8,7 @@ Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an 
 
 ## Release preparation and upstream comparison
 
-Source comparison checked on **21 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements, nullable OpenAI container-file byte counts and private ordinary and managed tool diagnostics to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+Source comparison checked on **28 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements, nullable OpenAI container-file byte counts, private ordinary and managed tool diagnostics, Codex account transport, GPT-6.1 Terra, Gemini 4 Argon, multiline SSE framing and complete Langfuse message export to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
 
 [Revision 2 is published](docs/releases/1.3.0-kroog.2-publication-status.md). Its earlier [preparation evidence](docs/releases/1.3.0-kroog.2-validation.md) remains a historical record. See the [revision 3 preparation evidence](docs/releases/1.3.0-kroog.3-validation.md) for validation and remaining release gates. The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
 
@@ -48,6 +48,24 @@ Definitions: [OpenAI][openai-models], [Anthropic][anthropic-models], [Google][go
 Sol and Luna accept `none`, `low`, `medium`, `high`, `xhigh` and `max` reasoning; sampling is sent only at `none`. On OpenAI, Astra and Sol 6.1 omit sampling and require Responses for tools. Claude 5.5 omits sampling and rejects disabled thinking, manual budgets, forced tool selection and assistant prefill. Gemini 3.8 omits sampling and supports `low`, `medium` and `high` thinking. Astra's Bedrock Converse catalogue profile excludes structured output and hosted execution; compatible API routes exclude hosted execution. Use `ModelCatalogue.find(id, api)` when selecting a declared route.
 
 The [dated validation record][model-validation] contains provider documentation links and the precise test scope. Recorded bounded live checks cover OpenAI, Vertex and selected Bedrock routes. Direct Anthropic and Gemini metadata and live checks were unrun; full context-window stress tests were unrun. Historical staged consumer results belong to their recorded source versions and coordinates. The [release notes][release-notes] record the identity regression checks and existing validation limits, including unrelated JVM ABI dump drift.
+
+### Revision 3 model additions
+
+Source and catalogue checked on **28 October 2026** for `1.3.0-kroog.3` preparation.
+The table above remains the dated baseline; these additions extend it.
+
+| Model | Supported route | Catalogue token budget |
+| --- | --- | --- |
+| `gpt-6.1-terra` | OpenAI Responses | 922,000 input; 128,000 output |
+| `gpt-6.1-sol`, `gpt-6.1-terra` | Codex Responses | 500,000 shared context; independent output ceiling unknown |
+| `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | Codex Responses | 272,000 shared context; independent output ceiling unknown |
+| `gemini-4-argon` | Vertex Gemini GenerateContent | 1,015,808 input; 32,768 output reserved from 1,048,576 shared context; streaming permits 65,536 output |
+
+These IDs have no additional catalogue aliases. Codex routes omit sampling,
+exclude hosted execution and remove `none` reasoning. Argon supports low, medium
+and high thinking and omits sampling. Use `ModelCatalogue.find(id, api)` for route
+restrictions. See [transport details and dated live results](docs/codex-and-argon.md)
+and [release validation](docs/releases/1.3.0-kroog.3-validation.md).
 
 ### Key features
 
