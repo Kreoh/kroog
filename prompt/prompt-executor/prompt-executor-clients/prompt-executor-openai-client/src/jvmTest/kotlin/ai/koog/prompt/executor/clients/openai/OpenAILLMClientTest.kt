@@ -40,14 +40,30 @@ class OpenAILLMClientTest {
             assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
             assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
             listOf(null, "low", "medium", "high", "xhigh", "max").forEach { effort ->
-                val additional = mapOf("temperature" to JsonPrimitive(0.4), "top_p" to JsonPrimitive(0.8),
-                    "logprobs" to JsonPrimitive(true), "top_logprobs" to JsonPrimitive(5))
-                val chat = chatRequest(model, OpenAIChatParams(additionalProperties = additional +
-                    (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())))
-                val responses = responsesRequest(model, OpenAIResponsesParams(additionalProperties = additional +
-                    (effort?.let { mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(it)) }) }
-                        ?: emptyMap()),
-                    include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL)))
+                val additional = mapOf(
+                    "temperature" to JsonPrimitive(0.4),
+                    "top_p" to JsonPrimitive(0.8),
+                    "logprobs" to JsonPrimitive(true),
+                    "top_logprobs" to JsonPrimitive(5)
+                )
+                val chat = chatRequest(
+                    model,
+                    OpenAIChatParams(
+                        additionalProperties = additional +
+                            (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())
+                    )
+                )
+                val responses = responsesRequest(
+                    model,
+                    OpenAIResponsesParams(
+                        additionalProperties = additional +
+                            (
+                                effort?.let { mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(it)) }) }
+                                    ?: emptyMap()
+                                ),
+                        include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL)
+                    )
+                )
                 chat["reasoning_effort"]?.jsonPrimitive?.content shouldBe effort
                 responses["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content shouldBe effort
                 listOf(chat, responses).forEach { request ->
@@ -67,17 +83,30 @@ class OpenAILLMClientTest {
             }
             listOf("none", "minimal", "ultra").forEach { effort ->
                 assertFailsWith<IllegalArgumentException> {
-                    chatRequest(model, OpenAIChatParams(additionalProperties =
-                        mapOf("reasoning_effort" to JsonPrimitive(effort))))
+                    chatRequest(
+                        model,
+                        OpenAIChatParams(
+                            additionalProperties =
+                            mapOf("reasoning_effort" to JsonPrimitive(effort))
+                        )
+                    )
                 }
                 assertFailsWith<IllegalArgumentException> {
-                    responsesRequest(model, OpenAIResponsesParams(additionalProperties =
-                        mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(effort)) })))
+                    responsesRequest(
+                        model,
+                        OpenAIResponsesParams(
+                            additionalProperties =
+                            mapOf("reasoning" to buildJsonObject { put("effort", JsonPrimitive(effort)) })
+                        )
+                    )
                 }
             }
             val tools = Json.parseToJsonElement("""[{"type":"function","function":{"name":"lookup"}}]""")
-            listOf("tools" to tools, "tool_choice" to JsonPrimitive("auto"),
-                "parallel_tool_calls" to JsonPrimitive(false)).forEach { property ->
+            listOf(
+                "tools" to tools,
+                "tool_choice" to JsonPrimitive("auto"),
+                "parallel_tool_calls" to JsonPrimitive(false)
+            ).forEach { property ->
                 assertFailsWith<IllegalArgumentException> {
                     chatRequest(model, OpenAIChatParams(additionalProperties = mapOf(property)))
                 }
@@ -100,13 +129,24 @@ class OpenAILLMClientTest {
             ).forEach { model ->
                 assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
                 assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
-                listOf(null, ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH,
-                    ReasoningEffort.XHIGH, ReasoningEffort.MAX, ReasoningEffort.NONE).forEach { effort ->
+                listOf(
+                    null,
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.MEDIUM,
+                    ReasoningEffort.HIGH,
+                    ReasoningEffort.XHIGH,
+                    ReasoningEffort.MAX,
+                    ReasoningEffort.NONE
+                ).forEach { effort ->
                     val params = OpenAIChatParams(reasoningEffort = effort, temperature = 0.4)
                     val chat = chatRequest(model, params)
-                    val responses = responsesRequest(model, OpenAIResponsesParams(
-                        reasoning = effort?.let { ReasoningConfig(effort = it) }, temperature = 0.4,
-                    ))
+                    val responses = responsesRequest(
+                        model,
+                        OpenAIResponsesParams(
+                            reasoning = effort?.let { ReasoningConfig(effort = it) },
+                            temperature = 0.4,
+                        )
+                    )
                     chat["reasoning_effort"]?.jsonPrimitive?.content shouldBe effort?.name?.lowercase()
                     responses["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.content shouldBe
                         effort?.name?.lowercase()
@@ -131,22 +171,33 @@ class OpenAILLMClientTest {
         val tools = Json.parseToJsonElement("""[{"type":"function","function":{"name":"lookup"}}]""")
         listOf(OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna).forEach { model ->
             val raw = mapOf("tools" to tools, "top_p" to JsonPrimitive(0.8), "logprobs" to JsonPrimitive(true))
-            val accepted = chatRequest(model, OpenAIChatParams(
-                additionalProperties = raw + ("reasoning_effort" to JsonPrimitive("none")),
-            ))
+            val accepted = chatRequest(
+                model,
+                OpenAIChatParams(
+                    additionalProperties = raw + ("reasoning_effort" to JsonPrimitive("none")),
+                )
+            )
             accepted["tools"] shouldBe tools
             accepted["top_p"] shouldBe JsonPrimitive(0.8)
             accepted["logprobs"] shouldBe JsonPrimitive(true)
             listOf(null, "low", "max").forEach { effort ->
                 assertFailsWith<IllegalArgumentException> {
-                    chatRequest(model, OpenAIChatParams(additionalProperties = raw +
-                        (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())))
+                    chatRequest(
+                        model,
+                        OpenAIChatParams(
+                            additionalProperties = raw +
+                                (effort?.let { mapOf("reasoning_effort" to JsonPrimitive(it)) } ?: emptyMap())
+                        )
+                    )
                 }
             }
-            val response = responsesRequest(model, OpenAIResponsesParams(
-                additionalProperties = mapOf("top_p" to JsonPrimitive(0.8)),
-                include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL),
-            ))
+            val response = responsesRequest(
+                model,
+                OpenAIResponsesParams(
+                    additionalProperties = mapOf("top_p" to JsonPrimitive(0.8)),
+                    include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.INPUT_IMAGE_URL),
+                )
+            )
             response.containsKey("top_p") shouldBe false
             response["include"]?.jsonArray?.map { it.jsonPrimitive.content } shouldBe
                 listOf("message.input_image.image_url")
@@ -159,9 +210,15 @@ class OpenAILLMClientTest {
         assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
         assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))
         assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model.copy(id = "astra-deployment")))
-        assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model.copy(
-            id = "rebuilt-astra", capabilities = model.capabilities.orEmpty().toList(),
-        )))
+        assertIs<OpenAIResponsesParams>(
+            client.determineParams(
+                LLMParams(),
+                model.copy(
+                    id = "rebuilt-astra",
+                    capabilities = model.capabilities.orEmpty().toList(),
+                )
+            )
+        )
     }
 
     @Test
@@ -185,7 +242,8 @@ class OpenAILLMClientTest {
             OpenAIModels.Chat.GPT6Astra,
             OpenAIModels.Chat.GPT6Astra.copy(id = "astra-deployment"),
             OpenAIModels.Chat.GPT6Astra.copy(
-                id = "rebuilt-astra", capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().toList(),
+                id = "rebuilt-astra",
+                capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().toList(),
             ),
         )
             .forEach { model ->
