@@ -4,143 +4,26 @@
 [![Kotlin](https://img.shields.io/badge/kotlin-2.3.10-blue.svg?logo=kotlin)](https://kotlinlang.org)
 [![GitHub licence](https://img.shields.io/github/license/Kreoh/kroog)](LICENSE.txt)
 
-Kroog is Kreoh's JVM-only fork of [Koog](https://github.com/JetBrains/koog), an AI agent framework for Kotlin and Java. It incorporates upstream Koog **1.3.0**, with additional model support, provider replay, prompt caching and token accounting fixes. Kroog is licensed under Apache 2.0.
+Kroog is a JVM framework for building AI agents in Kotlin and Java. Define tools, connect a language model and build workflows that can call external services, retain conversation history and stream responses.
 
-## Release preparation and upstream comparison
+It is Kreoh's fork of [Koog](https://github.com/JetBrains/koog), based on Koog 1.3.0, with additional model support and improvements to provider replay, prompt caching and token accounting. Kotlin packages remain under `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
 
-Source comparison checked on **28 October 2026**: the configured candidate is **`1.3.0-kroog.3`** (beta modules: **`1.3.0-beta-kroog.3`**), which remains unpublished. It adds bounded immutable skill references, explicit filesystem trust requirements, nullable OpenAI container-file byte counts, private ordinary and managed tool diagnostics, Codex account transport, GPT-6.1 Terra, Gemini 4 Argon, multiline SSE framing and complete Langfuse message export to published revision 2. The incorporated upstream baseline remains [Koog 1.3.0, commit `3acc88cf8c`][upstream-source]. The [alignment audit][alignment] records the incorporated changes and retained fork contracts.
+## What you can build
 
-[Revision 2 is published](docs/releases/1.3.0-kroog.2-publication-status.md). Its earlier [preparation evidence](docs/releases/1.3.0-kroog.2-validation.md) remains a historical record. See the [revision 3 preparation evidence](docs/releases/1.3.0-kroog.3-validation.md) for validation and remaining release gates. The [correctness import record][correctness-imports] retains the history of the three batches incorporated in revision 1.
+- **Agents with tools:** define typed tool arguments and results, call external APIs and use MCP tools.
+- **Agent workflows:** combine model calls, tool execution and branching in Kotlin graph workflows, with streaming and parallel tool calls.
+- **Agents with memory:** retain conversation history, compress long conversations and retrieve knowledge through embeddings and RAG.
+- **Applications with several providers:** select models through a shared catalogue and preserve provider-specific reasoning, tool calls and results across requests.
+- **JVM services:** integrate agents with Spring Boot, Ktor and Bedrock AgentCore Runtime, or expose them through ACP.
+- **Observable execution:** trace model requests and tool calls through OpenTelemetry, Langfuse and W&B Weave.
 
-Revision 3 requires consumer recompilation for generated Kotlin copy and serialisation signatures and nullable `OpenAIContainerFileResource.bytes`. Host skill loading now requires an explicit `SkillFileSystemTrust.TRUSTED_IMMUTABLE` declaration. Old host entrypoints remain callable but fail before I/O without it. The caller must ensure operator-controlled roots and path resolution remain immutable throughout discovery; the flag cannot verify that invariant or prevent hostile replacement after a false declaration. Immutable in-memory skills remain supported without filesystem attestation. See [the skills API and migration guidance](skills/README.md).
+Kroog also provides prompt cache policies, separate cache-read and cache-write token counts, batch embeddings and reusable skills with immutable reference files. See the [skills guide](skills/README.md) for loading skills and configuring trusted filesystem sources.
 
-Compared with that upstream baseline, Kroog retains these additions and adaptations:
+## Installation
 
-- **Provider replay and hosted execution:** preserve signed and redacted reasoning, tool-call identities, generated files and provider-managed tool results across subsequent requests. See the [alignment audit][alignment] and [provider validation record][model-validation].
-- **Prompt caching:** construct immutable request views, validate the four-breakpoint limit and cache TTL ordering, and add an eligible rolling breakpoint. See [the cache policy][cache-policy]. Bedrock Astra disables automatic Converse cache markers, as recorded in the [model validation][model-validation].
-- **Token accounting:** keep input and total usage inclusive, expose cache reads and writes separately, and preserve omitted counts versus reported zero. OpenAI and Azure cache-write counts survive ordinary and streamed responses, including incomplete responses. See the [revision 15 notes][release-notes]. Upstream Google cache-count support is incorporated with the fork's structured accounting retained [in the audit][alignment].
-- **Codex and Argon:** explicit-account Codex Responses transport, GPT-6.1 Terra and Gemini 4 Argon through Vertex. See [usage and route restrictions](docs/codex-and-argon.md); live validation is separate from model registration.
-- **Model catalogue:** expose canonical semantic profiles, explicit aliases, reasoning and sampling restrictions, MIME types and provider API compatibility. Deployment names remain separate from semantic IDs. See [the catalogue][catalogue] and [revision 14 notes][release-notes].
-- **Streamed tool-call identities:** buffer early argument fragments until a usable ID and name arrive, then emit them once in per-call order with resolved identity. Parallel calls remain separate. Completion retains the full arguments without replaying argument deltas. Google emits serialised parsed arguments; this release does not establish incremental Google argument support. See the [streamed identity notes][release-notes].
-- **Correctness batches:** improve nested tool schemas, discriminator handling, Gemini argument and safety handling, request credentials, memory pairing, parallel context isolation, MCP schemas, tracing and Spring metadata. See the [import record][correctness-imports].
-- **Streamed history and serialisers:** record completed streamed responses automatically within active write sessions, preserving metadata, tools and reasoning. Failed, cancelled or incomplete streams leave history unchanged. Explicit cache directive serializer modules preserve concrete types. See the [correctness imports][correctness-imports].
-- **Batch embeddings and DeepSeek helpers:** add batch embedding APIs with a compatible sequential default, an OpenAI batch path and simple DeepSeek executor helpers. See the [correctness imports][correctness-imports].
-- **Skill references:** retain bounded immutable text below `references/` through filtered registries. `load_skill` lists names and `read_skill_resource` retrieves exact captured text. Host discovery requires caller-attested trusted immutable roots; in-memory snapshots need no attestation. See [the skills API](skills/README.md) and [the alignment audit][alignment].
+Use JDK 17 or later and Kotlin 2.3.10 or later. Kroog publishes JVM artefacts only.
 
-Upstream features such as skills discovery, Bedrock AgentCore Runtime, Google cache-count parsing and Langfuse reasoning traces are incorporated baseline features. The audit records their fork adaptations.
-
-The historical correctness-import validation covers 26 affected JVM suites and two Spring suites, with 2,665 passing tests and 57 existing skips. These are local test results and do not establish live provider compatibility or Maven Central publication. See the [import record][correctness-imports] for scope.
-
-## Recent model support
-
-Source and catalogue checked on **1 October 2026** at [the implementation commit][release-source]. This table describes implemented support at that revision. It does not assert current provider availability. Limits distinguish the catalogue's maximum input from the shared context window.
-
-| Model developer | Provider definition and semantic ID | Hosting and API support | Input and output token ceilings |
-| --- | --- | --- | --- |
-| OpenAI | `OpenAIModels.Chat.GPT6Astra`, `gpt-6-astra` | OpenAI Responses; Bedrock Runtime Converse and Mantle through OpenAI-compatible Responses and Chat Completions | 922,000 input; 128,000 output; 1,050,000 shared context |
-| OpenAI | `OpenAIModels.Chat.GPT6Sol`, `gpt-6-sol`; `GPT6Luna`, `gpt-6-luna` | OpenAI Responses declared in the catalogue; provider definitions also allow explicit Chat Completions, with tools at `none` reasoning | 922,000 input; 128,000 output; 1,050,000 shared context |
-| OpenAI | `OpenAIModels.Chat.GPT6_1Sol`, `gpt-6.1-sol` | OpenAI Responses declared in the catalogue; explicit Chat Completions supports text only | 922,000 input; 128,000 output; 1,050,000 shared context |
-| Anthropic | `AnthropicModels.Opus_5_5`, `claude-opus-5-5`; `Sonnet_5_5`, `claude-sonnet-5-5` | Anthropic Messages client definitions; catalogue routes: Vertex Anthropic Messages, Bedrock Anthropic Messages and Bedrock Converse | 1,000,000 catalogue input; 128,000 output |
-| Google | `GoogleModels.Gemini3_8Flash`, `gemini-3.8-flash` | Gemini GenerateContent client definition; catalogue route: Vertex Gemini GenerateContent | 1,048,576 input; 65,536 output |
-
-Definitions: [OpenAI][openai-models], [Anthropic][anthropic-models], [Google][google-models] and [Bedrock][bedrock-models]. [The central catalogue][catalogue] records exact declared API routes and aliases. Native Anthropic and Gemini APIs have provider definitions but no separate native API enum in this revision's catalogue; route lookup must not invent those entries. The listed semantic IDs have no additional catalogue aliases. Other profiles include explicit DeepSeek Flash aliases, Mantle-only Gemma 4 routes and Bedrock Nova text embeddings, documented in [the validation record][model-validation].
-
-Sol and Luna accept `none`, `low`, `medium`, `high`, `xhigh` and `max` reasoning; sampling is sent only at `none`. On OpenAI, Astra and Sol 6.1 omit sampling and require Responses for tools. Claude 5.5 omits sampling and rejects disabled thinking, manual budgets, forced tool selection and assistant prefill. Gemini 3.8 omits sampling and supports `low`, `medium` and `high` thinking. Astra's Bedrock Converse catalogue profile excludes structured output and hosted execution; compatible API routes exclude hosted execution. Use `ModelCatalogue.find(id, api)` when selecting a declared route.
-
-The [dated validation record][model-validation] contains provider documentation links and the precise test scope. Recorded bounded live checks cover OpenAI, Vertex and selected Bedrock routes. Direct Anthropic and Gemini metadata and live checks were unrun; full context-window stress tests were unrun. Historical staged consumer results belong to their recorded source versions and coordinates. The [release notes][release-notes] record the identity regression checks and existing validation limits, including unrelated JVM ABI dump drift.
-
-### Revision 3 model additions
-
-Source and catalogue checked on **28 October 2026** for `1.3.0-kroog.3` preparation.
-The table above remains the dated baseline; these additions extend it.
-
-| Model | Supported route | Catalogue token budget |
-| --- | --- | --- |
-| `gpt-6.1-terra` | OpenAI Responses | 922,000 input; 128,000 output |
-| `gpt-6.1-sol`, `gpt-6.1-terra` | Codex Responses | 500,000 shared context; independent output ceiling unknown |
-| `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | Codex Responses | 272,000 shared context; independent output ceiling unknown |
-| `gemini-4-argon` | Vertex Gemini GenerateContent | 1,015,808 input; 32,768 output reserved from 1,048,576 shared context; streaming permits 65,536 output |
-
-These IDs have no additional catalogue aliases. Codex routes omit sampling,
-exclude hosted execution and remove `none` reasoning. Argon supports low, medium
-and high thinking and omits sampling. Use `ModelCatalogue.find(id, api)` for route
-restrictions. See [transport details and dated live results](docs/codex-and-argon.md)
-and [release validation](docs/releases/1.3.0-kroog.3-validation.md).
-
-### Key features
-
-Key features of Koog include:
-
-- **JVM development**: Build Kotlin and Java agents with JVM artefacts.
-- **Reliability and fault-tolerance**: Handle failures with built-in retries and restore the agent state at specific points during execution with the agent persistence feature.
-- **Intelligent history compression**: Optimise token usage while maintaining context in long-running conversations using advanced built-in history compression techniques.
-- **Enterprise-ready integrations**: Use integration with popular JVM frameworks such as Spring Boot and Ktor to embed Koog into your applications.
-- **Observability with OpenTelemetry exporters**: Monitor and debug applications with built-in support for popular observability providers (W&B Weave, Langfuse).
-- **LLM switching and seamless history adaptation**: Switch to a different LLM at any point without losing the existing conversation history, or reroute between multiple LLM providers.
-- **Integration with JVM and Kotlin applications**: Build AI agents with an idiomatic, type-safe Kotlin DSL designed specifically for JVM and Kotlin developers.
-- **Model Context Protocol integration**: Use Model Context Protocol (MCP) tools in AI agents.
-- **Agent Client Protocol integration**: Build ACP-compliant agents that can communicate with standardised client applications using the Agent Client Protocol (ACP).
-- **Knowledge retrieval and memory**: Retain and retrieve knowledge across conversations using vector embeddings and RAG.
-- **Powerful Streaming API**: Process responses in real-time with streaming support and parallel tool calls.
-- **Modular feature system**: Customise agent capabilities through a composable architecture.
-- **Flexible graph workflows**: Design complex agent behaviours using intuitive graph-based workflows.
-- **Custom tool creation**: Enhance your agents with tools that access external systems and APIs.
-- **Comprehensive tracing**: Debug and monitor agent execution with detailed, configurable tracing.
-
-### Available LLM providers and platforms
-
-The LLM providers and platforms whose LLMs you can use to power your agent capabilities:
-
-- Google
-- OpenAI
-- Anthropic
-- DeepSeek
-- OpenRouter
-- Ollama
-- Bedrock
-
-### Quickstart example
-
-To help you get started with AI agents, here is a quick example:
-
-```kotlin
-import ai.koog.agents.core.agent.AIAgent
-import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
-import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
-import kotlinx.coroutines.runBlocking
-
-fun main() = runBlocking {
-    // Before you run the example, assign a corresponding API key as an environment variable.
-    val apiKey = requireNotNull(System.getenv("OPENAI_API_KEY"))
-
-    val agent = AIAgent(
-        promptExecutor = MultiLLMPromptExecutor(OpenAILLMClient(apiKey)),
-        systemPrompt = "You are a helpful assistant. Answer user questions concisely.",
-        llmModel = OpenAIModels.Chat.GPT4o
-    )
-
-    val result = agent.run("Hello! How can you help me?")
-    println(result)
-}
-```
-
-## Using in your projects
-
-### Supported targets
-
-Kroog currently builds, validates and publishes JVM targets only. Upstream Koog also supports JS, WasmJS and iOS.
-
-### Requirements
-
-- JDK 17 or higher is required to use the framework on JVM.
-- Kotlin 2.3.10 or higher should be set explicitly in existing projects. Please check the [libs.versions.toml](gradle/libs.versions.toml) to know more about Kotlin dependencies (currently it uses kotlinx-coroutines 1.10.2, kotlinx-serialization 1.10.0 and kotlinx-datetime 0.7.1)
-
-### Published dependencies
-
-Checked on **21 October 2026**: Maven Central serves all 87 revision 2 POMs and all 261 binary, sources and Javadoc JAR endpoints. The [stable umbrella POM][stable-pom] uses `1.3.0-kroog.2`; the [beta additions umbrella POM][beta-pom] uses `1.3.0-beta-kroog.2`. All 87 revision 3 POM endpoints return HTTP 404. Installation examples therefore use published revision 2 until revision 3 is published and dependency resolution is verified. See the [dated publication-status record](docs/releases/1.3.0-kroog.2-publication-status.md). Package imports remain `ai.koog`; Maven coordinates use `com.kreoh.kroog`.
-
-The stable umbrella supplies the main agent APIs. Add the beta umbrella only when using its additional modules. Gradle consumers should resolve these JVM publications through POMs, using the repository configuration below. See [PUBLISHING.md](PUBLISHING.md) for the publication inventory and resolution checks.
+The examples below use the published `1.3.0-kroog.2` release. The stable `koog-agents-jvm` dependency supplies the main agent APIs; `koog-agents-additions-jvm` adds optional beta modules. Gradle needs the POM-based repository configuration shown below to resolve these JVM publications.
 
 ### Gradle (Kotlin DSL)
 
@@ -200,28 +83,60 @@ Maven Central is enabled by default. Add these entries inside `dependencies` in 
 </dependency>
 ```
 
-## Versioning
+## Quickstart
 
-Kroog uses the incorporated Koog version number as a prefix, with a suffix integer to identify our versions, for example `1.3.0-kroog.1` for a Kroog version incorporating Koog v1.3.0. See [VERSIONING.md](VERSIONING.md) for details.
+Set `OPENAI_API_KEY` in your environment, then run:
+
+```kotlin
+import ai.koog.agents.core.agent.AIAgent
+import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
+import kotlinx.coroutines.runBlocking
+
+fun main() = runBlocking {
+    val apiKey = requireNotNull(System.getenv("OPENAI_API_KEY"))
+
+    val agent = AIAgent(
+        promptExecutor = MultiLLMPromptExecutor(OpenAILLMClient(apiKey)),
+        systemPrompt = "You are a helpful assistant. Answer user questions concisely.",
+        llmModel = OpenAIModels.Chat.GPT4o
+    )
+
+    val result = agent.run("Hello! How can you help me?")
+    println(result)
+}
+```
+
+## Providers and models
+
+Kroog supports OpenAI, Anthropic, Google, Amazon Bedrock, Azure OpenAI, DeepSeek, OpenRouter and Ollama. Model capabilities depend on the provider API used to access them.
+
+| Model family | Integration |
+| --- | --- |
+| OpenAI GPT-6 Astra, Sol and Luna; GPT-6.1 Sol and Terra | OpenAI Responses, with selected models also supported through Bedrock and compatible APIs |
+| OpenAI Codex models | Codex Responses with an explicitly selected account |
+| Anthropic Claude Opus 5.5 and Sonnet 5.5 | Anthropic Messages, Vertex AI and Bedrock |
+| Google Gemini 3.8 Flash and Gemini 4 Argon | Google client; Argon uses Vertex AI |
+| DeepSeek | DeepSeek client and compatible APIs |
+| Other hosted and local models | OpenRouter, Ollama and provider-specific clients |
+
+Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
+
+For Codex account selection, supported models and Gemini 4 Argon configuration, see the [Codex and Argon guide](docs/codex-and-argon.md).
+
+## Documentation
+
+- [Koog documentation](https://docs.koog.ai/) for the framework's concepts and APIs.
+- [Skills](skills/README.md) for reusable instructions and reference files.
+- [Changelog](CHANGELOG.md) for release changes and migration notes.
+- [Versioning](VERSIONING.md) for Kroog's release numbering.
+- [Testing](TESTING.md) and [publishing](PUBLISHING.md) for contributors.
 
 ## Contributing
-It would be best to contribute directly to upstream Koog, but you can open a PR here if you like.
+
+For changes that apply to Koog generally, contribute to [upstream Koog](https://github.com/JetBrains/koog). Issues and pull requests specific to Kroog are welcome here.
 
 ## Licence
 
 Kroog is licensed under the [Apache 2.0 licence](LICENSE.txt).
-
-[release-source]: https://github.com/Kreoh/kroog/tree/7ca670394ee85767b621ba46dd788b5b4b65a00f
-[upstream-source]: https://github.com/JetBrains/koog/tree/3acc88cf8ce70b87d8afbd3cf184844a50aa504e
-[alignment]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/upstream/koog-1.3.0-alignment.md
-[model-validation]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/latest-models-2026-09.md
-[release-notes]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/CHANGELOG.md
-[cache-policy]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/cache/PromptCachePolicy.kt
-[catalogue]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt
-[stable-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-jvm/1.3.0-kroog.2/koog-agents-jvm-1.3.0-kroog.2.pom
-[beta-pom]: https://repo.maven.apache.org/maven2/com/kreoh/kroog/koog-agents-additions-jvm/1.3.0-beta-kroog.2/koog-agents-additions-jvm-1.3.0-beta-kroog.2.pom
-[openai-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/openai/OpenAIModels.kt
-[anthropic-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-anthropic-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/anthropic/AnthropicModels.kt
-[google-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-google-client/src/commonMain/kotlin/ai/koog/prompt/executor/clients/google/GoogleModels.kt
-[bedrock-models]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/prompt/prompt-executor/prompt-executor-clients/prompt-executor-bedrock-client/src/jvmMain/kotlin/ai/koog/prompt/executor/clients/bedrock/BedrockModels.kt
-[correctness-imports]: https://github.com/Kreoh/kroog/blob/7ca670394ee85767b621ba46dd788b5b4b65a00f/docs/upstream/correctness-imports.md
