@@ -69,8 +69,11 @@ class AnthropicReasoningReplayTest {
                     )
                 )
                 assertEquals(null, meta.reasoningTokensCount)
-                assertEquals(null, meta.metadata)
             }
+            assertEquals("ANTHROPIC", nonStream.metadata?.get("reasoningReplayFormat")?.jsonPrimitive?.content)
+            assertEquals(reasoningModel.id, nonStream.modelId)
+            // This stream fixture carries usage deltas but no reasoning content blocks.
+            assertEquals(null, streamed.metadata)
         }
     }
 

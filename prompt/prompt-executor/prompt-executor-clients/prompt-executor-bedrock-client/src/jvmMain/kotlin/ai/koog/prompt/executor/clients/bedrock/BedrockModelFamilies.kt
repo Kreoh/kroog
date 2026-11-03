@@ -72,3 +72,27 @@ public sealed class BedrockModelFamilies(
     @Serializable
     public data object OpenAI : BedrockModelFamilies("bedrock.openai", "AWS Bedrock (OpenAI)")
 }
+
+internal fun String.knownBedrockFamily(): BedrockModelFamilies? {
+    return when {
+        contains("anthropic.claude") || startsWith("claude-") -> BedrockModelFamilies.AnthropicClaude
+
+        contains("amazon.nova") -> BedrockModelFamilies.AmazonNova
+
+        contains("meta.llama") -> BedrockModelFamilies.Meta
+
+        contains("amazon.titan") -> BedrockModelFamilies.TitanEmbedding
+
+        contains("cohere.embed") -> BedrockModelFamilies.Cohere
+
+        contains("moonshot.kimi") || contains("moonshotai.kimi") -> BedrockModelFamilies.MoonshotKimi
+
+        contains("google.gemma") -> BedrockModelFamilies.GoogleGemma
+
+        contains("minimax.") -> BedrockModelFamilies.MiniMax
+
+        contains("openai.gpt") -> BedrockModelFamilies.OpenAI
+
+        else -> null
+    }
+}

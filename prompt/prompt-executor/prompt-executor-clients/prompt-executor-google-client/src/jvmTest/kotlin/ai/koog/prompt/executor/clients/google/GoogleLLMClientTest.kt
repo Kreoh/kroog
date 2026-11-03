@@ -576,6 +576,51 @@ class GoogleLLMClientTest {
     }
 
     @Test
+    fun testToolResultImageKeepsItsBytesOnGemini() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
+        val bytes = byteArrayOf(11, 12, 13)
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(bytes), "png"))
+        val call = Message.Assistant(MessagePart.Tool.Call("call", "lookup", "{}"), ResponseMetaInfo.Empty)
+        val result = Message.User(MessagePart.Tool.Result("call", "lookup", listOf(image)), RequestMetaInfo.Empty)
+        val request = client.createGoogleRequest(Prompt(listOf(call, result), "tool-image"), GoogleModels.Gemini3_8Flash, emptyList())
+        val response = (request.contents.last().parts!!.single() as GooglePart.FunctionResponse).functionResponse
+        response.id shouldBe "call"
+        val sent = response.parts!!.single().inlineData
+        sent.mimeType shouldBe "image/png"
+        sent.data.toList() shouldBe bytes.toList()
+    }
+
+    @Test
+    fun testToolErrorStatusAndTextReachGemini() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
+        val text = listOf(MessagePart.Text("receipt"), MessagePart.Text("details"))
+        val calls = listOf("a", "b", "c").map {
+            MessagePart.Tool.Call(it, "lookup", """{"label":"$it"}""")
+        }
+        for (failed in listOf("a", "b")) {
+            val results = listOf(
+                MessagePart.Tool.Result("b", "lookup", text, isError = failed == "b"),
+                MessagePart.Tool.Result("a", "lookup", "other", isError = failed == "a"),
+                MessagePart.Tool.Result("c", "lookup", emptyList(), isError = true),
+            )
+            val request = client.createGoogleRequest(
+                Prompt(listOf(Message.Assistant(calls, ResponseMetaInfo.Empty), Message.User(results, RequestMetaInfo.Empty)), "errors"),
+                GoogleModels.Gemini3_8Flash, emptyList(),
+            )
+            val sent = request.contents.first().parts!!.map { (it as GooglePart.FunctionCall).functionCall }
+            sent.map { Triple(it.id, it.name, it.args!!.getValue("label").jsonPrimitive.content) } shouldBe
+                listOf(Triple("a", "lookup", "a"), Triple("b", "lookup", "b"), Triple("c", "lookup", "c"))
+            val responses = request.contents.last().parts!!.map { (it as GooglePart.FunctionResponse).functionResponse }
+            responses.map { it.id to it.name } shouldBe listOf("b" to "lookup", "a" to "lookup", "c" to "lookup")
+            responses.map { it.response.toString() } shouldBe if (failed == "a") listOf(
+                """{"result":"receipt\ndetails"}""", """{"error":"other"}""", """{"error":""}""",
+            ) else listOf(
+                """{"error":"receipt\ndetails"}""", """{"result":"other"}""", """{"error":""}""",
+            )
+        }
+    }
+
+    @Test
     fun `createGoogleRequest groups parallel Tool Results into single content`() {
         val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
         val request = client.createGoogleRequest(
@@ -777,7 +822,10 @@ class GoogleLLMClientTest {
             ),
             StreamFrame.TextDelta(finalAnswer, 1),
             StreamFrame.TextComplete(finalAnswer, 1),
-            StreamFrame.End(finishReason, ResponseMetaInfo.Empty),
+            StreamFrame.End(finishReason, ResponseMetaInfo.Empty.copy(
+                modelId = model.id,
+                metadata = JsonObject(mapOf("reasoningReplayFormat" to JsonPrimitive("GEMINI"))),
+            )),
         )
     }
 
@@ -864,6 +912,8 @@ class GoogleLLMClientTest {
             totalTokensCount = 18,
             inputTokensCount = 11,
             outputTokensCount = 7,
+            modelId = model.id,
+            metadata = JsonObject(mapOf("reasoningReplayFormat" to JsonPrimitive("GEMINI"))),
         )
         frames shouldBe listOf(
             StreamFrame.ReasoningDelta(

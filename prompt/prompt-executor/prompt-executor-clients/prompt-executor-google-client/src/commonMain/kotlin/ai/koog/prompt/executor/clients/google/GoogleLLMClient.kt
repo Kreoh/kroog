@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.google
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
@@ -195,7 +196,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         }
 
         val response = getGoogleResponse(prompt, model, tools)
-        return processGoogleResponse(response).first()
+        return ReasoningReplayFormat.GEMINI.record(processGoogleResponse(response).first(), model)
     }
 
     override fun executeStreaming(
@@ -404,7 +405,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 cause = e
             )
         }
-    }.requireEndFrame()
+    }.requireEndFrame().let { ReasoningReplayFormat.GEMINI.record(it, model) }
 
     private data class GoogleStreamingPart(
         val part: GooglePart,
@@ -488,7 +489,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "Model ${model.id} does not support multiple choices"
         }
 
-        return processGoogleResponse(getGoogleResponse(prompt, model, tools))
+        return processGoogleResponse(getGoogleResponse(prompt, model, tools)).map { ReasoningReplayFormat.GEMINI.record(it, model) }
     }
 
     /**
@@ -560,7 +561,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 }
 
                 is Message.Assistant -> {
-                    contents.add(message.toGoogleContent(model))
+                    ReasoningReplayFormat.GEMINI.requestView(message, model)?.let { contents.add(it.toGoogleContent(model)) }
                 }
             }
         }
@@ -993,18 +994,19 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
 
                         is MessagePart.Tool.Result -> {
-                            val inlineParts = mutableListOf<FunctionResponseInlineData>()
+                            val text = part.parts.filterIsInstance<MessagePart.Text>()
                             val response = buildJsonObject {
-                                part.parts.forEach { p ->
-                                    when (p) {
-                                        is MessagePart.Text -> put("result", p.text)
-                                        is MessagePart.Attachment -> {
-                                            when (val content = p.source.content) {
-                                                is AttachmentContent.Binary ->
-                                                    inlineParts.add(FunctionResponseInlineData(GoogleData.Blob(p.source.mimeType, content.asBytes())))
-                                                else -> logger.warn { "Unsupported attachment content type in tool result for Google: ${content::class}, skipping" }
-                                            }
-                                        }
+                                if (part.isError || text.isNotEmpty()) {
+                                    put(if (part.isError) "error" else "result", text.joinToString("\n") { it.text })
+                                }
+                            }
+                            val inlineParts = part.parts.filterIsInstance<MessagePart.Attachment>().mapNotNull { attachment ->
+                                when (val content = attachment.source.content) {
+                                    is AttachmentContent.Binary ->
+                                        FunctionResponseInlineData(GoogleData.Blob(attachment.source.mimeType, content.asBytes()))
+                                    else -> {
+                                        logger.warn { "Unsupported attachment content type in tool result for Google: ${content::class}, skipping" }
+                                        null
                                     }
                                 }
                             }

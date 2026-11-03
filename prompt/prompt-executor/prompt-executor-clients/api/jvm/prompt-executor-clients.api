@@ -105,6 +105,20 @@ public final class ai/koog/prompt/executor/clients/LLModelDefinitionsKt {
 	public static final fun modelsById (Lai/koog/prompt/executor/clients/LLModelDefinitions;)Ljava/util/Map;
 }
 
+public final class ai/koog/prompt/executor/clients/ReasoningReplayFormat : java/lang/Enum {
+	public static final field ANTHROPIC Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static final field BEDROCK Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static final field CHAT_COMPLETIONS Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static final field GEMINI Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static final field RESPONSES Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun record (Lai/koog/prompt/message/Message$Assistant;Lai/koog/prompt/llm/LLModel;)Lai/koog/prompt/message/Message$Assistant;
+	public final fun record (Lkotlinx/coroutines/flow/Flow;Lai/koog/prompt/llm/LLModel;)Lkotlinx/coroutines/flow/Flow;
+	public final fun requestView (Lai/koog/prompt/message/Message$Assistant;Lai/koog/prompt/llm/LLModel;)Lai/koog/prompt/message/Message$Assistant;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+	public static fun values ()[Lai/koog/prompt/executor/clients/ReasoningReplayFormat;
+}
+
 public final class ai/koog/prompt/executor/clients/retry/DefaultRetryAfterExtractor : ai/koog/prompt/executor/clients/retry/RetryAfterExtractor {
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/retry/DefaultRetryAfterExtractor;
 	public fun extract-LV8wdWc (Ljava/lang/String;)Lkotlin/time/Duration;

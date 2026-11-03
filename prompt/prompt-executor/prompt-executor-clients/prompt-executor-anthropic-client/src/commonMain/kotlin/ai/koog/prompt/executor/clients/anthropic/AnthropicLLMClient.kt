@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.anthropic
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.agents.core.tools.annotations.InternalAgentToolsApi
@@ -235,7 +236,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 message = e.message,
                 cause = e
             )
-        }.let(::processAnthropicResponse)
+        }.let { ReasoningReplayFormat.ANTHROPIC.record(processAnthropicResponse(it), model) }
     }
 
     override fun executeStreaming(
@@ -446,7 +447,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                     cause = e
                 )
             }
-        }.requireEndFrame()
+        }.requireEndFrame().let { ReasoningReplayFormat.ANTHROPIC.record(it, model) }
     }
 
     internal fun CacheControl.toAnthropicCacheControl(): AnthropicCacheControlBlock? {
@@ -487,7 +488,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 ?.ttl
         )
         val requestPrompt = PromptCachePolicy.requestView(
-            prompt = prompt,
+            prompt = prompt.withClaudeToolIds(),
             leadingBreakpoints = toolBreakpoints,
             trailingBreakpoints = rootBreakpoints,
             metadata = { it.toPromptCacheMetadata() },
@@ -514,7 +515,9 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 }
 
                 is Message.Assistant -> {
-                    messages.add(message.toAnthropicAssistantMessage(model))
+                    ReasoningReplayFormat.ANTHROPIC.requestView(message, model)?.let {
+                        messages.add(it.toAnthropicAssistantMessage(model))
+                    }
                 }
             }
         }

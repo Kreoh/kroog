@@ -42,6 +42,35 @@ import kotlin.time.Instant
 class OpenAIChatCompletionLLMClientTest {
 
     @Test
+    fun testReversedParallelResultsKeepCallIdentityInChatCompletionsRequest() = runTest {
+        for (firstCallFailed in listOf(false, true)) {
+            val engine = MockEngine { request ->
+                assertEquals("/v1/chat/completions", request.url.encodedPath)
+                val body = Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+                val messages = body.getValue("messages").jsonArray.map { it.jsonObject }
+                assertEquals(listOf("assistant", "tool", "tool"), messages.map { it.getValue("role").jsonPrimitive.content })
+                val calls = messages.first().getValue("tool_calls").jsonArray.map { it.jsonObject }
+                assertEquals(listOf("call_1" to "alpha", "call_2" to "beta"), calls.map {
+                    val function = it.getValue("function").jsonObject
+                    assertEquals("lookup", function.getValue("name").jsonPrimitive.content)
+                    val args = Json.parseToJsonElement(function.getValue("arguments").jsonPrimitive.content).jsonObject
+                    it.getValue("id").jsonPrimitive.content to args.getValue("label").jsonPrimitive.content
+                })
+                assertEquals(expectedParallelLookupResults(firstCallFailed), messages.drop(1).map {
+                    it.getValue("tool_call_id").jsonPrimitive.content to it.getValue("content").jsonPrimitive.content
+                })
+                respond(plainResponseBody, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+            val client = OpenAILLMClient(apiKey = key, httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine)))
+            val modelIds = listOf("z-ai/glm-5.3-flash", "moonshotai/kimi-k3", "qwen/qwen3.8-2.4t-a95b", "deepseek/deepseek-v4.1-flash-1017")
+            for (id in modelIds) {
+                client.execute(reversedParallelLookupPrompt(OpenAIChatParams(), firstCallFailed), OpenAIModels.Chat.GPT4o.copy(id = id))
+            }
+            assertEquals(modelIds.size, engine.requestHistory.size)
+        }
+    }
+
+    @Test
     fun testAstraExplicitChatPreservesMaxAndUsesChatEndpoint() = runTest {
         val engine = MockEngine { request ->
             assertEquals("/v1/chat/completions", request.url.encodedPath)

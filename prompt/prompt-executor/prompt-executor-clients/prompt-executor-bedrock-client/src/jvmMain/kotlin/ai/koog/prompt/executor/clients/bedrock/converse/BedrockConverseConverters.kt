@@ -1,7 +1,11 @@
 package ai.koog.prompt.executor.clients.bedrock.converse
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
+import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
+import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
 import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
@@ -64,6 +68,7 @@ import aws.sdk.kotlin.services.bedrockruntime.model.ToolConfiguration
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolInputSchema
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultContentBlock
+import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultStatus
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolSpecification
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolUseBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.VideoBlock
@@ -151,15 +156,18 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseRequestParams {
         prompt.validateClientManagedExecutionPresentation()
         validateUnsupportedCacheMarkers(prompt)
+        val family = model.id.knownBedrockFamily() ?: fallbackModelFamily
+        val supportsToolStatus = family == BedrockModelFamilies.AnthropicClaude || family == BedrockModelFamilies.AmazonNova
         val params = prompt.params.toBedrockConverseParams()
         val toolBreakpoints = tools.mapNotNull { tool ->
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
         }
         val requestPrompt = PromptCachePolicy.requestView(
-            prompt = prompt,
+            prompt = if (family == BedrockModelFamilies.AnthropicClaude) prompt.withClaudeToolIds(maxLength = 64) else prompt,
             leadingBreakpoints = toolBreakpoints,
             // Astra rejects Converse cache markers. Mantle manages its caching separately.
             automaticBreakpoint = !model.id.endsWith("openai.gpt-6-astra"),
@@ -182,10 +190,10 @@ internal object BedrockConverseConverters {
                 }
 
                 is Message.User ->
-                    messages.add(message.toBedrockMessage(model))
+                    messages.add(message.toBedrockMessage(model, supportsToolStatus))
 
                 is Message.Assistant ->
-                    messages.add(message.toBedrockMessage(model))
+                    ReasoningReplayFormat.BEDROCK.requestView(message, model)?.let { messages.add(it.toBedrockMessage(model)) }
             }
         }
 
@@ -255,9 +263,37 @@ internal object BedrockConverseConverters {
                 null
             },
             system = systemMessages,
-            messages = messages,
+            messages = groupParallelResults(messages),
             guardrailSettings = guardrailSettings,
         )
+    }
+
+    // System instructions and incompatible reasoning have already been separated from these wire turns.
+    private fun groupParallelResults(turns: List<BedrockMessage>): List<BedrockMessage> = buildList {
+        var index = 0
+        while (index < turns.size) {
+            val turn = turns[index++]
+            add(turn)
+            if (turn.role != ConversationRole.Assistant) continue
+            val pending = turn.content.filterIsInstance<ContentBlock.ToolUse>().map { it.value.toolUseId }.toMutableSet()
+            if (pending.size < 2) continue
+
+            val blocks = mutableListOf<ContentBlock>()
+            while (index < turns.size && pending.isNotEmpty()) {
+                val next = turns[index]
+                if (next.role != ConversationRole.User) break
+                val ids = next.content.filterIsInstance<ContentBlock.ToolResult>().map { it.value.toolUseId }
+                if (ids.isEmpty() || !pending.containsAll(ids)) break
+                blocks.addAll(next.content)
+                pending.removeAll(ids.toSet())
+                index++
+                if (next.content.any { it !is ContentBlock.ToolResult && it !is ContentBlock.CachePoint }) break
+            }
+            if (blocks.isNotEmpty()) add(BedrockMessage {
+                role = ConversationRole.User
+                content = blocks
+            })
+        }
     }
 
     private fun validateUnsupportedCacheMarkers(prompt: Prompt) {
@@ -284,7 +320,7 @@ internal object BedrockConverseConverters {
         }
     }
 
-    private fun Message.User.toBedrockMessage(model: LLModel): BedrockMessage {
+    private fun Message.User.toBedrockMessage(model: LLModel, supportsToolStatus: Boolean): BedrockMessage {
         return BedrockMessage {
             this.role = ConversationRole.User
             this.content = buildList {
@@ -304,6 +340,7 @@ internal object BedrockConverseConverters {
                                         this.toolUseId = requireNotNull(part.id) {
                                             "Bedrock tool-result replay requires a call ID"
                                         }
+                                        if (part.isError && supportsToolStatus) status = ToolResultStatus.Error
                                         this.content = part.parts.map { it.toToolResultContentBlock(model) }
                                     }
                                 )
@@ -438,8 +475,9 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseRequest {
-        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings)
+        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication
         return ConverseRequest {
@@ -469,8 +507,9 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseStreamRequest {
-        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings)
+        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication
         return ConverseStreamRequest {

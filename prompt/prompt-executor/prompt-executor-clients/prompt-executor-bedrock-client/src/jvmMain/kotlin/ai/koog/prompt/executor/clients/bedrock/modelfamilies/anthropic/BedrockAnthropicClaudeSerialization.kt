@@ -1,7 +1,9 @@
 package ai.koog.prompt.executor.clients.bedrock.modelfamilies.anthropic
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
 import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicContent
@@ -308,7 +310,7 @@ internal object BedrockAnthropicClaudeSerialization {
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
         }
         val requestPrompt = PromptCachePolicy.requestView(
-            prompt = prompt,
+            prompt = prompt.withClaudeToolIds(),
             leadingBreakpoints = toolBreakpoints,
             metadata = { it.toPromptCacheMetadata() },
         )
@@ -318,7 +320,10 @@ internal object BedrockAnthropicClaudeSerialization {
                 when (message) {
                     is Message.System -> systemMessages.add(message)
                     is Message.User -> add(message.toAnthropicWireMessage())
-                    is Message.Assistant -> add(message.toAnthropicWireMessage())
+                    is Message.Assistant -> {
+                        val history = if (model == null) message else ReasoningReplayFormat.BEDROCK.requestView(message, model)
+                        history?.let { add(it.toAnthropicWireMessage()) }
+                    }
                 }
             }
         }

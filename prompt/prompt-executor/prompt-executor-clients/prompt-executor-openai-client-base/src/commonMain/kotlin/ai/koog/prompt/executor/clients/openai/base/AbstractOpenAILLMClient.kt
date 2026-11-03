@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai.base
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.post
@@ -181,7 +182,7 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
 
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
         val response = getResponse(prompt, model, tools)
-        return processProviderChatResponse(response).first()
+        return ReasoningReplayFormat.CHAT_COMPLETIONS.record(processProviderChatResponse(response).first(), model)
     }
 
     override fun executeStreaming(
@@ -212,7 +213,7 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
                     decodeStreamingResponse = ::decodeStreamingResponse,
                     processStreamingChunk = { it }
                 ).collect { send(it) }
-            }.let { processStreamingResponse(it) }.requireEndFrame()
+            }.let { ReasoningReplayFormat.CHAT_COMPLETIONS.record(processStreamingResponse(it), model) }.requireEndFrame()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -231,7 +232,9 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
     ): List<Message.Assistant> {
         model.requireCapability(LLMCapability.MultipleChoices)
 
-        return processProviderChatResponse(getResponse(prompt, model, tools))
+        return processProviderChatResponse(getResponse(prompt, model, tools)).map {
+            ReasoningReplayFormat.CHAT_COMPLETIONS.record(it, model)
+        }
     }
 
     private suspend fun getResponse(
@@ -313,13 +316,14 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
                     }
 
                     is Message.Assistant -> {
+                        val history = ReasoningReplayFormat.CHAT_COMPLETIONS.requestView(message, model) ?: return@forEach
                         add(
                             OpenAIMessage.Assistant(
                                 content = message.parts.filterIsInstance<MessagePart.ContentPart>()
                                     // If no text, then it should be null
                                     .takeIf { it.isNotEmpty() }?.toMessageContent(model),
                                 // FIXME: how to handle multiple reasoning messages
-                                reasoningContent = message.parts.filterIsInstance<MessagePart.Reasoning>()
+                                reasoningContent = history.parts.filterIsInstance<MessagePart.Reasoning>()
                                     .firstOrNull()?.content?.firstOrNull(),
                                 toolCalls = message.parts.filterIsInstance<MessagePart.Tool.Call>()
                                     .takeIf { it.isNotEmpty() }

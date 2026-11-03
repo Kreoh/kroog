@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
@@ -643,17 +644,19 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
         prompt.validateClientManagedExecutionPresentation()
-        return selectExecutionStrategy(prompt, model) { params ->
+        return selectExecutionStrategy(prompt, model) { request, params ->
             when (params) {
                 is OpenAIResponsesParams -> {
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
-                    val result = getResponseWithResponsesAPI(prompt, params, model, tools)
-                    processResponsesAPIResponse(result.response, result.recoveredContainerId)
+                    val result = getResponseWithResponsesAPI(request, params, model, tools)
+                    ReasoningReplayFormat.RESPONSES.record(
+                        processResponsesAPIResponse(result.response, result.recoveredContainerId), model
+                    )
                 }
 
                 is OpenAIChatParams -> {
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Completions)
-                    super.execute(prompt, model, tools)
+                    super.execute(request, model, tools)
                 }
             }
         }
@@ -665,10 +668,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         tools: List<ToolDescriptor>
     ): Flow<StreamFrame> {
         prompt.validateClientManagedExecutionPresentation()
-        return selectExecutionStrategy(prompt, model) { params ->
+        return selectExecutionStrategy(prompt, model) { request, params ->
             when (params) {
-                is OpenAIResponsesParams -> executeResponsesStreaming(prompt, model, tools, params)
-                is OpenAIChatParams -> super.executeStreaming(prompt, model, tools)
+                is OpenAIResponsesParams -> ReasoningReplayFormat.RESPONSES.record(
+                    executeResponsesStreaming(request, model, tools, params), model
+                )
+                is OpenAIChatParams -> super.executeStreaming(request, model, tools)
             }
         }
     }
@@ -982,9 +987,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): List<Message.Assistant> = selectExecutionStrategy(prompt, model) { params ->
+    ): List<Message.Assistant> = selectExecutionStrategy(prompt, model) { request, params ->
         when (params) {
-            is OpenAIChatParams -> super.executeMultipleChoices(prompt, model, tools)
+            is OpenAIChatParams -> super.executeMultipleChoices(request, model, tools)
 
             is OpenAIResponsesParams -> {
                 /*
@@ -997,8 +1002,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 coroutineScope {
                     List(choices) {
                         async {
-                            val result = getResponseWithResponsesAPI(prompt, params, model, tools)
-                            processResponsesAPIResponse(result.response, result.recoveredContainerId)
+                            val result = getResponseWithResponsesAPI(request, params, model, tools)
+                            ReasoningReplayFormat.RESPONSES.record(
+                                processResponsesAPIResponse(result.response, result.recoveredContainerId), model
+                            )
                         }
                     }.awaitAll()
                 }
@@ -1429,9 +1436,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
 
                     is Message.Assistant -> {
-                        val codeInterpreterReplay = message.parts.canonicalOpenAICodeInterpreterReplay()
+                        val history = ReasoningReplayFormat.RESPONSES.requestView(message, model) ?: return@forEach
+                        val codeInterpreterReplay = history.parts.canonicalOpenAICodeInterpreterReplay()
                         val emittedCodeInterpreterIds = mutableSetOf<String>()
-                        message.parts.forEach { part ->
+                        history.parts.forEach { part ->
                             when (part) {
                                 is MessagePart.ContentPart -> {
                                     when (part) {
@@ -2022,6 +2030,6 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private inline fun <T> selectExecutionStrategy(
         prompt: Prompt,
         model: LLModel,
-        action: (OpenAIParams) -> T
-    ): T = action(determineParams(prompt.params, model))
+        action: (Prompt, OpenAIParams) -> T
+    ): T = action(prompt.forOpenAIToolReplay(), determineParams(prompt.params, model))
 }

@@ -114,6 +114,30 @@ tasks.withType<Test>()
         }
     }
 
+// The offline JVM checks inspect the requests built by each replay destination.
+val replayRequestTest = tasks.register<Test>("replayRequestTest") {
+    group = "verification"
+    description = "Check tool and reasoning replay in the provider request builders"
+    val unitTest = tasks.named<Test>("jvmTest").get()
+    testClassesDirs = unitTest.testClassesDirs
+    classpath = unitTest.classpath
+    javaLauncher.set(unitTest.javaLauncher)
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("*ReasoningTransferRequestTest")
+        includeTestsMatching("*CrossProviderReplayIntegrationTest.test*")
+    }
+    val clients = ":prompt:prompt-executor:prompt-executor-clients"
+    dependsOn("jvmTestClasses", "$clients:jvmTest")
+    for (provider in listOf("anthropic", "bedrock", "google", "openai")) {
+        dependsOn("$clients:prompt-executor-${provider}-client:jvmTest")
+    }
+}
+
+if (providers.environmentVariable("KROOG_REPLAY_LIVE").orNull == "1") {
+    tasks.named("jvmIntegrationTest") { dependsOn(replayRequestTest) }
+}
+
 dokka {
     dokkaSourceSets.configureEach {
         suppress.set(true)
