@@ -1,16 +1,16 @@
 package ai.koog.prompt.executor.clients.bedrock.converse
 
-import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
-import ai.koog.prompt.executor.clients.ImageInputException
-import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
-import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
-import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
 import ai.koog.prompt.cache.PromptCachePolicy
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
+import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockGuardrailsSettings
+import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
+import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
 import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
@@ -325,10 +325,14 @@ internal object BedrockConverseConverters {
                 index++
                 if (next.content.any { it !is ContentBlock.ToolResult && it !is ContentBlock.CachePoint }) break
             }
-            if (blocks.isNotEmpty()) add(BedrockMessage {
-                role = ConversationRole.User
-                content = blocks
-            })
+            if (blocks.isNotEmpty()) {
+                add(
+                    BedrockMessage {
+                        role = ConversationRole.User
+                        content = blocks
+                    }
+                )
+            }
         }
     }
 
@@ -660,7 +664,7 @@ internal object BedrockConverseConverters {
         var receivedMetadata = false
         val reasoningBlockTypes = mutableMapOf<Int, String>()
         val reasoningTextByIndex = mutableMapOf<Int, String>()
-        val reasoningSignatureByIndex = mutableMapOf<Int, String>()
+        val reasoningSignatureByIndex = mutableMapOf<Int, StringBuilder>()
         val redactedReasoningByIndex = mutableMapOf<Int, ByteArray>()
 
         chunkFlow.collect { chunk ->
@@ -717,11 +721,7 @@ internal object BedrockConverseConverters {
                         is ReasoningContentBlockDelta.Signature -> {
                             val index = chunk.value.contentBlockIndex
                             reasoningBlockTypes[index] = "thinking"
-                            reasoningSignatureByIndex[index] = reasoning.value
-                            attachReasoningEncrypted(
-                                encrypted = reasoning.value,
-                                index = index,
-                            )
+                            reasoningSignatureByIndex.getOrPut(index) { StringBuilder() }.append(reasoning.value)
                         }
 
                         is ReasoningContentBlockDelta.RedactedContent -> {
@@ -758,11 +758,12 @@ internal object BedrockConverseConverters {
                     val index = chunk.value.contentBlockIndex
                     when (reasoningBlockTypes.remove(index)) {
                         "thinking" -> {
-                            val signature = reasoningSignatureByIndex.remove(index)
+                            val signature = reasoningSignatureByIndex.remove(index)?.toString()
                                 ?: throw LLMClientException(
                                     BEDROCK_CONVERSE_CLIENT_NAME,
                                     "Malformed signed reasoning block: signature is missing",
                                 )
+                            attachReasoningEncrypted(encrypted = signature, index = index)
                             attachReasoningReplay(
                                 MessagePart.ReasoningReplay.Signed(
                                     text = reasoningTextByIndex.remove(index).orEmpty(),
