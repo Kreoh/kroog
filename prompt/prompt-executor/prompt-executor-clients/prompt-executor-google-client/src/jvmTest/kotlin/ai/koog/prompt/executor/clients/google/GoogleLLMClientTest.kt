@@ -6,6 +6,7 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.google.models.GoogleCandidate
 import ai.koog.prompt.executor.clients.google.models.GoogleContent
 import ai.koog.prompt.executor.clients.google.models.GoogleData
@@ -45,6 +46,35 @@ import kotlin.test.assertFailsWith
 import kotlin.time.Instant
 
 class GoogleLLMClientTest {
+
+    @Test
+    fun testVertexCountsInlineAndNestedToolImagesAcrossTurns() {
+        val vertex = GoogleLLMClient(apiKey = "unused", settings = GoogleClientSettings(defaultPath = "v1/projects/p/locations/eu/publishers/google/models"))
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        val original = Message.User(List(3_000) { image }, RequestMetaInfo.Empty)
+        val toolResult = Message.User(MessagePart.Tool.Result("call", "snapshot", listOf(image)), RequestMetaInfo.Empty)
+        for (model in listOf(GoogleModels.Gemini3_8Flash, GoogleModels.Gemini4Argon)) {
+            vertex.createGoogleRequest(Prompt(listOf(original), "boundary"), model, emptyList())
+            val overLimit = Prompt(listOf(original, toolResult), "over-limit")
+            assertFailsWith<ImageInputException> { vertex.createGoogleRequest(overLimit, model, emptyList()) }
+            GoogleLLMClient(apiKey = "unused").createGoogleRequest(overLimit, model, emptyList())
+        }
+    }
+
+    @Test
+    fun testGeminiPayloadRejectionOffersImageRecoveryOnlyForRequestsWithImages() = runTest {
+        val model = GoogleModels.Gemini3_8Flash
+        val failure = ai.koog.http.client.KoogHttpClientException(statusCode = 413, errorBody = "private provider detail")
+        val client = GoogleLLMClient(httpClient = googleStreamingTransport(model.id, emptyList(), failure))
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        val prompt = Prompt(listOf(Message.User(image, RequestMetaInfo.Empty)), "image")
+        assertFailsWith<ImageInputException> { client.execute(prompt, model) }.message shouldBe
+            "The request containing these images exceeds the size this Gemini endpoint accepts."
+        assertFailsWith<ImageInputException> { client.executeStreaming(prompt, model).toList() }
+        assertFailsWith<ai.koog.prompt.executor.clients.LLMClientException> {
+            client.execute(Prompt.build("text") { user("hello") }, model)
+        }
+    }
 
     @Test
     fun testArgonOutputBoundsAndExplicitCacheRejection() {
@@ -1027,6 +1057,7 @@ class GoogleLLMClientTest {
 internal fun googleStreamingTransport(
     modelId: String,
     chunks: List<String>,
+    failure: Exception? = null,
 ): KoogHttpClient = object : KoogHttpClient {
     override val clientName: String = "GoogleStreamingTestClient"
 
@@ -1044,7 +1075,7 @@ internal fun googleStreamingTransport(
         responseType: KClass<R>,
         parameters: Map<String, String>,
         headers: Map<String, String>,
-    ): R = error("POST is not expected in this test")
+    ): R = throw failure ?: error("POST is not expected in this test")
 
     override fun <T : Any, R : Any, O : Any> sse(
         path: String,
@@ -1056,6 +1087,7 @@ internal fun googleStreamingTransport(
         parameters: Map<String, String>,
         headers: Map<String, String>,
     ): Flow<O> = flow {
+        failure?.let { throw it }
         path shouldBe "v1beta/models/$modelId:streamGenerateContent"
         requestBody.shouldBeInstanceOf<GoogleRequest>()
         chunks.forEach { chunk ->

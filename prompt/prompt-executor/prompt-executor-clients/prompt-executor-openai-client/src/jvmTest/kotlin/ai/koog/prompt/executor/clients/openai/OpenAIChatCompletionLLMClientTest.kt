@@ -42,6 +42,36 @@ import kotlin.time.Instant
 class OpenAIChatCompletionLLMClientTest {
 
     @Test
+    fun testEmptyToolsAreOmittedAndNamedToolSelectionIsPreserved() = runTest {
+        val lookup = ToolDescriptor("lookup", "Look up the answer")
+        val model = OpenAIModels.Chat.GPT4o.copy(id = "deepseek/deepseek-v4.1-flash-1017")
+        for (tools in listOf(emptyList(), listOf(lookup))) {
+            val transport = OpenAIResponsesParityTest.ScriptedResponsesTransport(
+                postResponses = ArrayDeque(listOf(plainResponseBody)),
+                streamAttempts = ArrayDeque(listOf(emptyList())),
+            )
+            val client = OpenAILLMClient(httpClient = transport)
+            val choice = tools.singleOrNull()?.let { LLMParams.ToolChoice.Named(it.name) }
+            val prompt = Prompt.build("chat-tools", params = OpenAIChatParams(toolChoice = choice)) { user("Hello") }
+            client.execute(prompt, model, tools)
+            client.executeStreaming(prompt, model, tools).toList()
+            assertEquals(2, transport.requests.size)
+            for (request in transport.requests) {
+                val body = Json.parseToJsonElement(request).jsonObject
+                if (tools.isEmpty()) {
+                    assertTrue("tools" !in body)
+                    assertTrue("tool_choice" !in body)
+                } else {
+                    val tool = body.getValue("tools").jsonArray.single().jsonObject
+                    assertEquals("lookup", tool.getValue("function").jsonObject.getValue("name").jsonPrimitive.content)
+                    val selected = body.getValue("tool_choice").jsonObject
+                    assertEquals("lookup", selected.getValue("function").jsonObject.getValue("name").jsonPrimitive.content)
+                }
+            }
+        }
+    }
+
+    @Test
     fun testReversedParallelResultsKeepCallIdentityInChatCompletionsRequest() = runTest {
         for (firstCallFailed in listOf(false, true)) {
             val engine = MockEngine { request ->

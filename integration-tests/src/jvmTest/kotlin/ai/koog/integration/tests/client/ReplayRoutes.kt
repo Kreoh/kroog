@@ -156,7 +156,7 @@ internal fun replayRoutes(): List<ReplayRoute> {
         )
         val model = LLModel(
             LLMProvider.OpenAI, id,
-            if (slug == "deepseek") capabilities + LLMCapability.Vision.Image else capabilities,
+            if (slug in setOf("glm", "kimi", "deepseek")) capabilities + LLMCapability.Vision.Image else capabilities,
         )
         fun tensorParams(enabled: Boolean, effort: ReasoningEffort? = null) =
             OpenAIChatParams(maxTokens = maxTokens, reasoningEffort = effort).withChatTemplateKwargs(

@@ -3,6 +3,7 @@ package ai.koog.prompt.executor.clients.bedrock
 import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.dsl.ModerationCategory
 import ai.koog.prompt.dsl.ModerationCategoryResult
 import ai.koog.prompt.dsl.ModerationResult
@@ -334,11 +335,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                throw LLMClientException(
-                    clientName = clientName,
-                    message = e.message,
-                    cause = e
-                )
+                throw converseException(e)
             }
         }
     }
@@ -492,11 +489,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    throw LLMClientException(
-                        clientName = clientName,
-                        message = e.message,
-                        cause = e
-                    )
+                    throw converseException(e)
                 }
             }
         }.let { BedrockConverseConverters.transformConverseStreamChunks(it, clock) }
@@ -660,6 +653,17 @@ public class BedrockLLMClient @JvmOverloads public constructor(
                 "Model family: ${modelFamily.display} does not support embeddings; use execute() or executeStreaming() for completion models."
             )
         }
+
+    private fun converseException(error: Exception): Exception {
+        if (error is aws.sdk.kotlin.services.bedrockruntime.model.ValidationException) {
+            val limit = Regex("""image dimensions exceed max allowed size(?: for many-image requests)?: (\d{1,5}) pixels""")
+                .find(error.message.orEmpty())?.groupValues?.get(1)
+            if (limit != null) {
+                return ImageInputException("Bedrock accepts images up to $limit pixels per side in this request.")
+            }
+        }
+        return LLMClientException(clientName, error.message, error)
+    }
 
     private fun LLModel.requireCapability(capability: LLMCapability, message: String? = null) {
         require(supports(capability)) {

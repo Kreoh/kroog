@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.openai.azure.AzureOpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.models.Item
@@ -1085,6 +1086,46 @@ class OpenAIResponsesParityTest {
         assertEquals(null, source.withContainerRecovery(null).containerRecovery)
     }
 
+    @Test
+    fun testPayloadTooLargeUsesImagesInTheActualAttempt() = runTest {
+        val image = Message.User(
+            MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png")),
+            RequestMetaInfo.Empty,
+        )
+        for (stream in listOf(false, true)) {
+            for (recover in listOf(false, true)) {
+                for (includeImage in listOf(false, true)) {
+                    val tooLarge = KoogHttpClientException("fixture", 413, "private provider detail")
+                    val failures = listOfNotNull(expiredContainerError().takeIf { recover }, tooLarge)
+                    val transport = ScriptedResponsesTransport(
+                        postResponses = ArrayDeque(failures),
+                        streamAttempts = ArrayDeque(failures.map { listOf(it) }),
+                    )
+                    val client = OpenAILLMClient(settings = OpenAIClientSettings(), httpClient = transport)
+                    fun request(withImage: Boolean): List<Message> =
+                        if (withImage) listOf(image) else listOf(Message.User("hello", RequestMetaInfo.Empty))
+                    val params = if (recover) recoveryParams().withContainerRecovery { retry, _ ->
+                        retry.copy(messages = request(includeImage))
+                    } else OpenAIResponsesParams(stateless = true)
+                    val prompt = prompt(params).copy(messages = request(if (recover) !includeImage else includeImage))
+                    suspend fun send() {
+                        if (stream) client.executeStreaming(prompt, OpenAIModels.Chat.GPT5).toList()
+                        else client.execute(prompt, OpenAIModels.Chat.GPT5)
+                    }
+                    if (includeImage) {
+                        assertEquals("The request containing these images exceeds the size this Responses endpoint accepts.",
+                            assertFailsWith<ImageInputException> { send() }.message)
+                    } else if (stream) {
+                        assertEquals(tooLarge, assertFailsWith<LLMClientException> { send() }.cause)
+                    } else {
+                        assertEquals(tooLarge, assertFailsWith<KoogHttpClientException> { send() })
+                    }
+                    assertEquals(failures.size, transport.requests.size)
+                }
+            }
+        }
+    }
+
     private fun recoveryParams(): OpenAIResponsesParams = OpenAIResponsesParams(
         stateless = true,
         codeInterpreter = OpenAICodeInterpreterConfig(containerId = "stale_container"),
@@ -1156,7 +1197,7 @@ class OpenAIResponsesParityTest {
         text = OpenAITextConfig(),
     )
 
-    private class ScriptedResponsesTransport(
+    internal class ScriptedResponsesTransport(
         private val postResponses: ArrayDeque<Any> = ArrayDeque(),
         private val streamAttempts: ArrayDeque<List<Any>> = ArrayDeque(),
     ) : KoogHttpClient {

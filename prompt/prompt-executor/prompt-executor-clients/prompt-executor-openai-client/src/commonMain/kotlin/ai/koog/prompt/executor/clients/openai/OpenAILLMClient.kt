@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
@@ -78,6 +79,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -404,6 +406,24 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return normaliseGpt6Request(json.encodeToString(OpenAIChatCompletionRequestSerializer, request), model, false)
     }
 
+    private fun List<Item>.imageCount(): Int = sumOf { item ->
+        when (item) {
+            is Item.InputMessage -> item.content.count { it is InputContent.Image }
+            is Item.ComputerToolCallOutput -> 1
+            is Item.FunctionToolCallOutput -> (item.output as? JsonArray)?.count {
+                ((it as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull == "input_image"
+            } ?: 0
+            else -> 0
+        }
+    }
+
+    private fun List<Item>.checkImagePayloadFailure(failure: Throwable) {
+        val status = generateSequence(failure) { it.cause }.filterIsInstance<KoogHttpClientException>().firstOrNull()?.statusCode
+        if (status == 413 && imageCount() > 0) {
+            throw ImageInputException("The request containing these images exceeds the size this Responses endpoint accepts.")
+        }
+    }
+
     internal fun serializeResponsesAPIRequest(
         messages: List<Item>,
         model: LLModel,
@@ -412,6 +432,22 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         params: OpenAIResponsesParams,
         stream: Boolean
     ): String {
+        val imageLimit = when (settings.responsesDialect) {
+            OpenAIResponsesDialect.Azure -> 50
+            OpenAIResponsesDialect.OpenAI -> {
+                val host = settings.baseUrl.removePrefix("https://").substringBefore('/').removeSuffix(":443").lowercase()
+                if (host == "api.openai.com" || host.endsWith(".api.openai.com")) 1_500 else null
+            }
+            OpenAIResponsesDialect.Compatible -> null
+        }
+        if (imageLimit != null) {
+            val images = messages.imageCount()
+            if (images > imageLimit) {
+                throw ImageInputException(
+                    "This request contains $images images. The selected endpoint accepts up to $imageLimit images per request."
+                )
+            }
+        }
         if (params.stateless) {
             require(params.store != true) { "Stateless Responses requests require store=false" }
         }
@@ -961,6 +997,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 orderedFrames.clear()
                 throw failure
             }
+            messages.checkImagePayloadFailure(failure)
             val typedFailure = params.containerFailure(failure) ?: failure
             val recoveryParams = params.staleContainerRecoveryParams(typedFailure, providerEventSeen)
             if (recoveryParams != null) {
@@ -1295,20 +1332,26 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
 
         suspend fun post(requestParams: OpenAIResponsesParams, requestPrompt: Prompt = prompt): OpenAIResponsesAPIResponse {
+            val messages = convertPromptToResponsesMessages(requestPrompt, model)
             val request = serializeResponsesAPIRequest(
-                convertPromptToResponsesMessages(requestPrompt, model),
+                messages,
                 model,
                 llmTools,
                 requestParams.toolChoice?.toOpenAIResponseToolChoice(),
                 requestParams,
                 false
             )
-            return httpClient.post(
-                path = settings.responsesAPIPath,
-                requestBody = request,
-                requestBodyType = String::class,
-                responseType = OpenAIResponsesAPIResponse::class
-            )
+            return try {
+                httpClient.post(
+                    path = settings.responsesAPIPath,
+                    requestBody = request,
+                    requestBodyType = String::class,
+                    responseType = OpenAIResponsesAPIResponse::class
+                )
+            } catch (failure: KoogHttpClientException) {
+                messages.checkImagePayloadFailure(failure)
+                throw failure
+            }
         }
 
         return try {

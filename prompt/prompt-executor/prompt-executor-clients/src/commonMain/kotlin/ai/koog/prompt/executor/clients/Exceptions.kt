@@ -14,3 +14,6 @@ public class LLMClientException(
     },
     cause
 )
+
+/** The destination cannot accept the images in this request. Its message is safe to display to callers. */
+public class ImageInputException(message: String) : IllegalArgumentException(message)

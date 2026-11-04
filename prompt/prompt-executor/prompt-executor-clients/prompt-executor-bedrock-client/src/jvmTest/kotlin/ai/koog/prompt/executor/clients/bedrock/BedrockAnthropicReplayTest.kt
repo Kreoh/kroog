@@ -2,6 +2,7 @@ package ai.koog.prompt.executor.clients.bedrock
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.anthropic.AnthropicVertexClientSettings
@@ -242,6 +243,24 @@ class BedrockAnthropicReplayTest {
         )
         assertEquals(5, groupedBatches.size)
         assertEquals(groupedBatches, twoBatches(reversed, nextResults.map { Message.User(part = it, metaInfo = RequestMetaInfo.Empty) }))
+    }
+
+    @Test
+    fun testClaudeConverseValidatesRequestImagesIncludingNestedToolResults() {
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        for (limit in listOf(100, 600)) {
+            val model = bedrockModel.copy(contextLength = if (limit == 100) 200_000L else 1_000_000L)
+            val original = Message.User(List(limit) { image }, RequestMetaInfo.Empty)
+            val result = Message.User(MessagePart.Tool.Result("call", "snapshot", listOf(image)), RequestMetaInfo.Empty)
+            BedrockConverseConverters.createConverseRequest(Prompt(listOf(original), "boundary"), model, emptyList())
+            assertFailsWith<ImageInputException> {
+                BedrockConverseConverters.createConverseStreamRequest(Prompt(listOf(original, result), "over-limit"), model, emptyList())
+            }
+        }
+        val large = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(ByteArray(3_932_161)), "png"))
+        assertFailsWith<ImageInputException> {
+            BedrockConverseConverters.createConverseRequest(Prompt(listOf(Message.User(large, RequestMetaInfo.Empty)), "large"), bedrockModel, emptyList())
+        }
     }
 
     @Test

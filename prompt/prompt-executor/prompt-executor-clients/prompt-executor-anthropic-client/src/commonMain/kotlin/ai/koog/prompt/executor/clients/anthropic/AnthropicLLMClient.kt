@@ -6,6 +6,7 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.agents.core.tools.annotations.InternalAgentToolsApi
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.cache.PromptCachePolicy
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
@@ -231,11 +232,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw LLMClientException(
-                clientName = clientName,
-                message = e.message,
-                cause = e
-            )
+            throw requestException(e)
         }.let { ReasoningReplayFormat.ANTHROPIC.record(processAnthropicResponse(it), model) }
     }
 
@@ -441,11 +438,7 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                throw LLMClientException(
-                    clientName = clientName,
-                    message = e.message,
-                    cause = e
-                )
+                throw requestException(e)
             }
         }.requireEndFrame().let { ReasoningReplayFormat.ANTHROPIC.record(it, model) }
     }
@@ -522,6 +515,10 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             }
         }
 
+        if (requestDialect is AnthropicRequestDialect.Vertex) {
+            validateVertexImages(messages, model)
+        }
+
         val anthropicTools = tools.map { tool ->
             val properties = mutableMapOf<String, JsonElement>()
 
@@ -552,6 +549,43 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
             prompt.params,
             stream
         )
+    }
+
+    private fun requestException(error: Exception): Exception {
+        if (requestDialect is AnthropicRequestDialect.Vertex &&
+            error is ai.koog.http.client.KoogHttpClientException && error.statusCode == 400
+        ) {
+            val limit = Regex("""image dimensions exceed max allowed size(?: for many-image requests)?: (\d{1,5}) pixels""")
+                .find(error.errorBody.orEmpty())?.groupValues?.get(1)
+            if (limit != null) {
+                return ImageInputException("Claude on Vertex accepts images up to $limit pixels per side in this request.")
+            }
+        }
+        return LLMClientException(clientName, error.message, error)
+    }
+
+    private fun validateVertexImages(messages: List<AnthropicMessage>, model: LLModel) {
+        var images = 0
+        var documents = 0
+        fun check(content: AnthropicContent) {
+            when (content) {
+                is AnthropicContent.Image -> {
+                    images++
+                    val base64 = content.source as? ImageSource.Base64
+                    if (base64 != null && base64.data.length > 10 * 1024 * 1024) {
+                        throw ImageInputException("Claude on Vertex accepts up to 10 MB of base64 data per image.")
+                    }
+                }
+                is AnthropicContent.Document -> documents++
+                is AnthropicContent.ToolResult -> content.content.forEach(::check)
+                else -> Unit
+            }
+        }
+        messages.forEach { it.content.forEach(::check) }
+        val limit = if (model.contextLength == 200_000L) 100 else 600
+        if (images > 0 && images + documents > limit) {
+            throw ImageInputException("Claude on Vertex accepts up to $limit images and documents per request. This request contains $images images and $documents documents.")
+        }
     }
 
     private fun serializeAnthropicMessageRequest(

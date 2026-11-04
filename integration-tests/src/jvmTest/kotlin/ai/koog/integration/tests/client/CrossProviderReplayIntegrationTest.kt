@@ -57,6 +57,8 @@ class CrossProviderReplayIntegrationTest {
         assertEquals(8, routes.distinctBy { it.name }.size)
         val tensorX = routes.filter { it.name.startsWith("tensorx-") }
         assertEquals(4, tensorX.distinctBy { it.model.id }.size)
+        val userImages = replayCases.single { it.name == "user-image" }
+        assertEquals(setOf("tensorx-glm", "tensorx-kimi", "tensorx-deepseek"), tensorX.filter(userImages.destinationSupports).map { it.name }.toSet())
         val toolImages = replayCases.single { it.name == "tool-result-image" }
         assertTrue(tensorX.none(toolImages.destinationSupports))
         assertTrue(toolImages.destinationSupports(routes.single { it.name == "vertex-sonnet" }))

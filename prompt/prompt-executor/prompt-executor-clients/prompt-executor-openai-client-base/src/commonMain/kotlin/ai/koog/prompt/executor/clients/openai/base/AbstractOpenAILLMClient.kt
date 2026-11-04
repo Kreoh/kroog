@@ -197,7 +197,7 @@ public abstract class AbstractOpenAILLMClient<TResponse : OpenAIBaseLLMResponse,
         val request = serializeProviderChatRequest(
             messages = messages,
             model = model,
-            tools = tools.map { it.toOpenAIChatTool() },
+            tools = tools.takeIf { it.isNotEmpty() }?.map { it.toOpenAIChatTool() },
             toolChoice = prompt.params.toolChoice?.toOpenAIToolChoice(),
             params = prompt.params,
             stream = true

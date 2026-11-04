@@ -3,6 +3,7 @@ package ai.koog.prompt.executor.clients.bedrock.converse
 import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
 import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
 import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
@@ -197,6 +198,9 @@ internal object BedrockConverseConverters {
             }
         }
 
+        if (family == BedrockModelFamilies.AnthropicClaude) {
+            validateClaudeImages(messages, model)
+        }
         val outputConfig = params.schema?.let { schema ->
             require(schema is LLMParams.Schema.JSON) {
                 "Bedrock Converse only supports JSON schemas for structured output"
@@ -266,6 +270,38 @@ internal object BedrockConverseConverters {
             messages = groupParallelResults(messages),
             guardrailSettings = guardrailSettings,
         )
+    }
+
+    private fun validateClaudeImages(messages: List<BedrockMessage>, model: LLModel) {
+        var images = 0
+        var documents = 0
+        fun checkImage(image: ImageBlock) {
+            images++
+            val bytes = image.source as? ImageSource.Bytes
+            if (bytes != null && bytes.value.size > 3_932_160) {
+                throw ImageInputException("Claude on Bedrock accepts up to 3.75 MiB per image.")
+            }
+        }
+        for (message in messages) {
+            for (block in message.content) {
+                when (block) {
+                    is ContentBlock.Image -> checkImage(block.value)
+                    is ContentBlock.Document -> documents++
+                    is ContentBlock.ToolResult -> for (part in block.value.content) {
+                        when (part) {
+                            is ToolResultContentBlock.Image -> checkImage(part.value)
+                            is ToolResultContentBlock.Document -> documents++
+                            else -> Unit
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        }
+        val limit = if (model.contextLength == 200_000L) 100 else 600
+        if (images > 0 && images + documents > limit) {
+            throw ImageInputException("Claude on Bedrock accepts up to $limit images and documents per request. This request contains $images images and $documents documents.")
+        }
     }
 
     // System instructions and incompatible reasoning have already been separated from these wire turns.
