@@ -1475,7 +1475,7 @@ internal class OpenAIResponsesAPIResponse(
      * @property message A human-readable description of the error.
      */
     @Serializable
-    internal class ResponseError(val code: String, val message: String)
+    internal class ResponseError(val code: String? = null, val message: String? = null)
 
     /**
      * Details about why the response is incomplete.
@@ -2268,7 +2268,7 @@ internal sealed interface OpenAIStreamEvent {
     @SerialName("error")
     class Error(
         val code: String? = null,
-        val message: String,
+        val message: String? = null,
         val param: String? = null,
         val sequenceNumber: Int,
     ) : OpenAIStreamEvent

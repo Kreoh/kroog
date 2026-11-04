@@ -25,7 +25,9 @@ import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -64,10 +66,99 @@ internal fun reversedParallelLookupPrompt(params: LLMParams, firstCallFailed: Bo
 )
 
 internal fun expectedParallelLookupResults(firstCallFailed: Boolean): List<Pair<String, String>> =
-    if (firstCallFailed) listOf("call_1" to """{"status":"error","output":"B28"}""", "call_2" to "A71")
-    else listOf("call_1" to "B28", "call_2" to """{"status":"error","output":"A71"}""")
+    if (firstCallFailed) {
+        listOf("call_1" to """{"status":"error","output":"B28"}""", "call_2" to "A71")
+    } else {
+        listOf("call_1" to "B28", "call_2" to """{"status":"error","output":"A71"}""")
+    }
 
 class OpenAIResponsesParityTest {
+    @Test
+    fun testProviderFailuresPreserveDetailsAndDrainPartialOutput() = runTest {
+        val error = OpenAIResponsesAPIResponse.ResponseError("server_error", "Provider could not finish")
+        val failures = listOf(
+            OpenAIStreamEvent.ResponseFailed(response(status = OpenAIInputStatus.FAILED, error = error), 2),
+            OpenAIStreamEvent.Error(error.code, error.message, sequenceNumber = 2),
+        )
+        for (event in failures) {
+            for (partialOutput in listOf(false, true)) {
+                for (pendingTool in listOf(false, true)) {
+                    val events = buildList {
+                        if (partialOutput) add(OpenAIStreamEvent.ResponseOutputTextDelta("msg", 0, 0, "partial", sequenceNumber = 0))
+                        if (pendingTool) add(OpenAIStreamEvent.ResponseFunctionCallArgumentsDelta("call", 1, "{", 1))
+                        add(event)
+                    }
+                    val transport = ScriptedResponsesTransport(
+                        streamAttempts = ArrayDeque(listOf(events)),
+                        bufferStream = true,
+                    )
+                    val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+                    val frames = mutableListOf<StreamFrame>()
+                    val failure = assertFailsWith<LLMClientException> {
+                        client.executeStreaming(
+                            Prompt.build("failure", OpenAIResponsesParams()) { user("Hello") },
+                            OpenAIModels.Chat.GPT4o,
+                        ).toList(frames)
+                    }
+                    assertTrue(failure.message.orEmpty().contains("server_error: Provider could not finish"))
+                    assertEquals(
+                        if (partialOutput) listOf("partial") else emptyList(),
+                        frames.filterIsInstance<StreamFrame.TextDelta>().map { it.text }
+                    )
+                    assertTrue(frames.none { it is StreamFrame.End })
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testFailedResponsesNeverReturnPartialOrEmptySuccess() = runTest {
+        for (output in listOf(emptyList(), response().output)) {
+            val transport = ScriptedResponsesTransport(
+                postResponses = ArrayDeque(
+                    listOf(
+                        response(
+                            output,
+                            status = OpenAIInputStatus.FAILED,
+                            error = OpenAIResponsesAPIResponse.ResponseError("server_error", "Provider could not finish")
+                        )
+                    )
+                )
+            )
+            val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+            val failure = assertFailsWith<LLMClientException> {
+                client.execute(Prompt.build("failure", OpenAIResponsesParams()) { user("Hello") }, OpenAIModels.Chat.GPT4o)
+            }
+            assertTrue(failure.message.orEmpty().contains("server_error: Provider could not finish"))
+        }
+    }
+
+    @Test
+    fun testProviderFailuresWithoutMessagesUseFallback() = runTest {
+        val missingMessage = Json.decodeFromString<OpenAIStreamEvent>(
+            """{"type":"error","code":"server_error","sequenceNumber":1}"""
+        )
+        val missingResponseMessage = Json.decodeFromString<OpenAIResponsesAPIResponse.ResponseError>(
+            """{"code":"server_error"}"""
+        )
+        val failures = listOf(
+            missingMessage,
+            OpenAIStreamEvent.ResponseFailed(response(status = OpenAIInputStatus.FAILED, error = missingResponseMessage), 1),
+            OpenAIStreamEvent.ResponseFailed(response(status = OpenAIInputStatus.FAILED), 1),
+            OpenAIStreamEvent.Error(message = " ", sequenceNumber = 1),
+        )
+        for (event in failures) {
+            val transport = ScriptedResponsesTransport(streamAttempts = ArrayDeque(listOf(listOf(event))))
+            val failure = assertFailsWith<LLMClientException> {
+                OpenAILLMClient(OpenAIClientSettings(), transport).executeStreaming(
+                    Prompt.build("failure", OpenAIResponsesParams()) { user("Hello") },
+                    OpenAIModels.Chat.GPT4o,
+                ).toList()
+            }
+            assertTrue(failure.message.orEmpty().contains("OpenAI response failed without an error message"))
+        }
+    }
+
     @Test
     fun testFailedResultPreservesAttachmentsAndEmptyOutputs() = runTest {
         val mockUrl = "https://example.test/plot.png"
@@ -147,13 +238,19 @@ class OpenAIResponsesParityTest {
             )
             val calls = items.take(2)
             assertEquals(listOf("lookup", "lookup"), calls.map { it.getValue("name").jsonPrimitive.content })
-            assertEquals(listOf("call_1" to "alpha", "call_2" to "beta"), calls.map {
-                val args = Json.parseToJsonElement(it.getValue("arguments").jsonPrimitive.content).jsonObject
-                it.getValue("call_id").jsonPrimitive.content to args.getValue("label").jsonPrimitive.content
-            })
-            assertEquals(expectedParallelLookupResults(firstCallFailed), items.drop(2).map {
-                it.getValue("call_id").jsonPrimitive.content to it.getValue("output").jsonPrimitive.content
-            })
+            assertEquals(
+                listOf("call_1" to "alpha", "call_2" to "beta"),
+                calls.map {
+                    val args = Json.parseToJsonElement(it.getValue("arguments").jsonPrimitive.content).jsonObject
+                    it.getValue("call_id").jsonPrimitive.content to args.getValue("label").jsonPrimitive.content
+                }
+            )
+            assertEquals(
+                expectedParallelLookupResults(firstCallFailed),
+                items.drop(2).map {
+                    it.getValue("call_id").jsonPrimitive.content to it.getValue("output").jsonPrimitive.content
+                }
+            )
         }
     }
 
@@ -1104,17 +1201,26 @@ class OpenAIResponsesParityTest {
                     val client = OpenAILLMClient(settings = OpenAIClientSettings(), httpClient = transport)
                     fun request(withImage: Boolean): List<Message> =
                         if (withImage) listOf(image) else listOf(Message.User("hello", RequestMetaInfo.Empty))
-                    val params = if (recover) recoveryParams().withContainerRecovery { retry, _ ->
-                        retry.copy(messages = request(includeImage))
-                    } else OpenAIResponsesParams(stateless = true)
+                    val params = if (recover) {
+                        recoveryParams().withContainerRecovery { retry, _ ->
+                            retry.copy(messages = request(includeImage))
+                        }
+                    } else {
+                        OpenAIResponsesParams(stateless = true)
+                    }
                     val prompt = prompt(params).copy(messages = request(if (recover) !includeImage else includeImage))
                     suspend fun send() {
-                        if (stream) client.executeStreaming(prompt, OpenAIModels.Chat.GPT5).toList()
-                        else client.execute(prompt, OpenAIModels.Chat.GPT5)
+                        if (stream) {
+                            client.executeStreaming(prompt, OpenAIModels.Chat.GPT5).toList()
+                        } else {
+                            client.execute(prompt, OpenAIModels.Chat.GPT5)
+                        }
                     }
                     if (includeImage) {
-                        assertEquals("The request containing these images exceeds the size this Responses endpoint accepts.",
-                            assertFailsWith<ImageInputException> { send() }.message)
+                        assertEquals(
+                            "The request containing these images exceeds the size this Responses endpoint accepts.",
+                            assertFailsWith<ImageInputException> { send() }.message
+                        )
                     } else if (stream) {
                         assertEquals(tooLarge, assertFailsWith<LLMClientException> { send() }.cause)
                     } else {
@@ -1186,6 +1292,8 @@ class OpenAIResponsesParityTest {
             )
         ),
         usage: OpenAIResponsesAPIResponse.Usage? = null,
+        status: OpenAIInputStatus = OpenAIInputStatus.COMPLETED,
+        error: OpenAIResponsesAPIResponse.ResponseError? = null,
     ): OpenAIResponsesAPIResponse = OpenAIResponsesAPIResponse(
         usage = usage,
         created = 1,
@@ -1193,13 +1301,15 @@ class OpenAIResponsesParityTest {
         model = "gpt-4o",
         output = output,
         parallelToolCalls = false,
-        status = OpenAIInputStatus.COMPLETED,
+        status = status,
+        error = error,
         text = OpenAITextConfig(),
     )
 
     internal class ScriptedResponsesTransport(
         private val postResponses: ArrayDeque<Any> = ArrayDeque(),
         private val streamAttempts: ArrayDeque<List<Any>> = ArrayDeque(),
+        private val bufferStream: Boolean = false,
     ) : KoogHttpClient {
         override val clientName: String = "ScriptedResponsesTransport"
         val requests: MutableList<String> = mutableListOf()
@@ -1241,7 +1351,7 @@ class OpenAIResponsesParityTest {
             requests += requestBody.toString()
             paths += path
             val attempt = streamAttempts.removeFirst()
-            return flow {
+            val stream = flow {
                 attempt.forEach { next ->
                     when (next) {
                         is Throwable -> throw next
@@ -1249,6 +1359,7 @@ class OpenAIResponsesParityTest {
                     }
                 }
             }
+            return if (bufferStream) stream.buffer(Channel.UNLIMITED) else stream
         }
 
         override fun <T : Any> lines(

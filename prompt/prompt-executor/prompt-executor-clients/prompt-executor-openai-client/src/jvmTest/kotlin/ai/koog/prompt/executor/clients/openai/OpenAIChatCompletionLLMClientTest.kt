@@ -80,15 +80,21 @@ class OpenAIChatCompletionLLMClientTest {
                 val messages = body.getValue("messages").jsonArray.map { it.jsonObject }
                 assertEquals(listOf("assistant", "tool", "tool"), messages.map { it.getValue("role").jsonPrimitive.content })
                 val calls = messages.first().getValue("tool_calls").jsonArray.map { it.jsonObject }
-                assertEquals(listOf("call_1" to "alpha", "call_2" to "beta"), calls.map {
-                    val function = it.getValue("function").jsonObject
-                    assertEquals("lookup", function.getValue("name").jsonPrimitive.content)
-                    val args = Json.parseToJsonElement(function.getValue("arguments").jsonPrimitive.content).jsonObject
-                    it.getValue("id").jsonPrimitive.content to args.getValue("label").jsonPrimitive.content
-                })
-                assertEquals(expectedParallelLookupResults(firstCallFailed), messages.drop(1).map {
-                    it.getValue("tool_call_id").jsonPrimitive.content to it.getValue("content").jsonPrimitive.content
-                })
+                assertEquals(
+                    listOf("call_1" to "alpha", "call_2" to "beta"),
+                    calls.map {
+                        val function = it.getValue("function").jsonObject
+                        assertEquals("lookup", function.getValue("name").jsonPrimitive.content)
+                        val args = Json.parseToJsonElement(function.getValue("arguments").jsonPrimitive.content).jsonObject
+                        it.getValue("id").jsonPrimitive.content to args.getValue("label").jsonPrimitive.content
+                    }
+                )
+                assertEquals(
+                    expectedParallelLookupResults(firstCallFailed),
+                    messages.drop(1).map {
+                        it.getValue("tool_call_id").jsonPrimitive.content to it.getValue("content").jsonPrimitive.content
+                    }
+                )
                 respond(plainResponseBody, headers = headersOf(HttpHeaders.ContentType, "application/json"))
             }
             val client = OpenAILLMClient(apiKey = key, httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine)))

@@ -12,9 +12,11 @@ internal fun Prompt.forOpenAIToolReplay(): Prompt {
     for ((index, turn) in ordered.messages.withIndex()) {
         if (turn !is Message.User || turn.parts.none { it is MessagePart.Tool.Result && it.needsStatusEnvelope() }) continue
         val target = updated ?: ordered.messages.toMutableList().also { updated = it }
-        target[index] = turn.copy(parts = turn.parts.map { part ->
-            if (part is MessagePart.Tool.Result && part.needsStatusEnvelope()) part.withStatusEnvelope() else part
-        })
+        target[index] = turn.copy(
+            parts = turn.parts.map { part ->
+                if (part is MessagePart.Tool.Result && part.needsStatusEnvelope()) part.withStatusEnvelope() else part
+            }
+        )
     }
     return updated?.let { ordered.copy(messages = it) } ?: ordered
 }
@@ -50,9 +52,11 @@ private fun Prompt.inToolCallOrder(): Prompt {
         var offset = 0
         for (i in index + 1 until end) {
             val turn = messages[i] as Message.User
-            target[i] = turn.copy(parts = turn.parts.map { part ->
-                if (part is MessagePart.Tool.Result) ordered[offset++] else part
-            })
+            target[i] = turn.copy(
+                parts = turn.parts.map { part ->
+                    if (part is MessagePart.Tool.Result) ordered[offset++] else part
+                }
+            )
         }
     }
     return reordered?.let { copy(messages = it) } ?: this

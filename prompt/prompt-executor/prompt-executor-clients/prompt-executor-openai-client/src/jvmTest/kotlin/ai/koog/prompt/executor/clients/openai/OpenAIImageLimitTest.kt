@@ -11,10 +11,17 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 internal class OpenAIImageLimitTest {
-    private val toolImage = Item.FunctionToolCallOutput("tool", JsonArray(listOf(buildJsonObject {
-        put("type", "input_image")
-        put("image_url", "https://example.test/screenshot.png")
-    })))
+    private val toolImage = Item.FunctionToolCallOutput(
+        "tool",
+        JsonArray(
+            listOf(
+                buildJsonObject {
+                    put("type", "input_image")
+                    put("image_url", "https://example.test/screenshot.png")
+                }
+            )
+        )
+    )
 
     private fun serialize(settings: OpenAIClientSettings, userImages: Int) {
         val client = OpenAILLMClient(
