@@ -1,7 +1,9 @@
 package ai.koog.prompt.executor.clients.bedrock
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.dsl.ModerationCategory
 import ai.koog.prompt.dsl.ModerationCategoryResult
 import ai.koog.prompt.dsl.ModerationResult
@@ -213,34 +215,9 @@ public class BedrockLLMClient @JvmOverloads public constructor(
     internal fun getBedrockModelFamily(model: LLModel): BedrockModelFamilies {
         require(model.provider == LLMProvider.Bedrock) { "Model ${model.id} is not a Bedrock model" }
 
-        return when {
-            model.id.contains("anthropic.claude") -> BedrockModelFamilies.AnthropicClaude
-
-            model.id.contains("amazon.nova") -> BedrockModelFamilies.AmazonNova
-
-            model.id.contains("meta.llama") -> BedrockModelFamilies.Meta
-
-            model.id.contains("amazon.titan") -> BedrockModelFamilies.TitanEmbedding
-
-            model.id.contains("cohere.embed") -> BedrockModelFamilies.Cohere
-
-            model.id.contains("moonshot.kimi") || model.id.contains("moonshotai.kimi") -> BedrockModelFamilies.MoonshotKimi
-
-            model.id.contains("google.gemma") -> BedrockModelFamilies.GoogleGemma
-
-            model.id.contains("minimax.") -> BedrockModelFamilies.MiniMax
-
-            model.id.contains("openai.gpt") -> BedrockModelFamilies.OpenAI
-
-            else -> {
-                if (fallbackModelFamily != null) {
-                    logger.warn { "Model ${model.id} is not a supported Bedrock model, using fallback: ${fallbackModelFamily.display}" }
-                    fallbackModelFamily
-                } else {
-                    throw LLMClientException(clientName, "Model ${model.id} is not a supported Bedrock model")
-                }
-            }
-        }
+        return model.id.knownBedrockFamily() ?: fallbackModelFamily?.also {
+            logger.warn { "Model ${model.id} is not a supported Bedrock model, using fallback: ${it.display}" }
+        } ?: throw LLMClientException(clientName, "Model ${model.id} is not a supported Bedrock model")
     }
 
     override fun llmProvider(): LLMProvider = LLMProvider.Bedrock
@@ -264,7 +241,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
         return when (apiMethod) {
             is BedrockAPIMethod.InvokeModel -> doExecuteInvokeModel(prompt, model, tools)
             is BedrockAPIMethod.Converse -> doExecuteConverse(prompt, model, tools)
-        }
+        }.let { ReasoningReplayFormat.BEDROCK.record(it, model) }
     }
 
     /**
@@ -346,7 +323,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
         tools: List<ToolDescriptor>
     ): Message.Assistant {
         val converseRequest =
-            BedrockConverseConverters.createConverseRequest(prompt, model, tools, moderationGuardrailsSettings)
+            BedrockConverseConverters.createConverseRequest(prompt, model, tools, moderationGuardrailsSettings, fallbackModelFamily)
 
         return withContext(Dispatchers.SuitableForIO) {
             try {
@@ -358,11 +335,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                throw LLMClientException(
-                    clientName = clientName,
-                    message = e.message,
-                    cause = e
-                )
+                throw converseException(e)
             }
         }
     }
@@ -387,7 +360,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
         return when (apiMethod) {
             is BedrockAPIMethod.InvokeModel -> doExecuteStreamingInvokeModel(prompt, model, tools)
             is BedrockAPIMethod.Converse -> doExecuteStreamingConverse(prompt, model, tools)
-        }
+        }.let { ReasoningReplayFormat.BEDROCK.record(it, model) }
     }
 
     /**
@@ -503,7 +476,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
         tools: List<ToolDescriptor>
     ): Flow<StreamFrame> {
         val converseRequest =
-            BedrockConverseConverters.createConverseStreamRequest(prompt, model, tools, moderationGuardrailsSettings)
+            BedrockConverseConverters.createConverseStreamRequest(prompt, model, tools, moderationGuardrailsSettings, fallbackModelFamily)
 
         return channelFlow {
             withContext(Dispatchers.SuitableForIO) {
@@ -516,11 +489,7 @@ public class BedrockLLMClient @JvmOverloads public constructor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    throw LLMClientException(
-                        clientName = clientName,
-                        message = e.message,
-                        cause = e
-                    )
+                    throw converseException(e)
                 }
             }
         }.let { BedrockConverseConverters.transformConverseStreamChunks(it, clock) }
@@ -684,6 +653,17 @@ public class BedrockLLMClient @JvmOverloads public constructor(
                 "Model family: ${modelFamily.display} does not support embeddings; use execute() or executeStreaming() for completion models."
             )
         }
+
+    private fun converseException(error: Exception): Exception {
+        if (error is aws.sdk.kotlin.services.bedrockruntime.model.ValidationException) {
+            val limit = Regex("""image dimensions exceed max allowed size(?: for many-image requests)?: (\d{1,5}) pixels""")
+                .find(error.message.orEmpty())?.groupValues?.get(1)
+            if (limit != null) {
+                return ImageInputException("Bedrock accepts images up to $limit pixels per side in this request.")
+            }
+        }
+        return LLMClientException(clientName, error.message, error)
+    }
 
     private fun LLModel.requireCapability(capability: LLMCapability, message: String? = null) {
         require(supports(capability)) {

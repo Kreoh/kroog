@@ -5,6 +5,7 @@ import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicEffort
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicThinking
@@ -39,6 +40,38 @@ import kotlin.reflect.KClass
 import kotlin.test.Test
 
 class AnthropicVertexLLMClientTest {
+    @Test
+    fun testVertexImageLimitsIncludeToolResultsAcrossTurns() {
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        for (limit in listOf(100, 600)) {
+            val profile = model.copy(contextLength = if (limit == 100) 200_000L else 1_000_000L)
+            val client = AnthropicVertexLLMClient(AnthropicVertexClientSettings(projectId, location, mapOf(profile to vertexModelVersion)),
+                RecordingAnthropicVertexHttpClient())
+            val original = Message.User(List(limit) { image }, RequestMetaInfo.Empty)
+            client.createAnthropicRequest(Prompt(listOf(original), "boundary"), emptyList(), profile, false)
+            val result = Message.User(MessagePart.Tool.Result("call", "snapshot", listOf(image)), RequestMetaInfo.Empty)
+            shouldThrow<ImageInputException> {
+                client.createAnthropicRequest(Prompt(listOf(original, result), "over-limit"), emptyList(), profile, true)
+            }
+        }
+        val large = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Base64("A".repeat(10 * 1024 * 1024 + 4)), "png"))
+        shouldThrow<ImageInputException> {
+            vertexClient(RecordingAnthropicVertexHttpClient()).createAnthropicRequest(
+                Prompt(listOf(Message.User(large, RequestMetaInfo.Empty)), "large"), emptyList(), model, true)
+        }
+    }
+
+    @Test
+    fun testVertexImageDimensionFailureIsSafeToDisplay() = runTest {
+        val failure = ai.koog.http.client.KoogHttpClientException(statusCode = 400,
+            errorBody = "private detail: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels")
+        val client = vertexClient(RecordingAnthropicVertexHttpClient(requestFailure = failure))
+        val prompt = Prompt.build("image-dimensions") { user("Check image") }
+        shouldThrow<ImageInputException> { client.execute(prompt, model) }.message shouldBe
+            "Claude on Vertex accepts images up to 3000 pixels per side in this request."
+        shouldThrow<ImageInputException> { client.executeStreaming(prompt, model).toList() }
+    }
+
     @Test
     fun testUnmappedVertexModelStillRequiresExplicitVersion() {
         val client = vertexClient(RecordingAnthropicVertexHttpClient())
@@ -507,6 +540,7 @@ private data class RecordedAnthropicRequest(
 private class RecordingAnthropicVertexHttpClient(
     private val streams: ArrayDeque<List<String>> = ArrayDeque(),
     private val postResponse: Any? = null,
+    private val requestFailure: Exception? = null,
 ) : KoogHttpClient {
     override val clientName: String = "recording-vertex-anthropic"
     val sseRequests = mutableListOf<RecordedAnthropicRequest>()
@@ -529,6 +563,7 @@ private class RecordingAnthropicVertexHttpClient(
         parameters: Map<String, String>,
         headers: Map<String, String>,
     ): R {
+        requestFailure?.let { throw it }
         postRequests += RecordedAnthropicRequest(path, requestBody as String, parameters, headers)
         responseType shouldBe String::class
         return requireNotNull(postResponse) as R
@@ -545,6 +580,7 @@ private class RecordingAnthropicVertexHttpClient(
         headers: Map<String, String>,
     ): Flow<O> =
         flow {
+            requestFailure?.let { throw it }
             sseRequests += RecordedAnthropicRequest(path, requestBody as String, parameters, headers)
             streams.removeFirst().forEach { raw ->
                 if (dataFilter(raw)) {

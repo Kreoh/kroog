@@ -3,9 +3,14 @@ package ai.koog.prompt.executor.clients.bedrock.converse
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.cache.PromptCachePolicy
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
+import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockGuardrailsSettings
+import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
+import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
 import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
@@ -64,6 +69,7 @@ import aws.sdk.kotlin.services.bedrockruntime.model.ToolConfiguration
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolInputSchema
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultContentBlock
+import aws.sdk.kotlin.services.bedrockruntime.model.ToolResultStatus
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolSpecification
 import aws.sdk.kotlin.services.bedrockruntime.model.ToolUseBlock
 import aws.sdk.kotlin.services.bedrockruntime.model.VideoBlock
@@ -151,15 +157,18 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseRequestParams {
         prompt.validateClientManagedExecutionPresentation()
         validateUnsupportedCacheMarkers(prompt)
+        val family = model.id.knownBedrockFamily() ?: fallbackModelFamily
+        val supportsToolStatus = family == BedrockModelFamilies.AnthropicClaude || family == BedrockModelFamilies.AmazonNova
         val params = prompt.params.toBedrockConverseParams()
         val toolBreakpoints = tools.mapNotNull { tool ->
             tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
         }
         val requestPrompt = PromptCachePolicy.requestView(
-            prompt = prompt,
+            prompt = if (family == BedrockModelFamilies.AnthropicClaude) prompt.withClaudeToolIds(maxLength = 64) else prompt,
             leadingBreakpoints = toolBreakpoints,
             // Astra rejects Converse cache markers. Mantle manages its caching separately.
             automaticBreakpoint = !model.id.endsWith("openai.gpt-6-astra"),
@@ -182,13 +191,16 @@ internal object BedrockConverseConverters {
                 }
 
                 is Message.User ->
-                    messages.add(message.toBedrockMessage(model))
+                    messages.add(message.toBedrockMessage(model, supportsToolStatus))
 
                 is Message.Assistant ->
-                    messages.add(message.toBedrockMessage(model))
+                    ReasoningReplayFormat.BEDROCK.requestView(message, model)?.let { messages.add(it.toBedrockMessage(model)) }
             }
         }
 
+        if (family == BedrockModelFamilies.AnthropicClaude) {
+            validateClaudeImages(messages, model)
+        }
         val outputConfig = params.schema?.let { schema ->
             require(schema is LLMParams.Schema.JSON) {
                 "Bedrock Converse only supports JSON schemas for structured output"
@@ -255,9 +267,73 @@ internal object BedrockConverseConverters {
                 null
             },
             system = systemMessages,
-            messages = messages,
+            messages = groupParallelResults(messages),
             guardrailSettings = guardrailSettings,
         )
+    }
+
+    private fun validateClaudeImages(messages: List<BedrockMessage>, model: LLModel) {
+        var images = 0
+        var documents = 0
+        fun checkImage(image: ImageBlock) {
+            images++
+            val bytes = image.source as? ImageSource.Bytes
+            if (bytes != null && bytes.value.size > 3_932_160) {
+                throw ImageInputException("Claude on Bedrock accepts up to 3.75 MiB per image.")
+            }
+        }
+        for (message in messages) {
+            for (block in message.content) {
+                when (block) {
+                    is ContentBlock.Image -> checkImage(block.value)
+                    is ContentBlock.Document -> documents++
+                    is ContentBlock.ToolResult -> for (part in block.value.content) {
+                        when (part) {
+                            is ToolResultContentBlock.Image -> checkImage(part.value)
+                            is ToolResultContentBlock.Document -> documents++
+                            else -> Unit
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        }
+        val limit = if (model.contextLength == 200_000L) 100 else 600
+        if (images > 0 && images + documents > limit) {
+            throw ImageInputException("Claude on Bedrock accepts up to $limit images and documents per request. This request contains $images images and $documents documents.")
+        }
+    }
+
+    // System instructions and incompatible reasoning have already been separated from these wire turns.
+    private fun groupParallelResults(turns: List<BedrockMessage>): List<BedrockMessage> = buildList {
+        var index = 0
+        while (index < turns.size) {
+            val turn = turns[index++]
+            add(turn)
+            if (turn.role != ConversationRole.Assistant) continue
+            val pending = turn.content.filterIsInstance<ContentBlock.ToolUse>().map { it.value.toolUseId }.toMutableSet()
+            if (pending.size < 2) continue
+
+            val blocks = mutableListOf<ContentBlock>()
+            while (index < turns.size && pending.isNotEmpty()) {
+                val next = turns[index]
+                if (next.role != ConversationRole.User) break
+                val ids = next.content.filterIsInstance<ContentBlock.ToolResult>().map { it.value.toolUseId }
+                if (ids.isEmpty() || !pending.containsAll(ids)) break
+                blocks.addAll(next.content)
+                pending.removeAll(ids.toSet())
+                index++
+                if (next.content.any { it !is ContentBlock.ToolResult && it !is ContentBlock.CachePoint }) break
+            }
+            if (blocks.isNotEmpty()) {
+                add(
+                    BedrockMessage {
+                        role = ConversationRole.User
+                        content = blocks
+                    }
+                )
+            }
+        }
     }
 
     private fun validateUnsupportedCacheMarkers(prompt: Prompt) {
@@ -284,7 +360,7 @@ internal object BedrockConverseConverters {
         }
     }
 
-    private fun Message.User.toBedrockMessage(model: LLModel): BedrockMessage {
+    private fun Message.User.toBedrockMessage(model: LLModel, supportsToolStatus: Boolean): BedrockMessage {
         return BedrockMessage {
             this.role = ConversationRole.User
             this.content = buildList {
@@ -304,6 +380,7 @@ internal object BedrockConverseConverters {
                                         this.toolUseId = requireNotNull(part.id) {
                                             "Bedrock tool-result replay requires a call ID"
                                         }
+                                        if (part.isError && supportsToolStatus) status = ToolResultStatus.Error
                                         this.content = part.parts.map { it.toToolResultContentBlock(model) }
                                     }
                                 )
@@ -438,8 +515,9 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseRequest {
-        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings)
+        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication
         return ConverseRequest {
@@ -469,8 +547,9 @@ internal object BedrockConverseConverters {
         model: LLModel,
         tools: List<ToolDescriptor>,
         guardrailSettings: BedrockGuardrailsSettings? = null,
+        fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseStreamRequest {
-        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings)
+        val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication
         return ConverseStreamRequest {
@@ -585,7 +664,7 @@ internal object BedrockConverseConverters {
         var receivedMetadata = false
         val reasoningBlockTypes = mutableMapOf<Int, String>()
         val reasoningTextByIndex = mutableMapOf<Int, String>()
-        val reasoningSignatureByIndex = mutableMapOf<Int, String>()
+        val reasoningSignatureByIndex = mutableMapOf<Int, StringBuilder>()
         val redactedReasoningByIndex = mutableMapOf<Int, ByteArray>()
 
         chunkFlow.collect { chunk ->
@@ -642,11 +721,7 @@ internal object BedrockConverseConverters {
                         is ReasoningContentBlockDelta.Signature -> {
                             val index = chunk.value.contentBlockIndex
                             reasoningBlockTypes[index] = "thinking"
-                            reasoningSignatureByIndex[index] = reasoning.value
-                            attachReasoningEncrypted(
-                                encrypted = reasoning.value,
-                                index = index,
-                            )
+                            reasoningSignatureByIndex.getOrPut(index) { StringBuilder() }.append(reasoning.value)
                         }
 
                         is ReasoningContentBlockDelta.RedactedContent -> {
@@ -683,11 +758,12 @@ internal object BedrockConverseConverters {
                     val index = chunk.value.contentBlockIndex
                     when (reasoningBlockTypes.remove(index)) {
                         "thinking" -> {
-                            val signature = reasoningSignatureByIndex.remove(index)
+                            val signature = reasoningSignatureByIndex.remove(index)?.toString()
                                 ?: throw LLMClientException(
                                     BEDROCK_CONVERSE_CLIENT_NAME,
                                     "Malformed signed reasoning block: signature is missing",
                                 )
+                            attachReasoningEncrypted(encrypted = signature, index = index)
                             attachReasoningReplay(
                                 MessagePart.ReasoningReplay.Signed(
                                     text = reasoningTextByIndex.remove(index).orEmpty(),

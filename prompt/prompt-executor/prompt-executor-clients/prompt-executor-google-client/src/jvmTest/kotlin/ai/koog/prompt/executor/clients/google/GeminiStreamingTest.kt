@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.reflect.KClass
 import kotlin.test.Test
 
@@ -185,7 +187,10 @@ class GeminiStreamingTest {
                 }
                 """.trimIndent()
             ).candidates.single(),
-            ResponseMetaInfo.Empty,
+            ResponseMetaInfo.Empty.copy(
+                modelId = model.id,
+                metadata = JsonObject(mapOf("reasoningReplayFormat" to JsonPrimitive("GEMINI"))),
+            ),
         )
 
         streamed shouldBe nonStream

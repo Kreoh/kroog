@@ -1,10 +1,12 @@
 package ai.koog.prompt.executor.clients.google
 
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClient
@@ -195,7 +197,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         }
 
         val response = getGoogleResponse(prompt, model, tools)
-        return processGoogleResponse(response).first()
+        return ReasoningReplayFormat.GEMINI.record(processGoogleResponse(response).first(), model)
     }
 
     override fun executeStreaming(
@@ -398,13 +400,9 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw LLMClientException(
-                clientName = clientName,
-                message = e.message,
-                cause = e
-            )
+            throw requestException(e, request)
         }
-    }.requireEndFrame()
+    }.requireEndFrame().let { ReasoningReplayFormat.GEMINI.record(it, model) }
 
     private data class GoogleStreamingPart(
         val part: GooglePart,
@@ -488,7 +486,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "Model ${model.id} does not support multiple choices"
         }
 
-        return processGoogleResponse(getGoogleResponse(prompt, model, tools))
+        return processGoogleResponse(getGoogleResponse(prompt, model, tools)).map { ReasoningReplayFormat.GEMINI.record(it, model) }
     }
 
     /**
@@ -512,11 +510,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw LLMClientException(
-                clientName = clientName,
-                message = e.message,
-                cause = e
-            )
+            throw requestException(e, request)
         }.let { response ->
 
             // https://discuss.ai.google.dev/t/gemini-2-5-pro-with-empty-response-text/81175/219
@@ -526,6 +520,26 @@ public open class GoogleLLMClient @JvmOverloads constructor(
 
             return response
         }
+    }
+
+    private fun List<GoogleContent>.imageCount(): Int = sumOf { content ->
+        content.parts.orEmpty().sumOf { part ->
+            when (part) {
+                is GooglePart.InlineData -> if (part.inlineData.mimeType.startsWith("image/")) 1 else 0
+                is GooglePart.FunctionResponse -> part.functionResponse.parts.orEmpty().count { it.inlineData.mimeType.startsWith("image/") }
+                else -> 0
+            }
+        }
+    }
+
+    private fun requestException(error: Exception, request: GoogleRequest): Exception {
+        if (error is ai.koog.http.client.KoogHttpClientException &&
+            (error.statusCode == 413 || error.statusCode == 400 && error.errorBody.orEmpty().contains("request payload size exceeds the limit", ignoreCase = true)) &&
+            request.contents.imageCount() > 0
+        ) {
+            return ImageInputException("The request containing these images exceeds the size this Gemini endpoint accepts.")
+        }
+        return LLMClientException(clientName, error.message, error)
     }
 
     /**
@@ -560,13 +574,22 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                 }
 
                 is Message.Assistant -> {
-                    contents.add(message.toGoogleContent(model))
+                    ReasoningReplayFormat.GEMINI.requestView(message, model)?.let { contents.add(it.toGoogleContent(model)) }
                 }
             }
         }
 
         require(model.id !in FIXED_SAMPLING_MODEL_IDS || contents.lastOrNull()?.role != "model") {
             "Model ${model.id} does not accept a GenerateContent request whose final content role is model"
+        }
+
+        if (settings.defaultPath.trimEnd('/').endsWith("/publishers/google/models") &&
+            (model.id == GoogleModels.Gemini3_8Flash.id || model.id == GoogleModels.Gemini4Argon.id)
+        ) {
+            val count = contents.imageCount()
+            if (count > 3_000) {
+                throw ImageInputException("Gemini on Vertex accepts up to 3,000 images per request. This request contains $count.")
+            }
         }
 
         val customGoogleTool = tools
@@ -993,18 +1016,19 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                         }
 
                         is MessagePart.Tool.Result -> {
-                            val inlineParts = mutableListOf<FunctionResponseInlineData>()
+                            val text = part.parts.filterIsInstance<MessagePart.Text>()
                             val response = buildJsonObject {
-                                part.parts.forEach { p ->
-                                    when (p) {
-                                        is MessagePart.Text -> put("result", p.text)
-                                        is MessagePart.Attachment -> {
-                                            when (val content = p.source.content) {
-                                                is AttachmentContent.Binary ->
-                                                    inlineParts.add(FunctionResponseInlineData(GoogleData.Blob(p.source.mimeType, content.asBytes())))
-                                                else -> logger.warn { "Unsupported attachment content type in tool result for Google: ${content::class}, skipping" }
-                                            }
-                                        }
+                                if (part.isError || text.isNotEmpty()) {
+                                    put(if (part.isError) "error" else "result", text.joinToString("\n") { it.text })
+                                }
+                            }
+                            val inlineParts = part.parts.filterIsInstance<MessagePart.Attachment>().mapNotNull { attachment ->
+                                when (val content = attachment.source.content) {
+                                    is AttachmentContent.Binary ->
+                                        FunctionResponseInlineData(GoogleData.Blob(attachment.source.mimeType, content.asBytes()))
+                                    else -> {
+                                        logger.warn { "Unsupported attachment content type in tool result for Google: ${content::class}, skipping" }
+                                        null
                                     }
                                 }
                             }

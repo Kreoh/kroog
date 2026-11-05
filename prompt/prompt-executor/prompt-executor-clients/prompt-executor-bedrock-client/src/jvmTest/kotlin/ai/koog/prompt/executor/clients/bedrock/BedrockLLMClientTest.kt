@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.dsl.ModerationCategory
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
 import ai.koog.prompt.executor.clients.LLMClientException
@@ -77,6 +78,20 @@ import kotlin.time.Duration.Companion.milliseconds
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 
 class BedrockLLMClientTest {
+    @Test
+    fun testConverseImageDimensionFailureIsSafeToDisplay() = runTest {
+        val failure = aws.sdk.kotlin.services.bedrockruntime.model.ValidationException {
+            message = "private detail: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels"
+        }
+        val runtime = createMockBedrockClient(onConverse = { throw failure }, onConverseStream = { throw failure })
+        val client = BedrockLLMClient(runtime, apiMethod = BedrockAPIMethod.Converse)
+        val prompt = Prompt.build("image-dimensions") { user("Check image") }
+        val model = BedrockModels.AnthropicClaude55Sonnet
+        assertEquals("Bedrock accepts images up to 3000 pixels per side in this request.",
+            assertFailsWith<ImageInputException> { client.execute(prompt, model) }.message)
+        assertFailsWith<ImageInputException> { client.executeStreaming(prompt, model).toList() }
+    }
+
     @Test
     fun testAstraUsesRuntimeInferenceProfileWithConverse() = runTest {
         var captured: ConverseRequest? = null

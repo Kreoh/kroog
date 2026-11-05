@@ -1,7 +1,7 @@
 package ai.koog.prompt.executor.clients.openai
 
-import ai.koog.http.client.java.JavaKoogHttpClient
 import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.http.client.java.JavaKoogHttpClient
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.CodexAuthFileSource
 import ai.koog.prompt.executor.clients.openai.CodexLLMClient
@@ -39,9 +39,12 @@ class CodexModelsIntegrationTest {
     fun integration_testSelectableModel(id: String) = runTest(timeout = 180.seconds) {
         val model = OpenAIModels.models.single { it.id == id }
         client().use { client ->
-            val response = client.executeStreaming(prompt("codex-live-minimal", params = params()) {
-                user("Reply with only PONG.")
-            }, model).toList().toMessageResponse()
+            val response = client.executeStreaming(
+                prompt("codex-live-minimal", params = params()) {
+                    user("Reply with only PONG.")
+                },
+                model
+            ).toList().toMessageResponse()
             assertTrue(text(response).contains("PONG"))
             assertTrue((response.metaInfo.inputTokensCount ?: 0) > 0)
             usage(id, response)
@@ -54,25 +57,42 @@ class CodexModelsIntegrationTest {
         val model = OpenAIModels.models.single { it.id == id }
         val tool = ToolDescriptor("read_probe", "Read the probe value. Call this tool to obtain the value.")
         client().use { client ->
-            val called = client.execute(prompt("codex-live-tool", params = params()) {
-                user("Call read_probe, then reply with only the returned value.")
-            }, model, listOf(tool))
+            val called = client.execute(
+                prompt("codex-live-tool", params = params()) {
+                    user("Call read_probe, then reply with only the returned value.")
+                },
+                model,
+                listOf(tool)
+            )
             usage(id, called)
             val call = called.parts.filterIsInstance<MessagePart.Tool.Call>().single()
             assertEquals("read_probe", call.tool)
-            val answer = client.execute(prompt("codex-live-replay", params = params()) {
-                user("Call read_probe, then reply with only the returned value.")
-                message(called)
-                toolResult(tool = call.tool, output = "probe-739", id = call.id)
-            }, model, listOf(tool))
+            val answer = client.execute(
+                prompt("codex-live-replay", params = params()) {
+                    user("Call read_probe, then reply with only the returned value.")
+                    message(called)
+                    toolResult(tool = call.tool, output = "probe-739", id = call.id)
+                },
+                model,
+                listOf(tool)
+            )
             usage(id, answer)
             assertTrue(text(answer).contains("probe-739"))
-            val structured = client.execute(prompt("codex-live-json", params = OpenAIResponsesParams(
-                reasoning = ReasoningConfig(effort = ReasoningEffort.LOW),
-                schema = LLMParams.Schema.JSON.Standard("probe", Json.parseToJsonElement(
-                    """{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}"""
-                ).jsonObject),
-            )) { user("Return JSON with answer equal to PONG.") }, model)
+            val structured = client.execute(
+                prompt(
+                    "codex-live-json",
+                    params = OpenAIResponsesParams(
+                        reasoning = ReasoningConfig(effort = ReasoningEffort.LOW),
+                        schema = LLMParams.Schema.JSON.Standard(
+                            "probe",
+                            Json.parseToJsonElement(
+                                """{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}"""
+                            ).jsonObject
+                        ),
+                    )
+                ) { user("Return JSON with answer equal to PONG.") },
+                model
+            )
             usage(id, structured)
             assertEquals("PONG", Json.parseToJsonElement(text(structured)).jsonObject.getValue("answer").jsonPrimitive.content)
         }

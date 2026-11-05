@@ -8,8 +8,10 @@ import ai.koog.prompt.dsl.ModerationCategory
 import ai.koog.prompt.dsl.ModerationCategoryResult
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.executor.clients.LLMClientException
+import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.prompt.executor.clients.modelsById
 import ai.koog.prompt.executor.clients.openai.base.AbstractOpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.base.OpenAIBaseSettings
@@ -77,6 +79,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -403,6 +406,24 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return normaliseGpt6Request(json.encodeToString(OpenAIChatCompletionRequestSerializer, request), model, false)
     }
 
+    private fun List<Item>.imageCount(): Int = sumOf { item ->
+        when (item) {
+            is Item.InputMessage -> item.content.count { it is InputContent.Image }
+            is Item.ComputerToolCallOutput -> 1
+            is Item.FunctionToolCallOutput -> (item.output as? JsonArray)?.count {
+                ((it as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull == "input_image"
+            } ?: 0
+            else -> 0
+        }
+    }
+
+    private fun List<Item>.checkImagePayloadFailure(failure: Throwable) {
+        val status = generateSequence(failure) { it.cause }.filterIsInstance<KoogHttpClientException>().firstOrNull()?.statusCode
+        if (status == 413 && imageCount() > 0) {
+            throw ImageInputException("The request containing these images exceeds the size this Responses endpoint accepts.")
+        }
+    }
+
     internal fun serializeResponsesAPIRequest(
         messages: List<Item>,
         model: LLModel,
@@ -411,6 +432,22 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         params: OpenAIResponsesParams,
         stream: Boolean
     ): String {
+        val imageLimit = when (settings.responsesDialect) {
+            OpenAIResponsesDialect.Azure -> 50
+            OpenAIResponsesDialect.OpenAI -> {
+                val host = settings.baseUrl.removePrefix("https://").substringBefore('/').removeSuffix(":443").lowercase()
+                if (host == "api.openai.com" || host.endsWith(".api.openai.com")) 1_500 else null
+            }
+            OpenAIResponsesDialect.Compatible -> null
+        }
+        if (imageLimit != null) {
+            val images = messages.imageCount()
+            if (images > imageLimit) {
+                throw ImageInputException(
+                    "This request contains $images images. The selected endpoint accepts up to $imageLimit images per request."
+                )
+            }
+        }
         if (params.stateless) {
             require(params.store != true) { "Stateless Responses requests require store=false" }
         }
@@ -643,17 +680,20 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
         prompt.validateClientManagedExecutionPresentation()
-        return selectExecutionStrategy(prompt, model) { params ->
+        return selectExecutionStrategy(prompt, model) { request, params ->
             when (params) {
                 is OpenAIResponsesParams -> {
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
-                    val result = getResponseWithResponsesAPI(prompt, params, model, tools)
-                    processResponsesAPIResponse(result.response, result.recoveredContainerId)
+                    val result = getResponseWithResponsesAPI(request, params, model, tools)
+                    ReasoningReplayFormat.RESPONSES.record(
+                        processResponsesAPIResponse(result.response, result.recoveredContainerId),
+                        model
+                    )
                 }
 
                 is OpenAIChatParams -> {
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Completions)
-                    super.execute(prompt, model, tools)
+                    super.execute(request, model, tools)
                 }
             }
         }
@@ -665,10 +705,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         tools: List<ToolDescriptor>
     ): Flow<StreamFrame> {
         prompt.validateClientManagedExecutionPresentation()
-        return selectExecutionStrategy(prompt, model) { params ->
+        return selectExecutionStrategy(prompt, model) { request, params ->
             when (params) {
-                is OpenAIResponsesParams -> executeResponsesStreaming(prompt, model, tools, params)
-                is OpenAIChatParams -> super.executeStreaming(prompt, model, tools)
+                is OpenAIResponsesParams -> ReasoningReplayFormat.RESPONSES.record(
+                    executeResponsesStreaming(request, model, tools, params),
+                    model
+                )
+                is OpenAIChatParams -> super.executeStreaming(request, model, tools)
             }
         }
     }
@@ -716,6 +759,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             },
             processStreamingChunk = { event ->
                 providerEventSeen = true
+                // Carry provider failures through the transport so previously queued frames drain first.
+                when (event) {
+                    is OpenAIStreamEvent.ResponseFailed -> return@sse Result.failure<List<StreamFrame>>(
+                        responsesFailure(event.response.error?.code, event.response.error?.message)
+                    )
+                    is OpenAIStreamEvent.Error -> return@sse Result.failure<List<StreamFrame>>(
+                        responsesFailure(event.code, event.message)
+                    )
+                    else -> Unit
+                }
                 val drained = mutableListOf<StreamFrame>()
                 val currentFrames = buildList {
                     when (event) {
@@ -936,15 +989,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             )
                         }
 
-                        is OpenAIStreamEvent.ResponseFailed -> orderedFrames.requireResolved()
-
                         else -> Unit
                     }
                 }
-                drained + orderedFrames.emitOrRetain(currentFrames)
+                Result.success(drained + orderedFrames.emitOrRetain(currentFrames))
             }
         ).transform { frames ->
-            frames.forEach { emit(it) }
+            frames.getOrThrow().forEach { emit(it) }
         }.onCompletion { failure ->
             if (failure is CancellationException) {
                 orderedFrames.clear()
@@ -956,6 +1007,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 orderedFrames.clear()
                 throw failure
             }
+            messages.checkImagePayloadFailure(failure)
             val typedFailure = params.containerFailure(failure) ?: failure
             val recoveryParams = params.staleContainerRecoveryParams(typedFailure, providerEventSeen)
             if (recoveryParams != null) {
@@ -982,9 +1034,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): List<Message.Assistant> = selectExecutionStrategy(prompt, model) { params ->
+    ): List<Message.Assistant> = selectExecutionStrategy(prompt, model) { request, params ->
         when (params) {
-            is OpenAIChatParams -> super.executeMultipleChoices(prompt, model, tools)
+            is OpenAIChatParams -> super.executeMultipleChoices(request, model, tools)
 
             is OpenAIResponsesParams -> {
                 /*
@@ -997,8 +1049,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 coroutineScope {
                     List(choices) {
                         async {
-                            val result = getResponseWithResponsesAPI(prompt, params, model, tools)
-                            processResponsesAPIResponse(result.response, result.recoveredContainerId)
+                            val result = getResponseWithResponsesAPI(request, params, model, tools)
+                            ReasoningReplayFormat.RESPONSES.record(
+                                processResponsesAPIResponse(result.response, result.recoveredContainerId),
+                                model
+                            )
                         }
                     }.awaitAll()
                 }
@@ -1288,20 +1343,26 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
 
         suspend fun post(requestParams: OpenAIResponsesParams, requestPrompt: Prompt = prompt): OpenAIResponsesAPIResponse {
+            val messages = convertPromptToResponsesMessages(requestPrompt, model)
             val request = serializeResponsesAPIRequest(
-                convertPromptToResponsesMessages(requestPrompt, model),
+                messages,
                 model,
                 llmTools,
                 requestParams.toolChoice?.toOpenAIResponseToolChoice(),
                 requestParams,
                 false
             )
-            return httpClient.post(
-                path = settings.responsesAPIPath,
-                requestBody = request,
-                requestBodyType = String::class,
-                responseType = OpenAIResponsesAPIResponse::class
-            )
+            return try {
+                httpClient.post(
+                    path = settings.responsesAPIPath,
+                    requestBody = request,
+                    requestBodyType = String::class,
+                    responseType = OpenAIResponsesAPIResponse::class
+                )
+            } catch (failure: KoogHttpClientException) {
+                messages.checkImagePayloadFailure(failure)
+                throw failure
+            }
         }
 
         return try {
@@ -1429,9 +1490,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
 
                     is Message.Assistant -> {
-                        val codeInterpreterReplay = message.parts.canonicalOpenAICodeInterpreterReplay()
+                        val history = ReasoningReplayFormat.RESPONSES.requestView(message, model) ?: return@forEach
+                        val codeInterpreterReplay = history.parts.canonicalOpenAICodeInterpreterReplay()
                         val emittedCodeInterpreterIds = mutableSetOf<String>()
-                        message.parts.forEach { part ->
+                        history.parts.forEach { part ->
                             when (part) {
                                 is MessagePart.ContentPart -> {
                                     when (part) {
@@ -1596,10 +1658,18 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             reasoningTokensCount = usage?.outputTokensDetails?.reasoningTokens,
         )
 
+    private fun responsesFailure(code: String?, message: String?): LLMClientException {
+        val detail = message?.takeIf { it.isNotBlank() } ?: "OpenAI response failed without an error message"
+        return LLMClientException(clientName, code?.takeIf { it.isNotBlank() }?.let { "$it: $detail" } ?: detail)
+    }
+
     private fun processResponsesAPIResponse(
         response: OpenAIResponsesAPIResponse,
         recoveredContainerId: String? = null,
     ): Message.Assistant {
+        if (response.status == OpenAIInputStatus.FAILED) {
+            throw responsesFailure(response.error?.code, response.error?.message)
+        }
         require(response.output.isNotEmpty()) { "Empty output in response" }
 
         val metaInfo = createResponsesMetaInfo(response.usage)
@@ -2022,6 +2092,6 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private inline fun <T> selectExecutionStrategy(
         prompt: Prompt,
         model: LLModel,
-        action: (OpenAIParams) -> T
-    ): T = action(determineParams(prompt.params, model))
+        action: (Prompt, OpenAIParams) -> T
+    ): T = action(prompt.forOpenAIToolReplay(), determineParams(prompt.params, model))
 }

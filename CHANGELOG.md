@@ -1,3 +1,12 @@
+# Kroog 1.3.0-kroog.4
+
+Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.4` and beta modules use `1.3.0-beta-kroog.4`.
+
+- Preserve original reasoning and tool history when switching providers. Send compatible reasoning to the destination and retain tool call IDs, result ordering and failure status.
+- Assemble streamed Bedrock reasoning signatures across all fragments so the completed signature can be replayed.
+- Validate image inputs against the destination provider's limits and expose typed image errors. Omit the empty tools list on streamed DeepSeek requests.
+- Preserve the provider error code and message on OpenAI Responses failures and deliver buffered partial output before reporting a stream failure.
+
 # Kroog 1.3.0-kroog.3
 
 Unpublished preparation on the unchanged upstream Koog 1.3.0 baseline.

@@ -6,6 +6,7 @@ import ai.koog.agents.core.tools.ToolParameterType
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.google.models.GoogleCandidate
 import ai.koog.prompt.executor.clients.google.models.GoogleContent
 import ai.koog.prompt.executor.clients.google.models.GoogleData
@@ -45,6 +46,35 @@ import kotlin.test.assertFailsWith
 import kotlin.time.Instant
 
 class GoogleLLMClientTest {
+
+    @Test
+    fun testVertexCountsInlineAndNestedToolImagesAcrossTurns() {
+        val vertex = GoogleLLMClient(apiKey = "unused", settings = GoogleClientSettings(defaultPath = "v1/projects/p/locations/eu/publishers/google/models"))
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        val original = Message.User(List(3_000) { image }, RequestMetaInfo.Empty)
+        val toolResult = Message.User(MessagePart.Tool.Result("call", "snapshot", listOf(image)), RequestMetaInfo.Empty)
+        for (model in listOf(GoogleModels.Gemini3_8Flash, GoogleModels.Gemini4Argon)) {
+            vertex.createGoogleRequest(Prompt(listOf(original), "boundary"), model, emptyList())
+            val overLimit = Prompt(listOf(original, toolResult), "over-limit")
+            assertFailsWith<ImageInputException> { vertex.createGoogleRequest(overLimit, model, emptyList()) }
+            GoogleLLMClient(apiKey = "unused").createGoogleRequest(overLimit, model, emptyList())
+        }
+    }
+
+    @Test
+    fun testGeminiPayloadRejectionOffersImageRecoveryOnlyForRequestsWithImages() = runTest {
+        val model = GoogleModels.Gemini3_8Flash
+        val failure = ai.koog.http.client.KoogHttpClientException(statusCode = 413, errorBody = "private provider detail")
+        val client = GoogleLLMClient(httpClient = googleStreamingTransport(model.id, emptyList(), failure))
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
+        val prompt = Prompt(listOf(Message.User(image, RequestMetaInfo.Empty)), "image")
+        assertFailsWith<ImageInputException> { client.execute(prompt, model) }.message shouldBe
+            "The request containing these images exceeds the size this Gemini endpoint accepts."
+        assertFailsWith<ImageInputException> { client.executeStreaming(prompt, model).toList() }
+        assertFailsWith<ai.koog.prompt.executor.clients.LLMClientException> {
+            client.execute(Prompt.build("text") { user("hello") }, model)
+        }
+    }
 
     @Test
     fun testArgonOutputBoundsAndExplicitCacheRejection() {
@@ -576,6 +606,51 @@ class GoogleLLMClientTest {
     }
 
     @Test
+    fun testToolResultImageKeepsItsBytesOnGemini() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
+        val bytes = byteArrayOf(11, 12, 13)
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(bytes), "png"))
+        val call = Message.Assistant(MessagePart.Tool.Call("call", "lookup", "{}"), ResponseMetaInfo.Empty)
+        val result = Message.User(MessagePart.Tool.Result("call", "lookup", listOf(image)), RequestMetaInfo.Empty)
+        val request = client.createGoogleRequest(Prompt(listOf(call, result), "tool-image"), GoogleModels.Gemini3_8Flash, emptyList())
+        val response = (request.contents.last().parts!!.single() as GooglePart.FunctionResponse).functionResponse
+        response.id shouldBe "call"
+        val sent = response.parts!!.single().inlineData
+        sent.mimeType shouldBe "image/png"
+        sent.data.toList() shouldBe bytes.toList()
+    }
+
+    @Test
+    fun testToolErrorStatusAndTextReachGemini() {
+        val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
+        val text = listOf(MessagePart.Text("receipt"), MessagePart.Text("details"))
+        val calls = listOf("a", "b", "c").map {
+            MessagePart.Tool.Call(it, "lookup", """{"label":"$it"}""")
+        }
+        for (failed in listOf("a", "b")) {
+            val results = listOf(
+                MessagePart.Tool.Result("b", "lookup", text, isError = failed == "b"),
+                MessagePart.Tool.Result("a", "lookup", "other", isError = failed == "a"),
+                MessagePart.Tool.Result("c", "lookup", emptyList(), isError = true),
+            )
+            val request = client.createGoogleRequest(
+                Prompt(listOf(Message.Assistant(calls, ResponseMetaInfo.Empty), Message.User(results, RequestMetaInfo.Empty)), "errors"),
+                GoogleModels.Gemini3_8Flash, emptyList(),
+            )
+            val sent = request.contents.first().parts!!.map { (it as GooglePart.FunctionCall).functionCall }
+            sent.map { Triple(it.id, it.name, it.args!!.getValue("label").jsonPrimitive.content) } shouldBe
+                listOf(Triple("a", "lookup", "a"), Triple("b", "lookup", "b"), Triple("c", "lookup", "c"))
+            val responses = request.contents.last().parts!!.map { (it as GooglePart.FunctionResponse).functionResponse }
+            responses.map { it.id to it.name } shouldBe listOf("b" to "lookup", "a" to "lookup", "c" to "lookup")
+            responses.map { it.response.toString() } shouldBe if (failed == "a") listOf(
+                """{"result":"receipt\ndetails"}""", """{"error":"other"}""", """{"error":""}""",
+            ) else listOf(
+                """{"error":"receipt\ndetails"}""", """{"result":"other"}""", """{"error":""}""",
+            )
+        }
+    }
+
+    @Test
     fun `createGoogleRequest groups parallel Tool Results into single content`() {
         val client = GoogleLLMClient(httpClientFactory = KtorKoogHttpClient.Factory(), apiKey = "test")
         val request = client.createGoogleRequest(
@@ -777,7 +852,10 @@ class GoogleLLMClientTest {
             ),
             StreamFrame.TextDelta(finalAnswer, 1),
             StreamFrame.TextComplete(finalAnswer, 1),
-            StreamFrame.End(finishReason, ResponseMetaInfo.Empty),
+            StreamFrame.End(finishReason, ResponseMetaInfo.Empty.copy(
+                modelId = model.id,
+                metadata = JsonObject(mapOf("reasoningReplayFormat" to JsonPrimitive("GEMINI"))),
+            )),
         )
     }
 
@@ -864,6 +942,8 @@ class GoogleLLMClientTest {
             totalTokensCount = 18,
             inputTokensCount = 11,
             outputTokensCount = 7,
+            modelId = model.id,
+            metadata = JsonObject(mapOf("reasoningReplayFormat" to JsonPrimitive("GEMINI"))),
         )
         frames shouldBe listOf(
             StreamFrame.ReasoningDelta(
@@ -977,6 +1057,7 @@ class GoogleLLMClientTest {
 internal fun googleStreamingTransport(
     modelId: String,
     chunks: List<String>,
+    failure: Exception? = null,
 ): KoogHttpClient = object : KoogHttpClient {
     override val clientName: String = "GoogleStreamingTestClient"
 
@@ -994,7 +1075,7 @@ internal fun googleStreamingTransport(
         responseType: KClass<R>,
         parameters: Map<String, String>,
         headers: Map<String, String>,
-    ): R = error("POST is not expected in this test")
+    ): R = throw failure ?: error("POST is not expected in this test")
 
     override fun <T : Any, R : Any, O : Any> sse(
         path: String,
@@ -1006,6 +1087,7 @@ internal fun googleStreamingTransport(
         parameters: Map<String, String>,
         headers: Map<String, String>,
     ): Flow<O> = flow {
+        failure?.let { throw it }
         path shouldBe "v1beta/models/$modelId:streamGenerateContent"
         requestBody.shouldBeInstanceOf<GoogleRequest>()
         chunks.forEach { chunk ->

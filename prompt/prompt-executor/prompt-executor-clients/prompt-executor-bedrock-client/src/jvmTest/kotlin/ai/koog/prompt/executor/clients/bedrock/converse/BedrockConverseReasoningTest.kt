@@ -159,6 +159,52 @@ class BedrockConverseReplayTest {
     }
 
     @Test
+    fun testSignatureFragmentsAreJoinedPerBlockAndReplayedExactly() = runTest {
+        val frames = transform(
+            reasoningText("first thinking", index = 0),
+            reasoningSignature("first-", index = 0),
+            reasoningSignature("signature", index = 0),
+            contentBlockStop(index = 0),
+            reasoningText("second thinking", index = 1),
+            reasoningSignature("second-", index = 1),
+            reasoningSignature("signature", index = 1),
+            contentBlockStop(index = 1),
+        )
+        val completed = frames.filterIsInstance<StreamFrame.ReasoningComplete>()
+        assertEquals(listOf("first-signature", "second-signature"), completed.map { it.encrypted })
+        assertEquals(
+            listOf(
+                listOf(MessagePart.ReasoningReplay.Signed("first thinking", "first-signature")),
+                listOf(MessagePart.ReasoningReplay.Signed("second thinking", "second-signature")),
+            ),
+            completed.map { it.replay },
+        )
+
+        val request = BedrockConverseConverters.createConverseRequest(
+            Prompt(messages = listOf(frames.toMessageResponse()), id = "replay"),
+            thinkingModel,
+            emptyList(),
+        )
+        val replayed = request.messages.orEmpty().single().content.map {
+            assertIs<ReasoningContentBlock.ReasoningText>(assertIs<ContentBlock.ReasoningContent>(it).value).value
+        }
+        assertEquals(listOf("first thinking", "second thinking"), replayed.map { it.text })
+        assertEquals(listOf("first-signature", "second-signature"), replayed.map { it.signature })
+    }
+
+    @Test
+    fun testRepeatedSignatureFragmentsAreNotDeduplicated() = runTest {
+        val frames = transform(
+            reasoningSignature("same", index = 2),
+            reasoningSignature("same", index = 2),
+            contentBlockStop(index = 2),
+        )
+        val completed = assertIs<StreamFrame.ReasoningComplete>(frames.single())
+        assertEquals("samesame", completed.encrypted)
+        assertEquals(listOf(MessagePart.ReasoningReplay.Signed("", "samesame")), completed.replay)
+    }
+
+    @Test
     fun `signature before text is retained on reasoning completion`() = runTest {
         val frames = transform(
             reasoningSignature("signature", index = 2),

@@ -165,6 +165,40 @@ For example:
 ./gradlew :integration-tests:jvmIntegrationTest --tests "ai.koog.integration.tests.SingleLLMPromptExecutorIntegrationTest.integration_testExecute"
 ```
 
+### Cross-provider conversation replay
+
+The compatibility gate has two parts. Run `./gradlew :integration-tests:replayRequestTest` for deterministic JVM checks of outgoing provider requests. These checks cover tool IDs, call/result pairing, order, status and compatible reasoning replay. Enabling the live suite also runs this gate. The live matrix generates histories on pinned source routes and submits them to the selected destinations. A conversion error or rejected destination request fails the live check. A missing source fixture leaves its destinations untested.
+
+The number, text and error code-output cases send a portable transcript containing the executed code and output. Native file, image and expired-container cases target Responses. User-image support alone does not qualify a route for native image-bearing tool results. Failure diagnostics report exception class and HTTP status without provider error text.
+
+The model’s answer is a separate diagnostic. A refusal, an extra tool call, malformed JSON or a wrong receipt can help identify a request worth inspecting. An answer mismatch alone does not fail provider acceptance. The status case submits both the original and inverted flags. The request tests use deterministic fixtures; live acceptance alone does not prove that every field in a particular live request was correct.
+
+For example, replay parallel tool calls between the two Sonnet routes:
+
+```bash
+KROOG_REPLAY_LIVE=1 \
+KROOG_REPLAY_CASES=parallel-repeated-tool \
+KROOG_REPLAY_SOURCES=vertex-sonnet,bedrock-sonnet \
+KROOG_REPLAY_DESTINATIONS=vertex-sonnet,bedrock-sonnet \
+./gradlew :integration-tests:jvmIntegrationTest --rerun \
+  --tests 'ai.koog.integration.tests.client.CrossProviderReplayIntegrationTest.integration_testReplayMatrix'
+```
+
+Omit the source and destination filters to select all eight routes as sources and destinations. A history can exercise up to 64 ordered pairs. Capability checks and unsuccessful source generations reduce the number of destination checks. Omit the case filter to run every applicable history plus sampled three-route continuations. Each run calls paid endpoints. The Gradle task's `--rerun` option requests fresh live results.
+
+| Route | Connection settings |
+|---|---|
+| `openai-responses` | `OPENAI_API_KEY`, optionally `OPENAI_BASE_URL` |
+| `vertex-gemini`, `vertex-sonnet` | `VERTEX_PROJECT_ID`, `VERTEX_ACCESS_TOKEN`, optionally `VERTEX_GEMINI_LOCATION` and `VERTEX_ANTHROPIC_LOCATION` |
+| `bedrock-sonnet` | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` for temporary credentials and `BEDROCK_SONNET_MODEL_ID` for a specific inference profile |
+| `tensorx-glm`, `tensorx-kimi`, `tensorx-qwen`, `tensorx-deepseek` | `TENSORX_BASE_URL`, `TENSORX_API_KEY` |
+
+For the focused parallel-call regression, use the same opt-in flag and run `--tests '*VertexBedrockParallelReplayIntegrationTest*'`. This exercises Sonnet and Opus on Vertex and Bedrock. Set `BEDROCK_OPUS_MODEL_ID` if Opus requires a specific inference profile. Each case checks that Bedrock accepts both grouped and split results from the same Vertex turn. It reports the labelled answer for each shape as a diagnostic.
+
+The expired-container case requires an expired container ID in `KROOG_REPLAY_EXPIRED_CONTAINER_ID`. File lookup and cited search use test tools with controlled records. Hosted execution cases call the provider's execution tool.
+
+Case names and their source and destination capability checks are in `ReplayHistories.kt`. Standard output records the case and actual route for each attempt.
+
 ### Required API tokens for integration tests
 
 Integration tests that interact with LLM services require API tokens to be set as environment variables:
