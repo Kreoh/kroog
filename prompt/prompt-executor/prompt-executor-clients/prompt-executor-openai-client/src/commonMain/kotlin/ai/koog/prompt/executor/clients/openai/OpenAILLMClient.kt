@@ -754,6 +754,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             path = settings.responsesAPIPath,
             requestBody = request,
             requestBodyType = String::class,
+            // Some gateways end a Responses stream with the Chat Completions end marker.
+            dataFilter = { it != "[DONE]" },
             decodeStreamingResponse = {
                 json.decodeFromString<OpenAIStreamEvent>(it)
             },
