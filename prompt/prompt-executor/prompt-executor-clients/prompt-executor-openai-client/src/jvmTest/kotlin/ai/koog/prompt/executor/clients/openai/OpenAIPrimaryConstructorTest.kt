@@ -1340,6 +1340,25 @@ class OpenAIPrimaryConstructorTest {
         assertIs<StreamFrame.End>(frames.last())
     }
 
+    @Test
+    fun testResponsesStreamingSkipsDoneMarker() = runTest {
+        val client = OpenAILLMClient(
+            settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+            httpClient = responsesStreamingTransport(listOf(completedResponseChunk(sequenceNumber = 1), "[DONE]")),
+        )
+
+        val frames = client.executeStreaming(
+            Prompt(
+                listOf(Message.User("Hello", RequestMetaInfo.Empty)),
+                "done-marker",
+                OpenAIResponsesParams(),
+            ),
+            OpenAIModels.Chat.GPT4o,
+        ).toList()
+
+        assertIs<StreamFrame.End>(frames.last())
+    }
+
     private fun streamingTransport(events: List<OpenAIStreamEvent>): KoogHttpClient = object : KoogHttpClient {
         override val clientName: String = "StreamingOpenAIClient"
 
@@ -1459,7 +1478,7 @@ class OpenAIPrimaryConstructorTest {
             parameters: Map<String, String>,
             headers: Map<String, String>,
         ): Flow<O> = flow {
-            chunks.forEach { chunk ->
+            chunks.filter(dataFilter).forEach { chunk ->
                 processStreamingChunk(decodeStreamingResponse(chunk))?.let { emit(it) }
             }
         }
