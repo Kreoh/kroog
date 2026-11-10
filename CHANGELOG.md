@@ -1,3 +1,10 @@
+# Kroog 1.3.0-kroog.5
+
+Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.5` and beta modules use `1.3.0-beta-kroog.5`.
+
+- Ignore the `[DONE]` end marker sent by some gateways after an OpenAI Responses stream. Completed responses now finish without attempting to decode that marker as JSON.
+- Add a regression test for the completed response followed by the end marker. Model definitions, catalogue profiles and public APIs are unchanged from revision 4.
+
 # Kroog 1.3.0-kroog.4
 
 Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.4` and beta modules use `1.3.0-beta-kroog.4`.

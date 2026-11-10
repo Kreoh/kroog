@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.3.0-kroog.4`; modules which apply a beta version transform
+stable version is `1.3.0-kroog.5`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -39,20 +39,20 @@ examples on confirmed published coordinates until new artefacts are available
 from Central and dependency resolution has been verified.
 See `VERSIONING.md` for the policy and beta-module version forms.
 
-For the current release configured as `1.3.0-kroog.4`, the version forms are:
+For the current release configured as `1.3.0-kroog.5`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.3.0-kroog.4` |
-| Beta modules, derived automatically | `1.3.0-beta-kroog.4` |
-| Stable module snapshots | `1.3.0-kroog.4-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.4-SNAPSHOT` |
-| Annotated release tag | `1.3.0-kroog.4` |
+| Stable modules | `1.3.0-kroog.5` |
+| Beta modules, derived automatically | `1.3.0-beta-kroog.5` |
+| Stable module snapshots | `1.3.0-kroog.5-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.5-SNAPSHOT` |
+| Annotated release tag | `1.3.0-kroog.5` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
 forms describe the configured release revision. Local preparation does not
-publish artefacts to Maven Central. See the [revision 4 release notes](CHANGELOG.md#kroog-130-kroog4). The preceding release tag is `1.3.0-kroog.3`. Installation examples use the previously verified revision 2 consumer configuration.
+publish artefacts to Maven Central. See the [revision 5 release notes](CHANGELOG.md#kroog-130-kroog5). The preceding release tag is `1.3.0-kroog.4`. Installation examples use the previously verified revision 2 consumer configuration.
 
 ## Exact target closure
 
@@ -75,8 +75,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.3.0-beta-kroog.4-SNAPSHOT`, and its release version is
-`1.3.0-beta-kroog.4`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.3.0-beta-kroog.5-SNAPSHOT`, and its release version is
+`1.3.0-beta-kroog.5`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.

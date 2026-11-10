@@ -19,7 +19,7 @@ It is Kreoh's fork of [Koog](https://github.com/JetBrains/koog), based on Koog 1
 
 Kroog also provides prompt cache policies, separate cache-read and cache-write token counts, batch embeddings and reusable skills with immutable reference files. See the [skills guide](skills/README.md) for loading skills and configuring trusted filesystem sources.
 
-Revision 4 is in preparation and adds cross-provider tool and reasoning replay fixes, destination-specific image validation and improved streaming error details. See the [release notes](CHANGELOG.md#kroog-130-kroog4).
+Revision 5 is in preparation and fixes OpenAI Responses streams from gateways that send a `[DONE]` end marker. See the [release notes](CHANGELOG.md#kroog-130-kroog5).
 
 ## Installation
 
