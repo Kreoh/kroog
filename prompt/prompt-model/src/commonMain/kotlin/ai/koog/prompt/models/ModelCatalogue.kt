@@ -253,12 +253,14 @@ public object ModelCatalogue {
             providerApis = openAiCodex,
         ),
         // https://developers.openai.com/api/docs/models/gpt-6.1-terra
+        // Azure GA: https://devblogs.microsoft.com/foundry/whats-new-in-microsoft-foundry-october-2026/
+        // Text/image Responses on Global Standard and Data Zone Standard; no Azure Chat route declared.
         openAiReasoning(
             id = "gpt-6.1-terra",
             efforts = frontierReasoning,
             temperature = conditionalTemperatureWithCodex,
             input = 922_000,
-            providerApis = openAiCodex,
+            providerApis = openAiCodex + ProviderApi.AZURE_RESPONSES,
         ),
         realtime(
             id = "gpt-realtime",
