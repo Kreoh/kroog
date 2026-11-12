@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -230,7 +231,7 @@ internal fun codexRequest(original: JsonObject): JsonObject {
                 null
             } else {
                 leading = false
-                JsonObject(item - "id")
+                JsonObject((item - "id").withoutCacheBreakpoints())
             }
         }
     )
@@ -240,4 +241,12 @@ internal fun codexRequest(original: JsonObject): JsonObject {
         if (config.isEmpty()) request.remove("text") else request["text"] = JsonObject(config)
     }
     return JsonObject(request)
+}
+
+/** Codex rejects explicit prompt-cache breakpoints, so they are dropped from input content parts. */
+private fun Map<String, JsonElement>.withoutCacheBreakpoints(): Map<String, JsonElement> {
+    val content = this["content"] as? JsonArray ?: return this
+    return this + ("content" to JsonArray(content.map { part ->
+        (part as? JsonObject)?.let { JsonObject(it - "prompt_cache_breakpoint") } ?: part
+    }))
 }

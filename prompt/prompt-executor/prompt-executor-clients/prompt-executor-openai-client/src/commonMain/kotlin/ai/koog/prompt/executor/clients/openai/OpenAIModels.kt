@@ -973,6 +973,7 @@ public object OpenAIModels : LLModelDefinitions {
                 LLMCapability.OpenAIEndpoint.Responses,
                 LLMCapability.Schema.JSON.Basic,
                 LLMCapability.Schema.JSON.Standard,
+                LLMCapability.OpenAIExplicitPromptCaching,
             ) + reasoningCapabilities,
             contextLength = 1_050_000,
             maxOutputTokens = 128_000,
@@ -1042,6 +1043,7 @@ public object OpenAIModels : LLModelDefinitions {
             LLMCapability.OpenAIEndpoint.Responses,
             LLMCapability.Schema.JSON.Basic,
             LLMCapability.Schema.JSON.Standard,
+            LLMCapability.OpenAIExplicitPromptCaching,
         ) + reasoningCapabilities
 
         /**

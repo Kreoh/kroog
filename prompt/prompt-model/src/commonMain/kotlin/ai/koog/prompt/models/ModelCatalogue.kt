@@ -92,6 +92,10 @@ public data class ModelCatalogueEntry(
     val structuredOutput: Boolean,
     val hostedExecution: Boolean,
 ) {
+    /** Verified routes accepting explicit input-content prompt-cache breakpoints. */
+    public val explicitPromptCachingApis: Set<ProviderApi>
+        get() = openAiExplicitPromptCachingApis[id]?.intersect(providerApis).orEmpty()
+
     /** Verified output ceiling, or null when a text model's independent output limit is unknown. */
     public val outputTokenLimit: Long?
         get() = maxOutputTokens.takeUnless { kind == ModelKind.TEXT && it == 0L }
@@ -625,6 +629,8 @@ public object ModelCatalogue {
             append('|')
             append(entry.providerApis.sortedBy { it.name }.joinToString(","))
             append('|')
+            append(entry.explicitPromptCachingApis.sortedBy { it.name }.joinToString(","))
+            append('|')
             appendLine(
                 entry.unsupportedProviderApis.toSortedMap(compareBy { it.name })
                     .entries.joinToString(",") { "${it.key}=${it.value}" }
@@ -884,6 +890,16 @@ private fun openAiText(
     structuredOutput = true,
     hostedExecution = true,
 )
+
+// OpenAI documents explicit breakpoints for GPT-5.6 and later; earlier models reject the field with 400.
+// https://developers.openai.com/api/docs/guides/prompt-caching
+// Each route was checked with a direct Responses call. Azure is verified only for gpt-6.1-terra.
+private val openAiExplicitPromptCachingApis: Map<String, Set<ProviderApi>> = buildMap {
+    for (id in listOf("gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol")) {
+        put(id, setOf(ProviderApi.OPENAI_RESPONSES))
+    }
+    put("gpt-6.1-terra", setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES))
+}
 
 private fun openAiReasoning(
     id: String,

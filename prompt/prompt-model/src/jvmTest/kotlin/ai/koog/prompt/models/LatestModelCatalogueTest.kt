@@ -243,6 +243,7 @@ class LatestModelCatalogueTest {
         assertEquals(model.maxInputTokens, azure.maxInputTokens)
         assertEquals(model.supportedMimeTypes, azure.supportedMimeTypes)
         assertEquals(efforts(model), efforts(azure))
+        assertTrue(ProviderApi.AZURE_RESPONSES in azure.explicitPromptCachingApis)
         assertEquals(setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES, ProviderApi.CODEX_RESPONSES), model.providerApis)
         assertNull(ModelCatalogue.find(model.id, ProviderApi.BEDROCK_CONVERSE))
     }
