@@ -9,6 +9,20 @@ import kotlin.test.assertTrue
 
 class ModelCatalogueTest {
     @Test
+    fun testExplicitPromptCachingCoversGpt56AndLaterOnOpenAIAndAzureResponses() {
+        val responses = setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES)
+        val terra = assertNotNull(ModelCatalogue.find("gpt-6.1-terra"))
+        assertEquals(responses, terra.explicitPromptCachingApis)
+        assertEquals(ModelProviderApiCompatibility.Supported, terra.compatibility(ProviderApi.AZURE_RESPONSES))
+        assertEquals(responses, assertNotNull(ModelCatalogue.find("gpt-5.6-luna")).explicitPromptCachingApis)
+        // Bedrock and compatible routes are not OpenAI's own Responses API.
+        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES), assertNotNull(ModelCatalogue.find("gpt-6-astra")).explicitPromptCachingApis)
+        listOf("gpt-5.5", "gpt-5.4", "gpt-5-mini", "gpt-4.1", "gpt-realtime").forEach { id ->
+            assertTrue(assertNotNull(ModelCatalogue.find(id)).explicitPromptCachingApis.isEmpty(), id)
+        }
+    }
+
+    @Test
     fun testCatalogueMatchesNormalisedBaselineAndProviderVerifiedGolden() {
         val expected = assertNotNull(
             javaClass.getResourceAsStream("/model-catalogue/model-catalogue.txt")

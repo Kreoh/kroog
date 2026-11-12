@@ -122,7 +122,7 @@ public object BedrockModels : LLModelDefinitions {
     public val OpenAIGpt6Astra: LLModel = BedrockModel(
         OpenAIModels.Chat.GPT6Astra.copy(
             capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().filterNot {
-                it == LLMCapability.Schema.JSON.Standard
+                it == LLMCapability.Schema.JSON.Standard || it == LLMCapability.OpenAIExplicitPromptCaching
             },
         ),
         "openai.gpt-6-astra",

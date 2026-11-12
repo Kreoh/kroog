@@ -232,14 +232,19 @@ class LatestModelCatalogueTest {
     }
 
     @Test
-    fun testTerra61PreservesApiReasoningAndDoesNotInferAzureSupport() {
+    fun testTerra61PreservesApiReasoningAndDeclaresAzureResponsesSupport() {
         val model = assertNotNull(ModelCatalogue.find("gpt-6.1-terra", ProviderApi.OPENAI_RESPONSES))
         assertEquals(922_000, model.maxInputTokens)
         assertEquals(128_000, model.maxOutputTokens)
         assertEquals(setOf("none", "low", "medium", "high", "xhigh", "max"), efforts(model))
         assertEquals(setOf("none"), model.temperature.allowedReasoningEfforts)
         assertTrue(model.hostedExecution)
-        assertNull(ModelCatalogue.find(model.id, ProviderApi.AZURE_RESPONSES))
+        val azure = assertNotNull(ModelCatalogue.find(model.id, ProviderApi.AZURE_RESPONSES))
+        assertEquals(model.maxInputTokens, azure.maxInputTokens)
+        assertEquals(model.supportedMimeTypes, azure.supportedMimeTypes)
+        assertEquals(efforts(model), efforts(azure))
+        assertTrue(ProviderApi.AZURE_RESPONSES in azure.explicitPromptCachingApis)
+        assertEquals(setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES, ProviderApi.CODEX_RESPONSES), model.providerApis)
         assertNull(ModelCatalogue.find(model.id, ProviderApi.BEDROCK_CONVERSE))
     }
 

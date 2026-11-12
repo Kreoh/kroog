@@ -86,6 +86,11 @@ class BedrockModelsTest {
     }
 
     @Test
+    fun testAstraOnConverseDoesNotAdvertiseOpenAICacheBreakpoints() {
+        assertFalse(BedrockModels.OpenAIGpt6Astra.supports(LLMCapability.OpenAIExplicitPromptCaching))
+    }
+
+    @Test
     fun testClaudeFable51BedrockModelExposesExactEffectiveProfiles() {
         val model = BedrockModels.AnthropicClaudeFable5_1
 
