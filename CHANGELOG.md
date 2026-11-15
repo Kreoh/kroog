@@ -1,3 +1,12 @@
+# Kroog 1.3.0-kroog.6
+
+Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.6` and beta modules use `1.3.0-beta-kroog.6`.
+
+- Map the existing `PromptCacheControl(cacheable = true)` on system and user input parts to explicit prompt-cache breakpoints on OpenAI and Azure Responses for GPT-5.6 and later. The provider controls retention; the shared marker's TTL is not sent.
+- Derive catalogue breakpoint routes from the model publisher and version, restricted to declared OpenAI and Azure Responses routes. Declare GPT-6.1 Terra on Azure Responses.
+- Omit the field on compatible endpoints and strip it from Codex requests. Bedrock Converse Astra does not advertise the OpenAI-specific capability.
+- Record the additive capability and catalogue getter in the JVM API dumps. Existing public signatures remain unchanged.
+
 # Kroog 1.3.0-kroog.5
 
 Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.5` and beta modules use `1.3.0-beta-kroog.5`.
