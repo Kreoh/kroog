@@ -121,6 +121,14 @@ public final class ai/koog/prompt/llm/LLMCapability$OpenAIEndpoint$Responses : a
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/llm/LLMCapability$OpenAIExplicitPromptCaching : ai/koog/prompt/llm/LLMCapability {
+	public static final field INSTANCE Lai/koog/prompt/llm/LLMCapability$OpenAIExplicitPromptCaching;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class ai/koog/prompt/llm/LLMCapability$PromptCaching : ai/koog/prompt/llm/LLMCapability {
 	public static final field INSTANCE Lai/koog/prompt/llm/LLMCapability$PromptCaching;
 	public fun equals (Ljava/lang/Object;)Z
