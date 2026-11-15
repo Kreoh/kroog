@@ -754,6 +754,9 @@ internal sealed interface Item {
 }
 
 @Serializable
+internal class OpenAIPromptCacheBreakpoint(val mode: String)
+
+@Serializable
 @JsonClassDiscriminator("type")
 internal sealed interface InputContent {
 
@@ -764,7 +767,10 @@ internal sealed interface InputContent {
      */
     @Serializable
     @SerialName("input_text")
-    class Text(val text: String) : InputContent
+    class Text(
+        val text: String,
+        @SerialName("prompt_cache_breakpoint") val promptCacheBreakpoint: OpenAIPromptCacheBreakpoint? = null,
+    ) : InputContent
 
     /**
      * An image input to the model
@@ -777,7 +783,12 @@ internal sealed interface InputContent {
      */
     @Serializable
     @SerialName("input_image")
-    class Image(val detail: String = "auto", val fileId: String? = null, val imageUrl: String? = null) : InputContent
+    class Image(
+        val detail: String = "auto",
+        val fileId: String? = null,
+        val imageUrl: String? = null,
+        @SerialName("prompt_cache_breakpoint") val promptCacheBreakpoint: OpenAIPromptCacheBreakpoint? = null,
+    ) : InputContent
 
     /**
      * A file input to the model
@@ -793,7 +804,8 @@ internal sealed interface InputContent {
         val fileData: String? = null,
         val fileId: String? = null,
         val fileUrl: String? = null,
-        val filename: String? = null
+        val filename: String? = null,
+        @SerialName("prompt_cache_breakpoint") val promptCacheBreakpoint: OpenAIPromptCacheBreakpoint? = null,
     ) : InputContent
 }
 

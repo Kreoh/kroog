@@ -1396,7 +1396,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         add(
                             Item.InputMessage(
                                 role = "developer",
-                                content = message.parts.map { InputContent.Text(it.text) }
+                                content = message.parts.toResponsesMessageContent(model)
                             )
                         )
                     }
@@ -1598,7 +1598,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             contentParts.forEach { part ->
                 when (part) {
                     is MessagePart.Text -> {
-                        add(InputContent.Text(part.text))
+                        add(InputContent.Text(part.text, part.openAIBreakpoint(model, settings.responsesDialect)))
                     }
 
                     is MessagePart.Attachment -> {
@@ -1612,7 +1612,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     else -> throw IllegalArgumentException("Unsupported image attachment content: ${content::class}")
                                 }
 
-                                add(InputContent.Image(imageUrl = imageUrl))
+                                add(InputContent.Image(imageUrl = imageUrl, promptCacheBreakpoint = part.openAIBreakpoint(model, settings.responsesDialect)))
                             }
 
                             is AttachmentSource.File -> {
@@ -1632,7 +1632,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     InputContent.File(
                                         fileData = fileData,
                                         fileUrl = fileUrl,
-                                        filename = source.fileName
+                                        filename = source.fileName,
+                                        promptCacheBreakpoint = part.openAIBreakpoint(model, settings.responsesDialect),
                                     )
                                 )
                             }

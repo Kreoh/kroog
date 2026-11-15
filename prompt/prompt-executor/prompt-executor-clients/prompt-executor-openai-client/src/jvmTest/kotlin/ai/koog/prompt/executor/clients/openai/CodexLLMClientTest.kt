@@ -6,6 +6,7 @@ import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
 import ai.koog.prompt.message.RequestMetaInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,21 @@ class CodexLLMClientTest {
         assertEquals("user", request["input"]!!.jsonArray.single().jsonObject["role"]!!.jsonPrimitive.content)
         client.close()
         assertTrue(http.closed)
+    }
+
+    @Test
+    fun testExplicitCacheBreakpointsAreNotSentToCodex() = runTest {
+        val http = Transport(listOf(text, completed, "[DONE]"))
+        val client = CodexLLMClient(source, http)
+        val marked = Prompt.build("codex", params = OpenAIResponsesParams()) {
+            system("Be brief", PromptCacheControl(cacheable = true))
+            user("Hello", PromptCacheControl(cacheable = true))
+        }
+        client.execute(marked, model)
+        assertFalse("prompt_cache_breakpoint" in http.bodies.single())
+        val content = Json.parseToJsonElement(http.bodies.single()).jsonObject["input"]!!.jsonArray.single().jsonObject["content"]!!
+        assertEquals("Hello", content.jsonArray.single().jsonObject["text"]!!.jsonPrimitive.content)
+        client.close()
     }
 
     @Test

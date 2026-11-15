@@ -143,6 +143,13 @@ public sealed class LLMCapability(public val id: String) {
     public data object PromptCaching : LLMCapability("promptCaching")
 
     /**
+     * Supports explicit input-content prompt-cache breakpoints on OpenAI and Azure Responses.
+     * A cacheable [ai.koog.prompt.message.PromptCacheControl] on a system or user part is sent as a breakpoint.
+     */
+    @Serializable
+    public data object OpenAIExplicitPromptCaching : LLMCapability("openAIExplicitPromptCaching")
+
+    /**
      * Represents a capability in the Large Language Model (LLM) for content moderation.
      *
      * This capability allows the model to analyze text for potentially harmful content

@@ -92,6 +92,14 @@ public data class ModelCatalogueEntry(
     val structuredOutput: Boolean,
     val hostedExecution: Boolean,
 ) {
+    /** Verified routes accepting explicit input-content prompt-cache breakpoints. */
+    public val explicitPromptCachingApis: Set<ProviderApi>
+        get() = if (publisher == ModelPublisher.OPENAI && supportsOpenAIExplicitPromptCaching(id)) {
+            providerApis.intersect(setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES))
+        } else {
+            emptySet()
+        }
+
     /** Verified output ceiling, or null when a text model's independent output limit is unknown. */
     public val outputTokenLimit: Long?
         get() = maxOutputTokens.takeUnless { kind == ModelKind.TEXT && it == 0L }
@@ -253,12 +261,14 @@ public object ModelCatalogue {
             providerApis = openAiCodex,
         ),
         // https://developers.openai.com/api/docs/models/gpt-6.1-terra
+        // Azure GA: https://devblogs.microsoft.com/foundry/whats-new-in-microsoft-foundry-october-2026/
+        // Text/image Responses on Global Standard and Data Zone Standard; no Azure Chat route declared.
         openAiReasoning(
             id = "gpt-6.1-terra",
             efforts = frontierReasoning,
             temperature = conditionalTemperatureWithCodex,
             input = 922_000,
-            providerApis = openAiCodex,
+            providerApis = openAiCodex + ProviderApi.AZURE_RESPONSES,
         ),
         realtime(
             id = "gpt-realtime",
@@ -623,6 +633,8 @@ public object ModelCatalogue {
             append('|')
             append(entry.providerApis.sortedBy { it.name }.joinToString(","))
             append('|')
+            append(entry.explicitPromptCachingApis.sortedBy { it.name }.joinToString(","))
+            append('|')
             appendLine(
                 entry.unsupportedProviderApis.toSortedMap(compareBy { it.name })
                     .entries.joinToString(",") { "${it.key}=${it.value}" }
@@ -882,6 +894,17 @@ private fun openAiText(
     structuredOutput = true,
     hostedExecution = true,
 )
+
+// OpenAI documents explicit breakpoints for GPT-5.6 and later; earlier models reject the field with 400.
+// Azure serves the same models through the same Responses contract.
+// https://developers.openai.com/api/docs/guides/prompt-caching
+private val openAiVersionedId = Regex("""^gpt-(\d+)(?:\.(\d+))?(?:-|$)""")
+
+private fun supportsOpenAIExplicitPromptCaching(id: String): Boolean {
+    val (major, minor) = openAiVersionedId.find(id)?.destructured ?: return false
+    val majorVersion = major.toInt()
+    return majorVersion > 5 || (majorVersion == 5 && (minor.toIntOrNull() ?: 0) >= 6)
+}
 
 private fun openAiReasoning(
     id: String,

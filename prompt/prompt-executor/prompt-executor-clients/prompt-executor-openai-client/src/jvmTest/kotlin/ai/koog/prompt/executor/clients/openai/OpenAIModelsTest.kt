@@ -3,6 +3,9 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.prompt.executor.clients.list
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.models.ModelCatalogue
+import ai.koog.prompt.provider.ProviderApi
+import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldNotContain
@@ -23,6 +26,32 @@ class OpenAIModelsTest {
         model.capabilities.orEmpty() shouldContain LLMCapability.Temperature
         model.capabilities.orEmpty() shouldNotContain LLMCapability.Document
         OpenAIModels.models.count { it.id == model.id } shouldBe 1
+    }
+
+    @Test
+    fun testExplicitPromptCachingStartsAtGpt56() {
+        listOf(
+            OpenAIModels.Chat.GPT5_6Sol,
+            OpenAIModels.Chat.GPT5_6Terra,
+            OpenAIModels.Chat.GPT5_6Luna,
+            OpenAIModels.Chat.GPT6Astra,
+            OpenAIModels.Chat.GPT6Sol,
+            OpenAIModels.Chat.GPT6Luna,
+            OpenAIModels.Chat.GPT6_1Sol,
+            OpenAIModels.Chat.GPT6_1Terra,
+        ).forEach { it.capabilities.orEmpty() shouldContain LLMCapability.OpenAIExplicitPromptCaching }
+        OpenAIModels.Chat.GPT5_5.capabilities.orEmpty() shouldNotContain LLMCapability.OpenAIExplicitPromptCaching
+    }
+
+    @Test
+    fun testExplicitPromptCachingCapabilityMatchesCatalogue() {
+        OpenAIModels.models.forEach { model ->
+            val catalogued = ModelCatalogue.find(model.id)?.explicitPromptCachingApis.orEmpty()
+            withClue(model.id) {
+                (LLMCapability.OpenAIExplicitPromptCaching in model.capabilities.orEmpty()) shouldBe
+                    (ProviderApi.OPENAI_RESPONSES in catalogued)
+            }
+        }
     }
 
     @Test
@@ -52,6 +81,7 @@ class OpenAIModelsTest {
             LLMCapability.OpenAIEndpoint.Responses,
             LLMCapability.Schema.JSON.Basic,
             LLMCapability.Schema.JSON.Standard,
+            LLMCapability.OpenAIExplicitPromptCaching,
             LLMCapability.Thinking,
         )
         OpenAIModels.models.count { it.id == model.id } shouldBe 1
@@ -132,6 +162,7 @@ class OpenAIModelsTest {
             LLMCapability.OpenAIEndpoint.Responses,
             LLMCapability.Schema.JSON.Basic,
             LLMCapability.Schema.JSON.Standard,
+            LLMCapability.OpenAIExplicitPromptCaching,
             LLMCapability.Thinking,
         )
 
