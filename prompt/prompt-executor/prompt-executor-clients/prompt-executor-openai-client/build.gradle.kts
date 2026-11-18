@@ -20,6 +20,7 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation(project(":test-utils"))
+                implementation(project(":prompt:prompt-cache:prompt-cache-model"))
             }
         }
 

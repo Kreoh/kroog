@@ -108,6 +108,11 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAICodeInterpreterC
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAIConfigurationUpdateKt {
+	public static final fun openAIConfigurationUpdate (Lai/koog/prompt/dsl/PromptBuilder;Lai/koog/prompt/executor/clients/openai/base/models/ReasoningEffort;Lai/koog/prompt/params/LLMParams$Schema$JSON;Z)Lai/koog/prompt/dsl/PromptBuilder;
+	public static synthetic fun openAIConfigurationUpdate$default (Lai/koog/prompt/dsl/PromptBuilder;Lai/koog/prompt/executor/clients/openai/base/models/ReasoningEffort;Lai/koog/prompt/params/LLMParams$Schema$JSON;ZILjava/lang/Object;)Lai/koog/prompt/dsl/PromptBuilder;
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableException : java/lang/Exception {
 	public fun <init> (Ljava/lang/String;Lai/koog/prompt/executor/clients/openai/OpenAIContainerUnavailableReason;Ljava/lang/Throwable;)V
 	public final fun getContainerId ()Ljava/lang/String;
@@ -603,6 +608,10 @@ public class ai/koog/prompt/executor/clients/openai/OpenAILLMClient : ai/koog/pr
 	protected fun serializeProviderChatRequest (Ljava/util/List;Lai/koog/prompt/llm/LLModel;Ljava/util/List;Lai/koog/prompt/executor/clients/openai/base/models/OpenAIToolChoice;Lai/koog/prompt/params/LLMParams;Z)Ljava/lang/String;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAILLMClientKt {
+	public static final fun usesOpenAIResponses (Lai/koog/prompt/llm/LLModel;Lai/koog/prompt/params/LLMParams;)Z
+}
+
 public final class ai/koog/prompt/executor/clients/openai/OpenAILiveTranscriptionClient {
 	public fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;)V
 	public synthetic fun <init> (Lai/koog/http/client/KoogHttpClient;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -697,6 +706,22 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIModels$Moderatio
 	public static final field Omni Lai/koog/prompt/llm/LLModel;
 }
 
+public final class ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode : java/lang/Enum {
+	public static final field Explicit Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;
+	public static final field Implicit Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl : java/lang/Enum {
+	public static final field ThirtyMinutes Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;
+	public static final field TwelveHours Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;
+	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;
+}
+
 public abstract interface class ai/koog/prompt/executor/clients/openai/OpenAIResponsesCapability {
 }
 
@@ -730,6 +755,11 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIResponsesDialect
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesDialect;
 	public static fun values ()[Lai/koog/prompt/executor/clients/openai/OpenAIResponsesDialect;
+}
+
+public final class ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheBreakpointKt {
+	public static final fun withPromptCacheOptions (Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
+	public static synthetic fun withPromptCacheOptions$default (Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheMode;Lai/koog/prompt/executor/clients/openai/OpenAIPromptCacheTtl;ILjava/lang/Object;)Lai/koog/prompt/executor/clients/openai/OpenAIResponsesParams;
 }
 
 public final class ai/koog/prompt/executor/clients/openai/OpenAIPromptCacheIdentity {

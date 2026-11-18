@@ -212,7 +212,7 @@ internal fun codexRequest(original: JsonObject): JsonObject {
     }
     setOf(
         "temperature", "top_p", "top_logprobs", "logprobs", "max_output_tokens", "max_tokens", "max_tool_calls",
-        "prompt_cache_key", "background", "truncation", "safety_identifier", "context_management", "previous_response_id",
+        "prompt_cache_key", "prompt_cache_options", "background", "truncation", "safety_identifier", "context_management", "previous_response_id",
     ).forEach(request::remove)
     request["store"] = JsonPrimitive(false)
     request["stream"] = JsonPrimitive(true)
@@ -221,6 +221,9 @@ internal fun codexRequest(original: JsonObject): JsonObject {
     request["input"] = JsonArray(
         original["input"]!!.jsonArray.mapNotNull { element ->
             val item = element.jsonObject
+            require(item["type"] != JsonPrimitive("configuration_update")) {
+                "Configuration updates require the direct OpenAI Responses API"
+            }
             if (leading && item["role"]?.jsonPrimitive?.content in setOf("system", "developer")) {
                 val content = item["content"]
                 when (content) {
@@ -245,8 +248,9 @@ internal fun codexRequest(original: JsonObject): JsonObject {
 
 /** Codex rejects explicit prompt-cache breakpoints, so they are dropped from input content parts. */
 private fun Map<String, JsonElement>.withoutCacheBreakpoints(): Map<String, JsonElement> {
-    val content = this["content"] as? JsonArray ?: return this
-    return this + ("content" to JsonArray(content.map { part ->
+    val field = if (this["type"] == JsonPrimitive("function_call_output")) "output" else "content"
+    val content = this[field] as? JsonArray ?: return this
+    return this + (field to JsonArray(content.map { part ->
         (part as? JsonObject)?.let { JsonObject(it - "prompt_cache_breakpoint") } ?: part
     }))
 }

@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.http.client.KoogHttpClientException
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.PromptCacheControl
@@ -21,6 +22,7 @@ import java.util.Base64
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
@@ -61,14 +63,38 @@ class CodexLLMClientTest {
     fun testExplicitCacheBreakpointsAreNotSentToCodex() = runTest {
         val http = Transport(listOf(text, completed, "[DONE]"))
         val client = CodexLLMClient(source, http)
-        val marked = Prompt.build("codex", params = OpenAIResponsesParams()) {
+        val params = OpenAIResponsesParams().withPromptCacheOptions(OpenAIPromptCacheMode.Explicit, OpenAIPromptCacheTtl.TwelveHours)
+        val marked = Prompt.build("codex", params = params) {
             system("Be brief", PromptCacheControl(cacheable = true))
             user("Hello", PromptCacheControl(cacheable = true))
+            assistant { toolCall("call_1", "lookup", "{}") }
+            user(listOf(MessagePart.Tool.Result("call_1", "lookup", "answer", cacheControl = PromptCacheControl(true))))
         }
         client.execute(marked, model)
         assertFalse("prompt_cache_breakpoint" in http.bodies.single())
-        val content = Json.parseToJsonElement(http.bodies.single()).jsonObject["input"]!!.jsonArray.single().jsonObject["content"]!!
-        assertEquals("Hello", content.jsonArray.single().jsonObject["text"]!!.jsonPrimitive.content)
+        assertFalse("prompt_cache_options" in Json.parseToJsonElement(http.bodies.single()).jsonObject)
+        val input = Json.parseToJsonElement(http.bodies.single()).jsonObject.getValue("input").jsonArray
+        val content = input.first().jsonObject.getValue("content")
+        assertEquals("Hello", content.jsonArray.single().jsonObject.getValue("text").jsonPrimitive.content)
+        val output = input.last().jsonObject.getValue("output").jsonArray.single().jsonObject
+        assertEquals("answer", output.getValue("text").jsonPrimitive.content)
+        client.close()
+    }
+
+    @Test
+    fun testCodexRejectsConfigurationUpdatesBeforeDispatch() = runTest {
+        val http = Transport(emptyList())
+        val client = CodexLLMClient(source, http)
+        val update = Prompt.build("codex", params = OpenAIResponsesParams()) {
+            user("Start")
+            openAIConfigurationUpdate(ReasoningEffort.NONE)
+            user("Continue")
+        }
+        val failure = assertFails { client.execute(update, OpenAIModels.Chat.GPT6Sol) }
+        assertTrue(generateSequence(failure as Throwable?) { it.cause }.any {
+            it.message.orEmpty().contains("Configuration updates require the direct OpenAI Responses API")
+        })
+        assertTrue(http.bodies.isEmpty())
         client.close()
     }
 

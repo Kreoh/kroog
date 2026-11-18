@@ -1,12 +1,14 @@
 package ai.koog.agents.core.feature
 
 import ai.koog.agents.core.agent.context.AIAgentContext
+import ai.koog.agents.core.agent.session.forNoToolsTurn
 import ai.koog.agents.core.annotation.InternalAgentsApi
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.executor.model.PromptExecutorOperation
+import ai.koog.prompt.executor.model.ResolvedModel
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.LLMChoice
 import ai.koog.prompt.message.Message
@@ -43,12 +45,22 @@ public class ContextualPromptExecutor(
     internal fun withContext(context: AIAgentContext): ContextualPromptExecutor =
         ContextualPromptExecutor(executor, context)
 
-    override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
+    override suspend fun resolveModel(model: LLModel, promptExecutorOperation: PromptExecutorOperation): ResolvedModel =
+        executor.resolveModel(model, promptExecutorOperation)
+
+    override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant =
+        execute(prompt, resolveModel(model, PromptExecutorOperation.Execute), tools)
+
+    override suspend fun execute(prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>): Message.Assistant =
+        execute(prompt, model, tools, withoutTools = false)
+
+    internal suspend fun execute(
+        prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>, withoutTools: Boolean,
+    ): Message.Assistant {
         @OptIn(ExperimentalUuidApi::class)
         val eventId = Uuid.random().toString()
 
         val promptBeforeInterceptors = context.llm.prompt // because onLLMCallStarting might change context.llm.prompt
-        val resolvedModel = executor.resolveModel(model, PromptExecutorOperation.Execute)
 
         logger.debug { "Starting LLM call (event id: $eventId, prompt: $prompt, tools: [${tools.joinToString { it.name }}])" }
         context.pipeline.onLLMCallStarting(
@@ -57,11 +69,11 @@ public class ContextualPromptExecutor(
             context = context,
             runId = context.runId,
             prompt = prompt,
-            model = resolvedModel.effectiveModel,
+            model = model.effectiveModel,
             tools = tools
         )
 
-        val effectivePrompt = if (context.llm.prompt !== promptBeforeInterceptors) {
+        val interceptedPrompt = if (context.llm.prompt !== promptBeforeInterceptors) {
             logger.debug { "Executing LLM call with modified prompt (event id: $eventId, prompt: $prompt, tools: [${tools.joinToString { it.name }}])" }
             context.llm.prompt
         } else {
@@ -69,8 +81,12 @@ public class ContextualPromptExecutor(
             prompt
         }
 
+        val (effectivePrompt, effectiveTools) = if (withoutTools && interceptedPrompt !== prompt) {
+            interceptedPrompt.forNoToolsTurn(model.effectiveModel, tools, context.config.missingToolsConversionStrategy)
+        } else interceptedPrompt to tools
+
         try {
-            val response = executor.execute(effectivePrompt, resolvedModel, tools)
+            val response = executor.execute(effectivePrompt, model, effectiveTools)
             logger.trace { "Finished LLM call (event id: $eventId) with responses: $response]" }
 
             context.pipeline.onLLMCallCompleted(
@@ -79,8 +95,8 @@ public class ContextualPromptExecutor(
                 context = context,
                 runId = context.runId,
                 prompt = effectivePrompt,
-                model = resolvedModel.effectiveModel,
-                tools = tools,
+                model = model.effectiveModel,
+                tools = effectiveTools,
                 response = response,
                 moderationResponse = null
             )
@@ -92,9 +108,9 @@ public class ContextualPromptExecutor(
                 context.executionInfo,
                 context,
                 context.runId,
-                prompt,
-                resolvedModel.effectiveModel,
-                tools,
+                effectivePrompt,
+                model.effectiveModel,
+                effectiveTools,
                 error = e
             )
             throw e

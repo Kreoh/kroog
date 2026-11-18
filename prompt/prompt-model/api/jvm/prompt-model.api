@@ -2021,6 +2021,7 @@ public final class ai/koog/prompt/message/ReasoningBuilder {
 
 public final class ai/koog/prompt/message/RequestMetaInfo : ai/koog/prompt/message/MessageMetaInfo {
 	public static final field Companion Lai/koog/prompt/message/RequestMetaInfo$Companion;
+	public static final field OPENAI_CONFIGURATION_UPDATE Ljava/lang/String;
 	public fun <init> (Lkotlin/time/Instant;)V
 	public fun <init> (Lkotlin/time/Instant;Lkotlinx/serialization/json/JsonObject;)V
 	public synthetic fun <init> (Lkotlin/time/Instant;Lkotlinx/serialization/json/JsonObject;ILkotlin/jvm/internal/DefaultConstructorMarker;)V

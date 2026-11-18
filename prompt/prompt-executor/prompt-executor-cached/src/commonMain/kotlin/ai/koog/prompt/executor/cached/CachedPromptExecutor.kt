@@ -32,6 +32,12 @@ public class CachedPromptExecutor(
     private val clock: KoogClock = KoogClock.System
 ) : PromptExecutor() {
 
+    override suspend fun resolveModel(model: LLModel, promptExecutorOperation: PromptExecutorOperation): ResolvedModel =
+        nested.resolveModel(model, promptExecutorOperation)
+
+    override suspend fun execute(prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>): Message.Assistant =
+        getOrPut(prompt, tools, model)
+
     override suspend fun execute(
         prompt: Prompt,
         model: LLModel,

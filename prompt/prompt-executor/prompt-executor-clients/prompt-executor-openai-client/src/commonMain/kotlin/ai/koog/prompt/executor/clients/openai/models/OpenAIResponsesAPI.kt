@@ -187,6 +187,11 @@ public enum class OpenAIInclude {
 @Serializable(with = ItemPolymorphicSerializer::class)
 internal sealed interface Item {
 
+    @Serializable
+    class ConfigurationUpdate(val reasoning: ReasoningConfig?, val text: OpenAITextConfig?) : Item {
+        val type: String = "configuration_update"
+    }
+
     /**
      * A text input to the model, equivalent to a text input with the `user` role.
      */
@@ -2362,6 +2367,7 @@ internal object ItemPolymorphicSerializer : JsonContentPolymorphicSerializer<Ite
                     "web_search_call" -> Item.WebSearchToolCall.serializer()
                     "function_call" -> Item.FunctionToolCall.serializer()
                     "function_call_output" -> Item.FunctionToolCallOutput.serializer()
+                    "configuration_update" -> Item.ConfigurationUpdate.serializer()
                     "reasoning" -> Item.Reasoning.serializer()
                     "image_generation_call" -> Item.ImageGenerationCall.serializer()
                     "code_interpreter_call" -> Item.CodeInterpreterToolCall.serializer()

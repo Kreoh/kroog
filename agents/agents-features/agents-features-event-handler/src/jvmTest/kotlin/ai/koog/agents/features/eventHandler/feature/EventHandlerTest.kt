@@ -11,6 +11,7 @@ import ai.koog.agents.core.dsl.extension.ReceivedToolResults
 import ai.koog.agents.core.dsl.extension.ToolCalls
 import ai.koog.agents.core.dsl.extension.nodeExecuteTools
 import ai.koog.agents.core.dsl.extension.nodeLLMRequest
+import ai.koog.agents.core.dsl.extension.nodeLLMRequestWithoutTools
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestStreaming
 import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResults
 import ai.koog.agents.core.dsl.extension.onTextMessage
@@ -28,6 +29,9 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
@@ -988,6 +992,39 @@ class EventHandlerTest {
 
         assertEquals(expectedEvents.size, events.size)
         assertContentEquals(expectedEvents, events)
+    }
+
+    @Test
+    fun testNoToolsAfterCallStartingEditsAndFallbackResolution() = runTest {
+        val astra = OpenAIModels.Chat.GPT6_2Astra
+        val strategy = strategy<String, String>("no-tools") {
+            val call by nodeLLMRequestWithoutTools()
+            edge(nodeStart forwardTo call)
+            edge(call forwardTo nodeFinish transformed { "done" })
+        }
+        for (destination in listOf(astra, LLModel(LLMProvider.Ollama, "fallback"))) {
+            val calls = mutableListOf<Pair<Prompt, List<ToolDescriptor>>>()
+            val executor = ModelResolvingTestExecutor(testClock, destination) { request, model, tools ->
+                assertEquals(destination, model)
+                calls += request to tools
+            }
+            createAgent(strategy, executor = executor, model = astra, toolRegistry = ToolRegistry { tool(DummyTool()) }) {
+                handleEvents {
+                    onLLMCallStarting { event ->
+                        val llm = event.context.llm
+                        llm.prompt = Prompt.build(llm.prompt) { user("Interceptor addition") }
+                    }
+                }
+            }.use { it.run("Start", null) }
+            val (sent, tools) = calls.single()
+            assertEquals("Interceptor addition", (sent.messages.last().parts.single() as MessagePart.Text).text)
+            if (destination == astra) {
+                assertEquals(LLMParams.ToolChoice.None, sent.params.toolChoice)
+                assertEquals(listOf(DummyTool().descriptor.name), tools.map { it.name })
+            } else {
+                assertTrue(tools.isEmpty())
+            }
+        }
     }
 
     //region Private Methods

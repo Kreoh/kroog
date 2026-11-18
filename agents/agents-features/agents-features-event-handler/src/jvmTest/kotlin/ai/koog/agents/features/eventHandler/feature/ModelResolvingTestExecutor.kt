@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flow
 class ModelResolvingTestExecutor(
     private val clock: KoogClock,
     private val effectiveModel: LLModel,
+    private val onExecute: (Prompt, LLModel, List<ToolDescriptor>) -> Unit = { _, _, _ -> },
 ) : PromptExecutor() {
 
     override suspend fun resolveModel(
@@ -32,7 +33,10 @@ class ModelResolvingTestExecutor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ): Message.Assistant = Message.Assistant("Default test response", metaInfo = ResponseMetaInfo.create(clock))
+    ): Message.Assistant {
+        onExecute(prompt, model, tools)
+        return Message.Assistant("Default test response", metaInfo = ResponseMetaInfo.create(clock))
+    }
 
     override fun executeStreaming(
         prompt: Prompt,
