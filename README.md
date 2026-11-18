@@ -19,7 +19,7 @@ It is Kreoh's fork of [Koog](https://github.com/JetBrains/koog), based on Koog 1
 
 Kroog also provides prompt cache policies, separate cache-read and cache-write token counts, batch embeddings and reusable skills with immutable reference files. See the [skills guide](skills/README.md) for loading skills and configuring trusted filesystem sources.
 
-Revision 6 is in preparation and maps the existing prompt-cache marker to explicit breakpoints on OpenAI and Azure Responses for GPT-5.6 and later. It also declares GPT-6.1 Terra on Azure Responses. See the [release notes](CHANGELOG.md#kroog-130-kroog6).
+Revision 7 adds five models, exposes streaming token budgets in the catalogue and upgrades the SQL modules to Exposed 1.6.0. See the [release notes and SQL migration instructions](CHANGELOG.md#kroog-130-kroog7).
 
 ## Installation
 
@@ -123,7 +123,7 @@ Kroog supports OpenAI, Anthropic, Google, Amazon Bedrock, Azure OpenAI, DeepSeek
 | DeepSeek | DeepSeek client and compatible APIs |
 | Other hosted and local models | OpenRouter, Ollama and provider-specific clients |
 
-The revision 6 source was checked against provider definitions and catalogue tests on 15 November 2026. The incorporated upstream baseline remains Koog 1.3.0; see the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
+The model table reflects the revision 7 provider definitions and catalogue as of 18 November 2026. The incorporated upstream baseline remains Koog 1.3.0; see the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
 
 Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
 
