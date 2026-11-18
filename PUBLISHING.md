@@ -160,27 +160,12 @@ dependency locks and dependency-verification checksums from that generation.
 
 ### Release preparation
 
-1. Merge the intended feature and fix PRs into `master`, including any branch
-   refreshes. Choose the exact source commit to prepare for release.
-2. Verify the incorporated Koog version against the alignment audit. Match the
-   Kroog base to that version and reset the revision to `1` when the upstream
-   base changes. Check existing tags and published coordinates before choosing
-   the next unused revision on that base. Update
-   `version` in `gradle.properties`, current dependency examples and version
-   documentation. Keep historical release notes and audit evidence unchanged.
-3. Add Kroog release notes covering user-visible features, fixes, compatibility
-   changes and the incorporated upstream version. Complete the README release
-   gate below and review the release commit.
-4. Complete the model catalogue release gate below for every model change.
-   Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
-   failing CI checks and document any existing limitations before release.
-   Validate all 87 publications from a clean archive of the exact release commit
-   using the local publication procedure above and a fresh output directory.
-5. Merge the reviewed release preparation into `master`. If the final commit
-   changes the validated source, repeat the affected checks. Check out the exact
-   release commit with a clean working tree before creating its annotated tag.
-6. Push the tag and verify its object on origin, then manually dispatch the
-   release workflow with that exact tag, as described below.
+1. Collect the intended changes on the release preparation branch and resolve any conflicts with `master` before tagging.
+2. Verify the incorporated Koog version against the alignment audit. If the upstream base changed, use the new base and reset the Kroog revision to `1`. Check existing tags and published coordinates, then commit the next unused version in `gradle.properties`, the version documentation and the release notes. Keep installation examples on verified published coordinates.
+3. Document user-visible features, fixes, compatibility changes and the incorporated upstream version. Complete the README release gate below and review the preparation commit.
+4. Complete the model catalogue release gate for each model change. Run the relevant JVM tests and ABI checks, investigate failures and record existing limitations. Validate all 87 publications from a clean archive of the exact preparation commit in a fresh output directory.
+5. **Before merging into `master`, create the annotated version tag on the validated preparation commit.** Use a clean checkout, push the preparation branch and tag, and verify the tag object and its target on origin.
+6. Merge the preparation branch into `master` in a way that preserves the tagged commit. Verify its ancestry with `git fetch origin master` and `git merge-base --is-ancestor "${version}^{commit}" origin/master`. Then manually dispatch the release workflow with that same tag. If the release source needs a correction after the tag is pushed, prepare a new revision.
 7. Inspect the signed bundle and Central Portal validation results. Approve
    publication in Central Portal only after validation succeeds. Create the
    GitHub release against the same tag with the reviewed release notes, then
