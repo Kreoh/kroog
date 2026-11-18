@@ -165,7 +165,7 @@ dependency locks and dependency-verification checksums from that generation.
 3. Document user-visible features, fixes, compatibility changes and the incorporated upstream version. Complete the README release gate below and review the preparation commit.
 4. Complete the model catalogue release gate for each model change. Run the relevant JVM tests and ABI checks, investigate failures and record existing limitations. Validate all 87 publications from a clean archive of the exact preparation commit in a fresh output directory.
 5. **Before merging into `master`, create the annotated version tag on the validated preparation commit.** Use a clean checkout, push the preparation branch and tag, and verify the tag object and its target on origin.
-6. Merge the preparation branch into `master` in a way that preserves the tagged commit. Verify its ancestry with `git fetch origin master` and `git merge-base --is-ancestor "${version}^{commit}" origin/master`. Then manually dispatch the release workflow with that same tag. If the release source needs a correction after the tag is pushed, prepare a new revision.
+6. Merge the preparation PR into `master` using an allowed merge method, including squash merge. Manually dispatch the release workflow with the verified tag. If the release source needs a correction after the tag is pushed, prepare a new revision.
 7. Inspect the signed bundle and Central Portal validation results. Approve
    publication in Central Portal only after validation succeeds. Create the
    GitHub release against the same tag with the reviewed release notes, then
