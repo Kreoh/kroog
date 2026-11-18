@@ -17,8 +17,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 
-internal const val CONFIGURATION_UPDATE = "koog.openai.configuration_update"
-
 /**
  * Appends a settings change to the Responses conversation. Place it before the next user message
  * and keep the original request-level effort and format when replaying history.
@@ -30,7 +28,7 @@ public fun PromptBuilder.openAIConfigurationUpdate(
     plainText: Boolean = false,
 ): PromptBuilder {
     val update = OpenAIConfigurationUpdate(effort, schema, plainText)
-    val metadata = JsonObject(mapOf(CONFIGURATION_UPDATE to Json.encodeToJsonElement(update)))
+    val metadata = JsonObject(mapOf(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE to Json.encodeToJsonElement(update)))
     return message(Message.System(emptyList(), RequestMetaInfo.create(KoogClock.System).copy(metadata = metadata)))
 }
 
@@ -52,7 +50,7 @@ internal class OpenAIConfigurationUpdate(
 }
 
 internal fun Message.System.configurationUpdate(): OpenAIConfigurationUpdate? =
-    metaInfo.metadata?.get(CONFIGURATION_UPDATE)?.let {
+    metaInfo.metadata?.get(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE)?.let {
         require(parts.isEmpty()) { "A configuration update must be a separate input item" }
         Json.decodeFromJsonElement<OpenAIConfigurationUpdate>(it)
     }

@@ -1,6 +1,8 @@
 package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.cache.model.PromptCache
+import ai.koog.prompt.cache.memory.InMemoryPromptCache
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.executor.clients.openai.models.*
@@ -190,6 +192,24 @@ class OpenAIPromptCacheBreakpointTest {
         val reset = finalInput[6].jsonObject
         assertNull(reset["reasoning"])
         assertEquals(JsonPrimitive("text"), reset.getValue("text").jsonObject.getValue("format").jsonObject["type"])
+    }
+
+    @Test
+    fun testResponseCacheSeparatesTurnSchemas() = runTest {
+        fun request(name: String) = PromptCache.Request.create(Prompt.build("extract") {
+            val schema = LLMParams.Schema.JSON.Standard(name, buildJsonObject { put("type", "object") })
+            openAIConfigurationUpdate(schema = schema)
+            user("Extract the document")
+        }, emptyList())
+
+        val cache = InMemoryPromptCache(null)
+        val invoice = Message.Assistant("invoice answer", ResponseMetaInfo.Empty)
+        val receipt = Message.Assistant("receipt answer", ResponseMetaInfo.Empty)
+        cache.put(request("invoice"), invoice)
+        assertNull(cache.get(request("receipt")))
+        cache.put(request("receipt"), receipt)
+        assertEquals(invoice, cache.get(request("invoice")))
+        assertEquals(receipt, cache.get(request("receipt")))
     }
 
     @Test

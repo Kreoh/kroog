@@ -4,6 +4,8 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.executor.model.PromptExecutorOperation
+import ai.koog.prompt.executor.model.ResolvedModel
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.LLMChoice
 import ai.koog.prompt.message.Message
@@ -30,6 +32,17 @@ public class PromptExecutorWithChoiceSelection(
     private val executor: PromptExecutor,
     private val choiceSelectionStrategy: ChoiceSelectionStrategy,
 ) : PromptExecutor() {
+    override suspend fun resolveModel(model: LLModel, promptExecutorOperation: PromptExecutorOperation): ResolvedModel {
+        val operation = when (promptExecutorOperation) {
+            PromptExecutorOperation.Execute -> PromptExecutorOperation.MultipleChoices
+            else -> promptExecutorOperation
+        }
+        return executor.resolveModel(model, operation)
+    }
+
+    override suspend fun execute(prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>): Message.Assistant =
+        choiceSelectionStrategy.choose(prompt, executor.executeMultipleChoices(prompt, model, tools))
+
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
         val choices = executor.executeMultipleChoices(prompt, model, tools)
 

@@ -56,6 +56,7 @@ import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.isClientManagedExecutionPresentation
 import ai.koog.prompt.message.validateClientManagedExecutionPresentation
@@ -2060,7 +2061,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): T {
         val params = determineParams(prompt.params, model)
         if (params is OpenAIChatParams) {
-            require(prompt.messages.none { it is Message.System && it.metaInfo.metadata?.containsKey(CONFIGURATION_UPDATE) == true }) {
+            require(prompt.messages.none { it is Message.System && it.metaInfo.metadata?.containsKey(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE) == true }) {
                 "Configuration updates require the OpenAI Responses API"
             }
         }

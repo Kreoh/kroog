@@ -32,7 +32,7 @@ val followUp = Prompt.build(previousPrompt) {
 }
 ```
 
-Implicit prompt caching is the default. Mark the last reusable content block with `PromptCacheControl(cacheable = true)` to set an explicit breakpoint. A marker on a tool result applies to its last emitted content block. To limit writes to explicit breakpoints, use `OpenAIResponsesParams().withPromptCacheOptions(OpenAIPromptCacheMode.Explicit)`. The optional `ttl` selects the request-wide cache lifetime. Use the response's cache-read and cache-write token counts to measure reuse.
+Implicit prompt caching is the default. Mark the last reusable content block with `PromptCacheControl(cacheable = true)` to set an explicit breakpoint. A marker on a tool result applies to its last emitted content block. To limit writes to explicit breakpoints, use `OpenAIResponsesParams().withPromptCacheOptions(OpenAIPromptCacheMode.Explicit)`. The optional `ttl` selects the request-wide cache lifetime. Use the response's cache-read and cache-write token counts to measure reuse. The Codex adapter strips these cache options and rejects conversation configuration updates before dispatch.
 
 ### GPT-6.1 Sol
 

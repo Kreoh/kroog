@@ -5,6 +5,7 @@ import ai.koog.agents.core.prompt.Prompts.summariseForContinuation
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.tokenizer.PromptTokenizer
 
@@ -23,7 +24,9 @@ internal class BudgetedHistoryCompressionStrategy(
     override suspend fun compress(llmSession: AIAgentLLMWriteSession, memoryMessages: List<Message>) {
         val original = llmSession.prompt
         val messages = original.messages.mapNotNull(Message::toPortableHistoryMessage)
-        val system = messages.filterIsInstance<Message.System>()
+        fun Message.isUpdate() = this is Message.System &&
+            metaInfo.metadata?.containsKey(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE) == true
+        val system = messages.filterIsInstance<Message.System>().filterNot { it.isUpdate() }
         val memory = memoryMessages.mapNotNull(Message::toPortableHistoryMessage).filter { it !is Message.System }.distinct()
         val fixed = system + memory
         val turns = messages.indices.filter { index -> messages[index].startsUserTurn() }
@@ -68,7 +71,7 @@ internal class BudgetedHistoryCompressionStrategy(
                     }
                 }
                 for ((source, part) in parts) {
-                    val meta = ai.koog.prompt.message.RequestMetaInfo(timestamp = record.metaInfo.timestamp)
+                    val meta = RequestMetaInfo(timestamp = record.metaInfo.timestamp)
                     fun textMessage(text: String): Message.User = Message.User("$source (fragment of the same historical item):\n$text", meta)
                     if (part is MessagePart.Text) {
                         var remaining = part.text
@@ -117,8 +120,14 @@ internal class BudgetedHistoryCompressionStrategy(
         try {
             var summary = summarise(messages.take(tailStart))
             while (true) {
-                val tail = messages.drop(tailStart).filter { it !is Message.System }
-                val result = system + memory.filter { it !in tail } + listOfNotNull(summary) + tail
+                val tail = messages.drop(tailStart).filter { it !is Message.System || it.isUpdate() }
+                // Keep updates in transcript order, including settings already active at the retained boundary.
+                val prefix = messages.take(tailStart)
+                val retainedMemory = memory.filterNot { it in tail }
+                val savedPrefix = if (prefix.any { it.isUpdate() }) {
+                    retainedMemory.filterNot { it in prefix } + prefix.filter { it.isUpdate() || it in retainedMemory }
+                } else retainedMemory
+                val result = system + savedPrefix + listOfNotNull(summary) + tail
                 val after = count(result)
                 if (after <= maxInputTokens) {
                     llmSession.prompt = original.copy(params = original.params.withoutSavedContainer(), messages = result)

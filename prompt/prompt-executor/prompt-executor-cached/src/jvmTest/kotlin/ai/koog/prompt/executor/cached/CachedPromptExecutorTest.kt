@@ -6,6 +6,8 @@ import ai.koog.prompt.cache.model.PromptCache
 import ai.koog.prompt.cache.model.put
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.executor.model.PromptExecutorOperation
+import ai.koog.prompt.executor.model.ResolvedModel
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
@@ -52,7 +54,7 @@ class CachedPromptExecutorTest {
     }
 
     // Mock implementation of PromptExecutor
-    private class MockPromptExecutor : PromptExecutor() {
+    private open class MockPromptExecutor : PromptExecutor() {
         var executeCalled = false
         var executeStreamingCalled = false
 
@@ -82,6 +84,29 @@ class CachedPromptExecutorTest {
         }
 
         override fun close() {}
+    }
+
+    @Test
+    fun testResolvedFallbackIsReusedOnCacheMiss() = runTest {
+        val fallback = LLModel(LLMProvider.Ollama, "llama3.2")
+        val nested = object : MockPromptExecutor() {
+            var resolutions = 0
+
+            override suspend fun resolveModel(model: LLModel, promptExecutorOperation: PromptExecutorOperation): ResolvedModel {
+                assertEquals(testModel, model)
+                resolutions++
+                return ResolvedModel(fallback)
+            }
+
+            override suspend fun execute(prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>): Message.Assistant {
+                assertEquals(fallback, model.effectiveModel)
+                return testResponse
+            }
+        }
+        val executor = CachedPromptExecutor(MockPromptCache(), nested, testClock)
+        val resolved = executor.resolveModel(testModel, PromptExecutorOperation.Execute)
+        assertEquals(testResponse, executor.execute(testPrompt, resolved, testTools))
+        assertEquals(1, nested.resolutions)
     }
 
     @Test

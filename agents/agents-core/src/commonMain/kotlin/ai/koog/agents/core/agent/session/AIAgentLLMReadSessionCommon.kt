@@ -1,6 +1,9 @@
 package ai.koog.agents.core.agent.session
 
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.agent.config.MissingToolsConversionStrategy
+import ai.koog.agents.core.annotation.InternalAgentsApi
+import ai.koog.agents.core.feature.ContextualPromptExecutor
 import ai.koog.agents.core.tools.ToolBase
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.utils.ActiveProperty
@@ -8,6 +11,7 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.openai.usesOpenAIResponses
 import ai.koog.prompt.executor.model.PromptExecutor
+import ai.koog.prompt.executor.model.PromptExecutorOperation
 import ai.koog.prompt.executor.model.StructureFixingParser
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.executor.model.parseResponseToStructuredResponse
@@ -107,18 +111,25 @@ public abstract class AIAgentLLMReadSessionCommon internal constructor(
     }
 
     /**
-     * Sends a request to the language model without utilizing any tools and returns multiple responses.
-     *
-     * @return A list of response messages from the language model.
+     * Sends a request with tool calls disabled for the model selected by the executor.
      */
     @JvmSynthetic
+    @OptIn(InternalAgentsApi::class)
     public suspend fun requestLLMWithoutTools(): Message.Assistant {
         validateSession()
 
-        if (model.provider == LLMProvider.OpenAI && model.supports(LLMCapability.ToolChoice) && model.usesOpenAIResponses(prompt.params)) {
-            return execute(prompt.withUpdatedParams { toolChoice = LLMParams.ToolChoice.None }, tools)
+        val resolved = executor.resolveModel(model, PromptExecutorOperation.Execute)
+        val (request, definitions) = prompt.forNoToolsTurn(
+            resolved.effectiveModel, tools, config.missingToolsConversionStrategy
+        )
+        val response = if (executor is ContextualPromptExecutor) {
+            executor.execute(request, resolved, definitions, withoutTools = true)
+        } else {
+            executor.execute(request, resolved, definitions)
         }
-        return execute(prompt.withUpdatedParams { toolChoice = null }, emptyList())
+        return responseProcessor?.process(
+            executor, request, resolved.effectiveModel, emptyList(), response, config.serializer
+        ) ?: response
     }
 
     /**
@@ -276,4 +287,20 @@ public abstract class AIAgentLLMReadSessionCommon internal constructor(
     override fun close() {
         isActive = false
     }
+}
+
+internal fun Prompt.forNoToolsTurn(
+    model: LLModel,
+    tools: List<ToolDescriptor>,
+    conversion: MissingToolsConversionStrategy,
+): Pair<Prompt, List<ToolDescriptor>> {
+    val retainDefinitions = model.provider == LLMProvider.OpenAI && model.supports(LLMCapability.ToolChoice) &&
+        model.usesOpenAIResponses(params)
+    val definitions = if (retainDefinitions) tools else emptyList()
+    val raw = params.additionalProperties?.minus("tool_choice")
+    val restricted = params.copy(
+        toolChoice = if (retainDefinitions) LLMParams.ToolChoice.None else null,
+        additionalProperties = if (retainDefinitions) raw else raw?.minus("tools"),
+    )
+    return conversion.convertPrompt(withParams(restricted), definitions) to definitions
 }

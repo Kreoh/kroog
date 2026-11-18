@@ -212,7 +212,7 @@ internal fun codexRequest(original: JsonObject): JsonObject {
     }
     setOf(
         "temperature", "top_p", "top_logprobs", "logprobs", "max_output_tokens", "max_tokens", "max_tool_calls",
-        "prompt_cache_key", "background", "truncation", "safety_identifier", "context_management", "previous_response_id",
+        "prompt_cache_key", "prompt_cache_options", "background", "truncation", "safety_identifier", "context_management", "previous_response_id",
     ).forEach(request::remove)
     request["store"] = JsonPrimitive(false)
     request["stream"] = JsonPrimitive(true)
@@ -221,6 +221,9 @@ internal fun codexRequest(original: JsonObject): JsonObject {
     request["input"] = JsonArray(
         original["input"]!!.jsonArray.mapNotNull { element ->
             val item = element.jsonObject
+            require(item["type"] != JsonPrimitive("configuration_update")) {
+                "Configuration updates require the direct OpenAI Responses API"
+            }
             if (leading && item["role"]?.jsonPrimitive?.content in setOf("system", "developer")) {
                 val content = item["content"]
                 when (content) {

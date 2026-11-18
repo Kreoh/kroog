@@ -16,6 +16,7 @@ import ai.koog.prompt.executor.clients.google.GoogleParams
 import ai.koog.prompt.executor.clients.openai.OpenAICodeInterpreterConfig
 import ai.koog.prompt.executor.clients.openai.OpenAIPromptCacheIdentity
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParams
+import ai.koog.prompt.executor.clients.openai.openAIConfigurationUpdate
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.executor.model.PromptExecutor
@@ -805,6 +806,37 @@ class TieredHistoryCompressionStrategyTest {
             assertHandover(result.messages[1], "Summary")
             assertTrue(requests.all { characterTokenizer().tokenCountFor(it) <= 3000 })
             assertTrue(requests.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun testBudgetedCompressionKeepsUpdatesAtTheirRetainedTurns() = runTest {
+        val history = Prompt.build("report", clock = clock) {
+            system("Instructions")
+            user("Old question")
+            assistant("Old answer")
+            openAIConfigurationUpdate(ReasoningEffort.HIGH)
+            user("Answer in prose")
+            assistant("Prose")
+            openAIConfigurationUpdate(schema = LLMParams.Schema.JSON.Standard("report", JsonObject(emptyMap())))
+            user("Produce report")
+        }.messages
+        for (retain in listOf(0, 1, 2)) {
+            val requests = mutableListOf<Prompt>()
+            val context = context(history, defaultModel, RecordingPromptExecutor {
+                requests += it
+                assistant("Summary", 10)
+            })
+            context.writeSession { HistoryCompressionStrategy.Budgeted(retain, 3000, characterTokenizer()).compress(this, emptyList()) }
+            assertTrue(requests.isNotEmpty())
+            assertTrue(requests.all { it.messages.filterIsInstance<Message.System>() == listOf(history.first()) })
+            val expected = when (retain) {
+                2 -> listOf(0, 3, 4, 5, 6, 7)
+                1 -> listOf(0, 3, 6, 7)
+                else -> listOf(0, 3, 6)
+            }
+            val replay = context.readSession { prompt.messages }.filter { it in history }
+            assertEquals(expected.map(history::get), replay)
         }
     }
 

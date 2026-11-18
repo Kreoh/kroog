@@ -147,7 +147,13 @@ public interface PromptCache {
             val messagesWithoutMetaInfo = prompt.messages.map { message ->
                 when (message) {
                     is Message.User -> message.copy(metaInfo = RequestMetaInfo.Empty)
-                    is Message.System -> message.copy(metaInfo = RequestMetaInfo.Empty)
+                    is Message.System -> {
+                        val update = message.metaInfo.metadata?.get(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE)
+                        val meta = update?.let {
+                            RequestMetaInfo.Empty.copy(metadata = JsonObject(mapOf(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE to it)))
+                        } ?: RequestMetaInfo.Empty
+                        message.copy(metaInfo = meta)
+                    }
                     is Message.Assistant -> message.copy(metaInfo = ResponseMetaInfo.Empty)
                 }
             }

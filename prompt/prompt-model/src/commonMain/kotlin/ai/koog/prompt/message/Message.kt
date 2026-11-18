@@ -845,6 +845,9 @@ public data class RequestMetaInfo @JvmOverloads constructor(
      * Companion object for `RequestMetaInfo` that provides factory methods and utilities related to creating instances.
      */
     public companion object {
+        /** Metadata key for a turn-scoped OpenAI Responses configuration update carried by a system message. */
+        public const val OPENAI_CONFIGURATION_UPDATE: String = "koog.openai.configuration_update"
+
         /**
          * Creates a RequestMetadata instance with a timestamp from the provided clock.
          *
