@@ -37,7 +37,7 @@ Do not describe a suffixed version as a plain SemVer final release.
 
 Revision 7 prepares the changes in the [release notes](CHANGELOG.md#kroog-130-kroog7). Revision 6 is published on Maven Central. Installation examples use the previously verified revision 2 consumer configuration.
 
-Tag the validated version bump on the preparation branch before merging it into `master`. After the merge, dispatch the release workflow with that tag. See the [release procedure](PUBLISHING.md#release-preparation).
+Tag the validated preparation commit before selecting **Squash and merge**. After the PR lands on `master`, dispatch the release workflow from `master` with the same annotated tag. See the [release procedure](PUBLISHING.md#release-preparation).
 
 ## Stable modules, beta modules and snapshots
 

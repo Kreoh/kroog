@@ -165,8 +165,9 @@ dependency locks and dependency-verification checksums from that generation.
 3. Document user-visible features, fixes, compatibility changes and the incorporated upstream version. Complete the README release gate below and review the preparation commit.
 4. Complete the model catalogue release gate for each model change. Run the relevant JVM tests and ABI checks, investigate failures and record existing limitations. Validate all 87 publications from a clean archive of the exact preparation commit in a fresh output directory.
 5. **Before merging into `master`, create the annotated version tag on the validated preparation commit.** Use a clean checkout, push the preparation branch and tag, and verify the tag object and its target on origin.
-6. Merge the preparation PR into `master` using an allowed merge method, including squash merge. Manually dispatch the release workflow with the verified tag. If the release source needs a correction after the tag is pushed, prepare a new revision.
-7. Inspect the signed bundle and Central Portal validation results. Approve
+6. Choose **Squash and merge** on the preparation PR into `master`. GitHub creates a new commit on `master`; the release tag continues to point to the validated preparation commit. Review any differences between the tagged source and the squash commit with `git diff "$version" <squash-commit>`. If a change must ship and is missing from the tag, prepare a new revision.
+7. After the PR is merged, open **Actions → Publish Maven release → Run workflow**. Select `master` and enter the existing annotated tag as `release_tag`.
+8. Inspect the signed bundle and Central Portal validation results. Approve
    publication in Central Portal only after validation succeeds. Create the
    GitHub release against the same tag with the reviewed release notes, then
    update consumers once the artefacts are available from Central.
@@ -263,12 +264,7 @@ test "$(git ls-remote --refs origin "refs/tags/$version" | cut -f1)" = \
   "$(git rev-parse "refs/tags/$version")"
 ```
 
-To dispatch in the GitHub browser, open **Actions**, select **Publish Maven
-release**, and choose **Run workflow**. Select the repository default branch in
-the branch selector, enter the exact annotated tag in `release_tag`, and run
-the workflow. The branch selects the trusted workflow definition. The workflow
-checks out and publishes the commit peeled from `release_tag`, rather than the
-default-branch commit.
+A browser dispatch loads the workflow definition from the default branch. The workflow checks out the commit identified by `release_tag`, signs its artefacts and uploads them to Central Portal for approval.
 
 The equivalent GitHub CLI command is:
 
