@@ -145,6 +145,24 @@ class GoogleLLMClientTest {
     }
 
     @Test
+    fun testOlderModelsRejectXhigh() {
+        val client = GoogleLLMClient(apiKey = "unused")
+        val configs = listOf(
+            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.XHIGH)),
+            GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
+                put("thinking_level", JsonPrimitive("XHIGH"))
+            })),
+        )
+        for (model in listOf(GoogleModels.Gemini3_7Flash, GoogleModels.Gemini2_5Pro)) {
+            configs.forEach { params ->
+                assertFailsWith<IllegalArgumentException> {
+                    client.createGoogleRequest(Prompt(messages = emptyList(), id = "thinking", params = params), model, emptyList())
+                }
+            }
+        }
+    }
+
+    @Test
     fun testThinkingLevelsAndBudgetRestrictions() {
         val client = GoogleLLMClient(apiKey = "unused")
         for (model in listOf(

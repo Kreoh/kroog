@@ -92,6 +92,12 @@ public data class ModelCatalogueEntry(
     val structuredOutput: Boolean,
     val hostedExecution: Boolean,
 ) {
+    /** Streaming profile for this route, with the input allowance after reserving the full streaming output budget. */
+    public fun forStreaming(): ModelCatalogueEntry = when (id) {
+        "gemini-4-carbon", "gemini-4-argon" -> copy(maxInputTokens = 1_048_576L - 65_536, maxOutputTokens = 65_536)
+        else -> this
+    }
+
     /** Verified routes accepting explicit input-content prompt-cache breakpoints. */
     public val explicitPromptCachingApis: Set<ProviderApi>
         get() = if (publisher == ModelPublisher.OPENAI && supportsOpenAIExplicitPromptCaching(id)) {
@@ -336,7 +342,7 @@ public object ModelCatalogue {
         // https://platform.claude.com/docs/en/about-claude/models/overview
         fable5("claude-fable-5-1"),
         // https://platform.claude.com/docs/en/models/fable-5-2/migration-guide
-        fable5("claude-fable-5-2"),
+        fable5("claude-fable-5-2", apis = claudeApis + ProviderApi.ANTHROPIC_MESSAGES),
         claude(
             id = "claude-sonnet-5",
             input = 1_000_000,
@@ -478,6 +484,7 @@ public object ModelCatalogue {
             reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0)),
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes + googleOfficeMimeTypes,
+            unsupportedApis = mapOf(ProviderApi.GEMINI_GENERATE_CONTENT to ModelProviderApiUnsupportedReason.MODEL_SUPPORT_NOT_ESTABLISHED),
         ),
         // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-hydrogen
         gemini(
@@ -487,6 +494,7 @@ public object ModelCatalogue {
             reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.4, "high" to 0.7, "xhigh" to 1.0)),
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes + googleOfficeMimeTypes,
+            unsupportedApis = mapOf(ProviderApi.GEMINI_GENERATE_CONTENT to ModelProviderApiUnsupportedReason.MODEL_SUPPORT_NOT_ESTABLISHED),
         ),
         gemini(
             id = "gemini-3.1-pro",
@@ -529,6 +537,8 @@ public object ModelCatalogue {
         val model = find(idOrAlias) ?: return null
         if (model.compatibility(api) !is ModelProviderApiCompatibility.Supported) return null
         return when {
+            api == ProviderApi.ANTHROPIC_MESSAGES -> model.copy(hostedExecution = false)
+
             api == ProviderApi.CODEX_RESPONSES && model.id in codexContextWindows -> model.copy(
                 reasoning = (model.reasoning as ReasoningSupport.Supported).let {
                     it.copy(efforts = it.efforts - "none")
@@ -783,6 +793,8 @@ private val codexContextWindows: Map<String, Long> = mapOf(
 )
 
 private val textModelApis: Set<ProviderApi> = setOf(
+    ProviderApi.ANTHROPIC_MESSAGES,
+    ProviderApi.GEMINI_GENERATE_CONTENT,
     ProviderApi.OPENAI_RESPONSES,
     ProviderApi.AZURE_RESPONSES,
     ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
@@ -1000,30 +1012,32 @@ private fun claude(
     output: Long,
     reasoning: ReasoningSupport.Supported,
     omitTemperature: Boolean = false,
+    apis: Set<ProviderApi> = claudeApis,
 ): ModelCatalogueEntry = ModelCatalogueEntry(
     id = id,
     publisher = ModelPublisher.ANTHROPIC,
     kind = ModelKind.TEXT,
-    providerApis = claudeApis,
+    providerApis = apis,
     reasoning = reasoning,
     maxInputTokens = input,
     maxOutputTokens = output,
     temperature = TemperatureSupport(
         minimum = 0.0,
         maximum = 1.0,
-        omittedProviderApis = if (omitTemperature) claudeApis else emptySet(),
+        omittedProviderApis = if (omitTemperature) apis else emptySet(),
     ),
     supportedMimeTypes = multimodalMimeTypes,
     structuredOutput = true,
     hostedExecution = true,
 )
 
-private fun fable5(id: String): ModelCatalogueEntry = claude(
+private fun fable5(id: String, apis: Set<ProviderApi> = claudeApis): ModelCatalogueEntry = claude(
     id = id,
     input = 1_000_000,
     output = 128_000,
     reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.25, "high" to 0.5, "xhigh" to 0.75, "max" to 1.0)),
     omitTemperature = true,
+    apis = apis,
 )
 
 private fun deepSeek(): ModelCatalogueEntry = ModelCatalogueEntry(
@@ -1107,12 +1121,14 @@ private fun gemini(
     output: Long,
     reasoning: ReasoningSupport.Supported,
     omitTemperature: Boolean = false,
+    unsupportedApis: Map<ProviderApi, ModelProviderApiUnsupportedReason> = emptyMap(),
     mimeTypes: Set<String> = multimodalMimeTypes,
 ): ModelCatalogueEntry = ModelCatalogueEntry(
     id = id,
     publisher = ModelPublisher.GOOGLE,
     kind = ModelKind.TEXT,
     providerApis = setOf(ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT),
+    unsupportedProviderApis = unsupportedApis,
     reasoning = reasoning,
     maxInputTokens = input,
     maxOutputTokens = output,

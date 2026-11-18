@@ -68,7 +68,7 @@ class LatestModelCatalogueTest {
             assertEquals(setOf("low", "medium", "high", "xhigh", "max"), efforts(model))
             assertEquals(
                 setOf(ProviderApi.VERTEX_ANTHROPIC_MESSAGES, ProviderApi.BEDROCK_ANTHROPIC_MESSAGES, ProviderApi.BEDROCK_CONVERSE),
-                model.providerApis,
+                model.providerApis - ProviderApi.ANTHROPIC_MESSAGES,
             )
             assertEquals(model.providerApis, model.temperature.omittedProviderApis)
             assertTrue("application/pdf" in model.supportedMimeTypes)
@@ -283,6 +283,7 @@ class LatestModelCatalogueTest {
             assertNull(codex.outputTokenLimit)
             assertFalse(codex.hostedExecution)
             val converse = assertNotNull(ModelCatalogue.find(id, ProviderApi.BEDROCK_CONVERSE))
+            assertTrue(converse.forStreaming().structuredOutput)
             assertTrue(converse.structuredOutput)
             assertFalse(converse.hostedExecution)
             for (api in listOf(ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS)) {
@@ -301,6 +302,12 @@ class LatestModelCatalogueTest {
             val profile = assertNotNull(ModelCatalogue.find(id, api))
             assertEquals(1_048_576 - output, profile.maxInputTokens)
             assertEquals(output, profile.maxOutputTokens)
+            val stream = profile.forStreaming()
+            assertEquals(65_536L, stream.maxOutputTokens)
+            assertEquals(1_048_576L, stream.maxInputTokens + stream.maxOutputTokens)
+            assertEquals(ModelProviderApiCompatibility.Unsupported(ModelProviderApiUnsupportedReason.MODEL_SUPPORT_NOT_ESTABLISHED),
+                profile.compatibility(ProviderApi.GEMINI_GENERATE_CONTENT))
+            assertNull(ModelCatalogue.find(id, ProviderApi.GEMINI_GENERATE_CONTENT))
             val levels = setOf("low", "medium", "high")
             assertEquals(if (id == "gemini-4-hydrogen") levels + "xhigh" else levels, efforts(profile))
             assertEquals(setOf(api), profile.temperature.omittedProviderApis)
@@ -309,6 +316,16 @@ class LatestModelCatalogueTest {
             assertTrue(profile.hostedExecution)
             assertNull(ModelCatalogue.find(id, ProviderApi.OPENAI_RESPONSES))
         }
+    }
+
+    @Test
+    fun testFableDirectMessagesRoute() {
+        val direct = assertNotNull(ModelCatalogue.find("claude-fable-5-2", ProviderApi.ANTHROPIC_MESSAGES))
+        assertEquals(128_000L, direct.maxOutputTokens)
+        assertTrue(ProviderApi.ANTHROPIC_MESSAGES in direct.temperature.omittedProviderApis)
+        assertTrue(direct.structuredOutput)
+        assertFalse(direct.hostedExecution)
+        assertNull(ModelCatalogue.find(direct.id, ProviderApi.GEMINI_GENERATE_CONTENT))
     }
 
     private fun efforts(model: ModelCatalogueEntry): Set<String> =

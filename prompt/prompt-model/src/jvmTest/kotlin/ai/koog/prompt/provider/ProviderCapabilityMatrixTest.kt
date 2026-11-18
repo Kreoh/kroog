@@ -12,6 +12,8 @@ class ProviderCapabilityMatrixTest {
     @Test
     fun testEveryProviderApiHasExactExecutionOutcome() {
         val expected = mapOf(
+            ProviderApi.ANTHROPIC_MESSAGES to null,
+            ProviderApi.GEMINI_GENERATE_CONTENT to HostedExecutionMode.INLINE_PROVIDER_TOOL,
             ProviderApi.OPENAI_RESPONSES to HostedExecutionMode.INLINE_PROVIDER_TOOL,
             ProviderApi.AZURE_RESPONSES to HostedExecutionMode.INLINE_PROVIDER_TOOL,
             ProviderApi.OPENAI_COMPATIBLE_RESPONSES to null,

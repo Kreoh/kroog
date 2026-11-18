@@ -30,6 +30,7 @@ import ai.koog.prompt.executor.clients.google.models.GoogleModelsResponse
 import ai.koog.prompt.executor.clients.google.models.GooglePart
 import ai.koog.prompt.executor.clients.google.models.GoogleRequest
 import ai.koog.prompt.executor.clients.google.models.GoogleResponse
+import ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel
 import ai.koog.prompt.executor.clients.google.models.GoogleTool
 import ai.koog.prompt.executor.clients.google.models.GoogleToolConfig
 import ai.koog.prompt.executor.clients.google.models.GoogleUsageMetadata
@@ -668,6 +669,21 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
+        val rawThinkingConfigs = listOfNotNull(
+            googleParams.additionalProperties?.get("thinkingConfig"),
+            googleParams.additionalProperties?.get("thinking_config"),
+        )
+        if (profile == null) {
+            val requestsXhigh = googleParams.thinkingConfig?.thinkingLevel == GoogleThinkingLevel.XHIGH ||
+                rawThinkingConfigs.any { config ->
+                    val fields = config as? JsonObject
+                    listOf(fields?.get("thinkingLevel"), fields?.get("thinking_level")).any {
+                        (it as? JsonPrimitive)?.content.equals("xhigh", ignoreCase = true)
+                    }
+                }
+            require(!requestsXhigh || (ModelCatalogue.find(model.id)?.reasoning as? ReasoningSupport.Supported)
+                ?.efforts?.containsKey("xhigh") == true) { "Model ${model.id} does not support xhigh thinking." }
+        }
         if (profile != null) {
             val allowedLevels = (profile.reasoning as ReasoningSupport.Supported).efforts.keys
             require(googleParams.thinkingConfig?.thinkingBudget == null) {
@@ -678,10 +694,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
                     "Model ${model.id} supports thinking levels ${allowedLevels.joinToString()}."
                 }
             }
-            listOfNotNull(
-                googleParams.additionalProperties?.get("thinkingConfig"),
-                googleParams.additionalProperties?.get("thinking_config"),
-            ).forEach { rawThinking ->
+            rawThinkingConfigs.forEach { rawThinking ->
                 val thinking = rawThinking.jsonObject
                 require("thinkingBudget" !in thinking && "thinking_budget" !in thinking &&
                     listOfNotNull(thinking["thinkingLevel"], thinking["thinking_level"]).all {
@@ -693,7 +706,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         }
         val maxOutputTokens = if (isGemini4) {
             val unaryLimit = checkNotNull(profile).maxOutputTokens.toInt()
-            val limit = if (streaming) 65_536 else unaryLimit
+            val limit = if (streaming) profile.forStreaming().maxOutputTokens.toInt() else unaryLimit
             require(googleParams.additionalProperties.orEmpty().keys.none {
                 it in setOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens")
             }) {

@@ -127,7 +127,7 @@ The revision 6 source was checked against provider definitions and catalogue tes
 
 Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
 
-For direct Anthropic Messages or Gemini API calls, select the model from `AnthropicModels` or `GoogleModels`. The catalogue exposes their cloud routes through `ProviderApi`.
+Use `ProviderApi.ANTHROPIC_MESSAGES` for direct Fable 5.2 requests. For Carbon and Hydrogen, use `VERTEX_GEMINI_GENERATE_CONTENT`. Direct Gemini GenerateContent support for these two models is pending verification. Call `forStreaming()` on the route profile for streaming token budgets and schema support.
 
 For Codex account selection, supported models and Gemini 4 Argon configuration, see the [Codex and Argon guide](docs/codex-and-argon.md).
 
