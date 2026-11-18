@@ -53,11 +53,48 @@ class GoogleLLMClientTest {
         val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
         val original = Message.User(List(3_000) { image }, RequestMetaInfo.Empty)
         val toolResult = Message.User(MessagePart.Tool.Result("call", "snapshot", listOf(image)), RequestMetaInfo.Empty)
-        for (model in listOf(GoogleModels.Gemini3_8Flash, GoogleModels.Gemini4Argon)) {
+        for (model in listOf(GoogleModels.Gemini3_8Flash, GoogleModels.Gemini4Argon, GoogleModels.Gemini4Carbon, GoogleModels.Gemini4Hydrogen)) {
             vertex.createGoogleRequest(Prompt(listOf(original), "boundary"), model, emptyList())
             val overLimit = Prompt(listOf(original, toolResult), "over-limit")
             assertFailsWith<ImageInputException> { vertex.createGoogleRequest(overLimit, model, emptyList()) }
             GoogleLLMClient(apiKey = "unused").createGoogleRequest(overLimit, model, emptyList())
+        }
+    }
+
+    @Test
+    fun testVertexCountsImagesAndDocumentsTogetherForCarbonAndHydrogen() {
+        val vertex = GoogleLLMClient(apiKey = "unused", settings = GoogleClientSettings(defaultPath = "v1/projects/p/locations/eu/publishers/google/models"))
+        val bytes = AttachmentContent.Binary.Bytes(byteArrayOf(1))
+        val document = MessagePart.Attachment(AttachmentSource.File(bytes, "pdf", "application/pdf"))
+        val plainText = MessagePart.Attachment(AttachmentSource.File(bytes, "txt", "text/plain"))
+        val image = MessagePart.Attachment(AttachmentSource.Image(bytes, "png"))
+        val images = Message.User(List(3_000) { image }, RequestMetaInfo.Empty)
+        for (model in listOf(GoogleModels.Gemini4Carbon, GoogleModels.Gemini4Hydrogen)) {
+            fun request(extra: MessagePart.Attachment) = vertex.createGoogleRequest(
+                Prompt(listOf(images, Message.User(extra, RequestMetaInfo.Empty)), "shared-limit"), model, emptyList(),
+            )
+            request(plainText)
+            assertFailsWith<ImageInputException> { request(document) }
+        }
+    }
+
+    @Test
+    fun testVertexCountsPlainTextFilesAndNestedToolFilesTowardsTotal() {
+        val vertex = GoogleLLMClient(apiKey = "unused", settings = GoogleClientSettings(
+            defaultPath = "v1/projects/p/locations/eu/publishers/google/models",
+        ))
+        val textFile = MessagePart.Attachment(
+            AttachmentSource.File(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "txt", "text/plain"),
+        )
+        val files = Message.User(List(6_500) { textFile }, RequestMetaInfo.Empty)
+        for (model in listOf(GoogleModels.Gemini4Carbon, GoogleModels.Gemini4Hydrogen)) {
+            fun request(extra: MessagePart.RequestPart) = vertex.createGoogleRequest(
+                Prompt(listOf(files, Message.User(extra, RequestMetaInfo.Empty)), "total-files"), model, emptyList(),
+            )
+            request(MessagePart.Text("plain message"))
+            val toolFiles = MessagePart.Tool.Result("call", "read", listOf(textFile))
+            assertFailsWith<IllegalArgumentException> { request(toolFiles) }.message shouldBe
+                "Gemini on Vertex accepts up to 6,500 files per request. This request contains 6501."
         }
     }
 
@@ -77,87 +114,82 @@ class GoogleLLMClientTest {
     }
 
     @Test
-    fun testArgonOutputBoundsAndExplicitCacheRejection() {
+    fun testGemini4OutputBoundsAndExplicitCacheRejection() {
         val client = GoogleLLMClient(apiKey = "unused")
-        fun request(params: GoogleParams = GoogleParams(), streaming: Boolean = false) = client.createGoogleRequest(
-            Prompt(messages = emptyList(), id = "argon", params = params),
-            GoogleModels.Gemini4Argon, emptyList(), streaming,
-        )
-        request().generationConfig!!.maxOutputTokens shouldBe 32_768
-        request(streaming = true).generationConfig!!.maxOutputTokens shouldBe 32_768
-        request(GoogleParams(maxTokens = 32_768)).generationConfig!!.maxOutputTokens shouldBe 32_768
-        request(GoogleParams(maxTokens = 65_536), true).generationConfig!!.maxOutputTokens shouldBe 65_536
-        listOf(0, -1, 32_769, 65_536).forEach {
-            assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = it)) }
+        for ((model, unaryLimit) in listOf(
+            GoogleModels.Gemini4Argon to 32_768,
+            GoogleModels.Gemini4Carbon to 32_768,
+            GoogleModels.Gemini4Hydrogen to 65_536,
+        )) {
+            fun request(params: GoogleParams = GoogleParams(), streaming: Boolean = false) = client.createGoogleRequest(
+                Prompt(messages = emptyList(), id = "gemini4", params = params),
+                model.copy(maxOutputTokens = 1), emptyList(), streaming,
+            )
+            request().generationConfig!!.maxOutputTokens shouldBe unaryLimit
+            request(streaming = true).generationConfig!!.maxOutputTokens shouldBe unaryLimit
+            request(GoogleParams(maxTokens = unaryLimit)).generationConfig!!.maxOutputTokens shouldBe unaryLimit
+            request(GoogleParams(maxTokens = 65_536), true).generationConfig!!.maxOutputTokens shouldBe 65_536
+            listOf(0, -1, unaryLimit + 1).forEach {
+                assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = it)) }
+            }
+            assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = 65_537), true) }
+            listOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens").forEach {
+                assertFailsWith<IllegalArgumentException> {
+                    request(GoogleParams(additionalProperties = mapOf(it to JsonPrimitive("override"))))
+                }
+            }
+            val penalties = listOf("frequencyPenalty", "frequency_penalty", "presencePenalty", "presence_penalty")
+            request(GoogleParams(additionalProperties = penalties.associateWith { JsonPrimitive(1) }))
+                .generationConfig!!.additionalProperties shouldBe null
         }
-        assertFailsWith<IllegalArgumentException> { request(GoogleParams(maxTokens = 65_537), true) }
-        listOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens").forEach {
-            assertFailsWith<IllegalArgumentException> {
-                request(GoogleParams(additionalProperties = mapOf(it to JsonPrimitive("override"))))
+    }
+
+    @Test
+    fun testThinkingLevelsAndBudgetRestrictions() {
+        val client = GoogleLLMClient(apiKey = "unused")
+        for (model in listOf(
+            GoogleModels.Gemini3_8Flash,
+            GoogleModels.Gemini4Argon,
+            GoogleModels.Gemini4Carbon,
+            GoogleModels.Gemini4Hydrogen,
+        )) {
+            fun request(params: GoogleParams) = client.createGoogleRequest(
+                Prompt(messages = emptyList(), id = "thinking", params = params), model, emptyList(),
+            )
+            listOf(GoogleThinkingLevel.LOW, GoogleThinkingLevel.MEDIUM, GoogleThinkingLevel.HIGH).forEach { level ->
+                request(GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = level)))
+                    .generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe level
+            }
+            listOf(
+                GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.MINIMAL)),
+                GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingBudget = 1024)),
+                GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                    put("thinkingLevel", JsonPrimitive("minimal"))
+                })),
+                GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
+                    put("thinking_budget", JsonPrimitive(1024))
+                })),
+                GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                    put("thinkingLevel", JsonPrimitive("extreme"))
+                })),
+                GoogleParams(additionalProperties = mapOf(
+                    "thinkingConfig" to buildJsonObject { put("thinkingLevel", JsonPrimitive("low")) },
+                    "thinking_config" to buildJsonObject { put("thinking_budget", JsonPrimitive(1)) },
+                )),
+            ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
+            val xhigh = GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.XHIGH))
+            val raw = GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
+                put("thinkingLevel", JsonPrimitive("XHIGH"))
+            }))
+            if (model == GoogleModels.Gemini4Hydrogen) {
+                request(xhigh).generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe GoogleThinkingLevel.XHIGH
+                request(raw).generationConfig!!.additionalProperties shouldBe raw.additionalProperties
+            } else {
+                assertFailsWith<IllegalArgumentException> { request(xhigh) }
+                assertFailsWith<IllegalArgumentException> { request(raw) }
             }
         }
-        val penalties = listOf("frequencyPenalty", "frequency_penalty", "presencePenalty", "presence_penalty")
-        request(GoogleParams(additionalProperties = penalties.associateWith { JsonPrimitive(1) }))
-            .generationConfig!!.additionalProperties shouldBe null
     }
-
-    @Test
-    fun testGemini38ThinkingLevelsAndBudgetRestrictions() {
-        val client = GoogleLLMClient(apiKey = "unused")
-        fun request(params: GoogleParams) = client.createGoogleRequest(
-            Prompt(messages = emptyList(), id = "thinking", params = params), GoogleModels.Gemini3_8Flash, emptyList(),
-        )
-        listOf(GoogleThinkingLevel.LOW, GoogleThinkingLevel.MEDIUM, GoogleThinkingLevel.HIGH).forEach { level ->
-            request(GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = level)))
-                .generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe level
-        }
-        listOf(
-            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.MINIMAL)),
-            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingBudget = 1024)),
-            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
-                put("thinkingLevel", JsonPrimitive("minimal"))
-            })),
-            GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
-                put("thinking_budget", JsonPrimitive(1024))
-            })),
-            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
-                put("thinkingLevel", JsonPrimitive("extreme"))
-            })),
-            GoogleParams(additionalProperties = mapOf(
-                "thinkingConfig" to buildJsonObject { put("thinkingLevel", JsonPrimitive("low")) },
-                "thinking_config" to buildJsonObject { put("thinking_budget", JsonPrimitive(1)) },
-            )),
-        ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
-    }
-    @Test
-    fun testArgonThinkingLevelsAndBudgetRestrictions() {
-        val client = GoogleLLMClient(apiKey = "unused")
-        fun request(params: GoogleParams) = client.createGoogleRequest(
-            Prompt(messages = emptyList(), id = "thinking", params = params), GoogleModels.Gemini4Argon, emptyList(),
-        )
-        listOf(GoogleThinkingLevel.LOW, GoogleThinkingLevel.MEDIUM, GoogleThinkingLevel.HIGH).forEach { level ->
-            request(GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = level)))
-                .generationConfig!!.thinkingConfig!!.thinkingLevel shouldBe level
-        }
-        listOf(
-            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingLevel = GoogleThinkingLevel.MINIMAL)),
-            GoogleParams(thinkingConfig = GoogleThinkingConfig(thinkingBudget = 1024)),
-            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
-                put("thinkingLevel", JsonPrimitive("minimal"))
-            })),
-            GoogleParams(additionalProperties = mapOf("thinking_config" to buildJsonObject {
-                put("thinking_budget", JsonPrimitive(1024))
-            })),
-            GoogleParams(additionalProperties = mapOf("thinkingConfig" to buildJsonObject {
-                put("thinkingLevel", JsonPrimitive("extreme"))
-            })),
-            GoogleParams(additionalProperties = mapOf(
-                "thinkingConfig" to buildJsonObject { put("thinkingLevel", JsonPrimitive("low")) },
-                "thinking_config" to buildJsonObject { put("thinking_budget", JsonPrimitive(1)) },
-            )),
-        ).forEach { assertFailsWith<IllegalArgumentException> { request(it) } }
-    }
-
 
     @Test
     fun `createGoogleRequest should use null maxTokens if unspecified`() {
@@ -407,6 +439,8 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
             GoogleModels.Gemini4Argon,
+            GoogleModels.Gemini4Carbon,
+            GoogleModels.Gemini4Hydrogen,
         ).forEach { model ->
             val config = client.createGoogleRequest(
                 prompt = Prompt(messages = emptyList(), id = "id", params = params),
@@ -432,6 +466,8 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
             GoogleModels.Gemini4Argon,
+            GoogleModels.Gemini4Carbon,
+            GoogleModels.Gemini4Hydrogen,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.createGoogleRequest(
@@ -466,6 +502,8 @@ class GoogleLLMClientTest {
             GoogleModels.Gemini3_7Flash,
             GoogleModels.Gemini3_8Flash,
             GoogleModels.Gemini4Argon,
+            GoogleModels.Gemini4Carbon,
+            GoogleModels.Gemini4Hydrogen,
         ).forEach { model ->
             assertFailsWith<IllegalArgumentException> {
                 client.executeMultipleChoices(

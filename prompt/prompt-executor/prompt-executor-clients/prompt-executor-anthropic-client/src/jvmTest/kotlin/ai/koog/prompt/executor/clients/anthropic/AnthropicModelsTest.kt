@@ -42,6 +42,7 @@ class AnthropicModelsTest {
         val modelsWithSchema = listOf(
             AnthropicModels.Fable_5,
             AnthropicModels.Fable_5_1,
+            AnthropicModels.Fable_5_2,
             AnthropicModels.Haiku_4_5,
             AnthropicModels.Sonnet_4_5,
             AnthropicModels.Sonnet_4_6,
@@ -128,6 +129,7 @@ class AnthropicModelsTest {
     fun `Anthropic thinking-capable models should advertise thinking capability`() {
         assertNotNull(AnthropicModels.Fable_5.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Fable_5_1.capabilities) shouldContain LLMCapability.Thinking
+        assertNotNull(AnthropicModels.Fable_5_2.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Haiku_4_5.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Sonnet_4.capabilities) shouldContain LLMCapability.Thinking
         assertNotNull(AnthropicModels.Opus_4_6.capabilities) shouldContain LLMCapability.Thinking
@@ -150,9 +152,9 @@ class AnthropicModelsTest {
     }
 
     @Test
-    fun testClaude55ProfilesAndCompatibleRequests() {
+    fun testMandatoryThinkingProfilesAndCompatibleRequests() {
         val client = AnthropicLLMClient(apiKey = "unused")
-        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5).forEach { model ->
+        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5, AnthropicModels.Fable_5_2).forEach { model ->
             assertEquals(1_000_000, model.contextLength)
             assertEquals(128_000, model.maxOutputTokens)
             assertEquals(model.id, DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
@@ -163,10 +165,13 @@ class AnthropicModelsTest {
             assertFalse(model.supports(LLMCapability.Temperature))
             listOf(false, true).forEach { stream ->
                 val body = Json.parseToJsonElement(client.createAnthropicRequest(
-                    prompt = prompt("claude-55", params = AnthropicParams(
-                        temperature = 0.7, topP = 0.8, topK = 10,
+                    prompt = prompt(model.id, params = AnthropicParams(
+                        temperature = 0.7, topP = 0.8.takeUnless { stream }, topK = 10.takeUnless { stream },
                         thinking = AnthropicThinking.Adaptive(AnthropicThinkingDisplay.SUMMARIZED, AnthropicEffort.HIGH),
-                        additionalProperties = mapOf("top_p" to JsonPrimitive(0.9), "custom" to JsonPrimitive(true)),
+                        additionalProperties = mapOf(
+                            "temperature" to JsonPrimitive(0.9), "top_p" to JsonPrimitive(0.9),
+                            "top_k" to JsonPrimitive(12), "custom" to JsonPrimitive(true),
+                        ),
                     )) { user("Hello") }, tools = emptyList(), model = model, stream = stream,
                 )).jsonObject
                 listOf("temperature", "top_p", "top_k").forEach { assertFalse(it in body) }
@@ -180,9 +185,9 @@ class AnthropicModelsTest {
     }
 
     @Test
-    fun testClaude55RejectsUnsupportedTypedAndRawRequests() {
+    fun testMandatoryThinkingModelsRejectUnsupportedTypedAndRawRequests() {
         val client = AnthropicLLMClient(apiKey = "unused")
-        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5).forEach { model ->
+        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5, AnthropicModels.Fable_5_2).forEach { model ->
             val invalid = listOf(
                 AnthropicParams(thinking = AnthropicThinking.Disabled()),
                 AnthropicParams(thinking = AnthropicThinking.Enabled(1024)),
@@ -190,6 +195,10 @@ class AnthropicModelsTest {
                 AnthropicParams(toolChoice = LLMParams.ToolChoice.Named("lookup")),
                 AnthropicParams(additionalProperties = mapOf("thinking" to buildJsonObject {
                     put("type", JsonPrimitive("disabled"))
+                })),
+                AnthropicParams(additionalProperties = mapOf("thinking" to buildJsonObject {
+                    put("type", JsonPrimitive("adaptive"))
+                    put("budget_tokens", JsonPrimitive(1024))
                 })),
                 AnthropicParams(additionalProperties = mapOf("tool_choice" to buildJsonObject {
                     put("type", JsonPrimitive("any"))
@@ -238,23 +247,26 @@ class AnthropicModelsTest {
     }
 
     @Test
-    fun testClaudeFable51ExposesExactProfileAndDefaultVersion() {
-        val model = AnthropicModels.Fable_5_1
-
-        assertEquals(LLMProvider.Anthropic, model.provider)
-        assertEquals("claude-fable-5-1", model.id)
-        assertEquals(1_000_000, model.contextLength)
-        assertEquals(128_000, model.maxOutputTokens)
-        assertFalse(model.supports(LLMCapability.Temperature))
-        assertTrue(model.supports(LLMCapability.Tools))
-        assertFalse(model.supports(LLMCapability.ToolChoice))
-        assertTrue(model.supports(LLMCapability.Vision.Image))
-        assertTrue(model.supports(LLMCapability.Document))
-        assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
-        assertTrue(model.supports(LLMCapability.Thinking))
-        assertTrue(model.supports(LLMCapability.PromptCaching))
-        assertTrue(model in AnthropicModels.models)
-        assertEquals("claude-fable-5-1", DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+    fun testClaudeFableVersionsExposeExactProfilesAndDefaultVersions() {
+        mapOf(
+            "claude-fable-5-1" to AnthropicModels.Fable_5_1,
+            "claude-fable-5-2" to AnthropicModels.Fable_5_2,
+        ).forEach { (id, model) ->
+            assertEquals(LLMProvider.Anthropic, model.provider)
+            assertEquals(id, model.id)
+            assertEquals(1_000_000, model.contextLength)
+            assertEquals(128_000, model.maxOutputTokens)
+            assertFalse(model.supports(LLMCapability.Temperature))
+            assertTrue(model.supports(LLMCapability.Tools))
+            assertFalse(model.supports(LLMCapability.ToolChoice))
+            assertTrue(model.supports(LLMCapability.Vision.Image))
+            assertTrue(model.supports(LLMCapability.Document))
+            assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+            assertTrue(model.supports(LLMCapability.Thinking))
+            assertTrue(model.supports(LLMCapability.PromptCaching))
+            assertTrue(model in AnthropicModels.models)
+            assertEquals(id, DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP[model])
+        }
     }
 
     @Test
@@ -364,6 +376,7 @@ class AnthropicModelsTest {
             AnthropicModels.Opus_4_8,
             AnthropicModels.Fable_5,
             AnthropicModels.Fable_5_1,
+            AnthropicModels.Fable_5_2,
             AnthropicModels.Opus_5,
         )
 

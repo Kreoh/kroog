@@ -34,7 +34,7 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryExpectedSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(52, ModelCatalogue.entries.size)
+        assertEquals(57, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
     }
 
@@ -365,10 +365,14 @@ class ModelCatalogueTest {
             "gpt-6-luna",
             "gpt-6.1-sol",
             "gpt-6.1-terra",
+            "gpt-6.2-astra",
+            "gpt-6.2-sol",
             "claude-opus-5-5",
             "claude-sonnet-5-5",
             "gemini-3.8-flash",
             "gemini-4-argon",
+            "gemini-4-carbon",
+            "gemini-4-hydrogen",
             "deepseek-flash",
             "deepseek-v4-pro",
             "gemma-4-31b",
@@ -384,6 +388,7 @@ class ModelCatalogueTest {
             "claude-4.8-opus",
             "claude-fable-5",
             "claude-fable-5-1",
+            "claude-fable-5-2",
             "claude-sonnet-5",
             "claude-opus-5",
             "deepseek-3.2",

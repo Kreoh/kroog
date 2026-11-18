@@ -59,8 +59,8 @@ class LatestModelCatalogueTest {
     }
 
     @Test
-    fun testClaude55ProfilesDoNotOfferDisabledThinking() {
-        listOf("claude-opus-5-5", "claude-sonnet-5-5").forEach { id ->
+    fun testClaudeProfilesWithMandatoryThinking() {
+        listOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-2").forEach { id ->
             val model = assertNotNull(ModelCatalogue.find(id))
             assertEquals(ModelPublisher.ANTHROPIC, model.publisher)
             assertEquals(1_000_000, model.maxInputTokens)
@@ -261,6 +261,54 @@ class LatestModelCatalogueTest {
         assertTrue(model.structuredOutput)
         assertTrue(model.hostedExecution)
         assertNull(ModelCatalogue.find(model.id, ProviderApi.OPENAI_RESPONSES))
+    }
+
+    @Test
+    fun testGpt62RouteProfiles() {
+        for ((id, context) in mapOf("gpt-6.2-astra" to 272_000L, "gpt-6.2-sol" to 500_000L)) {
+            val model = assertNotNull(ModelCatalogue.find(id))
+            val responses = setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.AZURE_RESPONSES)
+            assertEquals(922_000, model.maxInputTokens)
+            assertEquals(128_000, model.maxOutputTokens)
+            assertEquals(setOf("low", "medium", "high", "xhigh", "max"), efforts(model))
+            assertEquals(model.providerApis, model.temperature.omittedProviderApis)
+            assertEquals(responses, model.explicitPromptCachingApis)
+            for (api in responses) {
+                val route = assertNotNull(ModelCatalogue.find(id, api))
+                assertTrue(route.structuredOutput)
+                assertTrue(route.hostedExecution)
+            }
+            val codex = assertNotNull(ModelCatalogue.find(id, ProviderApi.CODEX_RESPONSES))
+            assertEquals(context, codex.maxInputTokens)
+            assertNull(codex.outputTokenLimit)
+            assertFalse(codex.hostedExecution)
+            val converse = assertNotNull(ModelCatalogue.find(id, ProviderApi.BEDROCK_CONVERSE))
+            assertTrue(converse.structuredOutput)
+            assertFalse(converse.hostedExecution)
+            for (api in listOf(ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS)) {
+                val mantle = assertNotNull(ModelCatalogue.find(id, api))
+                assertTrue(mantle.structuredOutput)
+                assertFalse(mantle.hostedExecution)
+            }
+            assertNull(ModelCatalogue.find(id, ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT))
+        }
+    }
+
+    @Test
+    fun testGemini4VertexUnaryBudgetsAndThinkingLevels() {
+        val api = ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT
+        for ((id, output) in mapOf("gemini-4-carbon" to 32_768L, "gemini-4-hydrogen" to 65_536L)) {
+            val profile = assertNotNull(ModelCatalogue.find(id, api))
+            assertEquals(1_048_576 - output, profile.maxInputTokens)
+            assertEquals(output, profile.maxOutputTokens)
+            val levels = setOf("low", "medium", "high")
+            assertEquals(if (id == "gemini-4-hydrogen") levels + "xhigh" else levels, efforts(profile))
+            assertEquals(setOf(api), profile.temperature.omittedProviderApis)
+            assertTrue("application/vnd.oasis.opendocument.text" in profile.supportedMimeTypes)
+            assertTrue(profile.structuredOutput)
+            assertTrue(profile.hostedExecution)
+            assertNull(ModelCatalogue.find(id, ProviderApi.OPENAI_RESPONSES))
+        }
     }
 
     private fun efforts(model: ModelCatalogueEntry): Set<String> =

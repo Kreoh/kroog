@@ -676,6 +676,8 @@ public final class ai/koog/prompt/executor/clients/openai/OpenAIModels$Chat {
 	public static final field GPT6Sol Lai/koog/prompt/llm/LLModel;
 	public static final field GPT6_1Sol Lai/koog/prompt/llm/LLModel;
 	public static final field GPT6_1Terra Lai/koog/prompt/llm/LLModel;
+	public static final field GPT6_2Astra Lai/koog/prompt/llm/LLModel;
+	public static final field GPT6_2Sol Lai/koog/prompt/llm/LLModel;
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/openai/OpenAIModels$Chat;
 	public static final field O1 Lai/koog/prompt/llm/LLModel;
 	public static final field O3 Lai/koog/prompt/llm/LLModel;

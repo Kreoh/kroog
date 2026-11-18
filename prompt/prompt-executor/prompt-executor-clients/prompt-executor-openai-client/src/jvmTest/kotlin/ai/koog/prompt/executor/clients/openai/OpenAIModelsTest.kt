@@ -39,6 +39,8 @@ class OpenAIModelsTest {
             OpenAIModels.Chat.GPT6Luna,
             OpenAIModels.Chat.GPT6_1Sol,
             OpenAIModels.Chat.GPT6_1Terra,
+            OpenAIModels.Chat.GPT6_2Astra,
+            OpenAIModels.Chat.GPT6_2Sol,
         ).forEach { it.capabilities.orEmpty() shouldContain LLMCapability.OpenAIExplicitPromptCaching }
         OpenAIModels.Chat.GPT5_5.capabilities.orEmpty() shouldNotContain LLMCapability.OpenAIExplicitPromptCaching
     }
@@ -52,6 +54,17 @@ class OpenAIModelsTest {
                     (ProviderApi.OPENAI_RESPONSES in catalogued)
             }
         }
+    }
+
+    @Test
+    fun testGpt62MetadataAndRegistration() {
+        mapOf("gpt-6.2-astra" to OpenAIModels.Chat.GPT6_2Astra, "gpt-6.2-sol" to OpenAIModels.Chat.GPT6_2Sol)
+            .forEach { (id, model) ->
+                OpenAIModels.models.single { it.id == id } shouldBe model
+                model.contextLength shouldBe 1_050_000
+                model.maxOutputTokens shouldBe 128_000
+                model.capabilities shouldContainExactly OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty()
+            }
     }
 
     @Test

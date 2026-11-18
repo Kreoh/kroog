@@ -91,26 +91,29 @@ class BedrockModelsTest {
     }
 
     @Test
-    fun testClaudeFable51BedrockModelExposesExactEffectiveProfiles() {
-        val model = BedrockModels.AnthropicClaudeFable5_1
+    fun testClaudeFableVersionsExposeExactEffectiveProfiles() {
+        listOf(
+            Triple("anthropic.claude-fable-5-1", AnthropicModels.Fable_5_1, BedrockModels.AnthropicClaudeFable5_1),
+            Triple("anthropic.claude-fable-5-2", AnthropicModels.Fable_5_2, BedrockModels.AnthropicClaudeFable5_2),
+        ).forEach { (id, sourceModel, model) ->
+            assertEquals(LLMProvider.Bedrock, model.provider)
+            assertEquals("us.$id", model.id)
+            assertEquals(sourceModel.capabilities, model.capabilities)
+            assertEquals(1_000_000, model.contextLength)
+            assertEquals(128_000, model.maxOutputTokens)
+            assertTrue(model.supports(LLMCapability.Tools))
+            assertFalse(model.supports(LLMCapability.ToolChoice))
+            assertFalse(model.supports(LLMCapability.Temperature))
+            BedrockModels.models shouldContain model
 
-        assertEquals(LLMProvider.Bedrock, model.provider)
-        assertEquals("us.anthropic.claude-fable-5-1", model.id)
-        assertEquals(AnthropicModels.Fable_5_1.capabilities, model.capabilities)
-        assertEquals(1_000_000, model.contextLength)
-        assertEquals(128_000, model.maxOutputTokens)
-        assertTrue(model.supports(LLMCapability.Tools))
-        assertFalse(model.supports(LLMCapability.ToolChoice))
-        assertFalse(model.supports(LLMCapability.Temperature))
-        BedrockModels.models shouldContain model
-
-        val globalModel = BedrockModel(
-            model = AnthropicModels.Fable_5_1,
-            modelId = "anthropic.claude-fable-5-1",
-            inferenceProfilePrefix = BedrockInferencePrefixes.GLOBAL.prefix,
-        ).effectiveModel
-        assertEquals("global.anthropic.claude-fable-5-1", globalModel.id)
-        assertEquals(AnthropicModels.Fable_5_1.capabilities, globalModel.capabilities)
+            val globalModel = BedrockModel(
+                model = sourceModel,
+                modelId = id,
+                inferenceProfilePrefix = BedrockInferencePrefixes.GLOBAL.prefix,
+            ).effectiveModel
+            assertEquals("global.$id", globalModel.id)
+            assertEquals(sourceModel.capabilities, globalModel.capabilities)
+        }
     }
 
     @Test

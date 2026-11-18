@@ -23,6 +23,9 @@ class ModelIdentifierParsingTest {
     // OpenAI model identifier tests
     @Test
     fun testOpenAIChatModels() {
+        assertEquals(OpenAIModels.Chat.GPT6_2Astra, getModelFromIdentifier("openai.chat.gpt6_2astra"))
+        assertEquals(OpenAIModels.Chat.GPT6_2Sol, getModelFromIdentifier("openai.chat.gpt6_2sol"))
+
         // Test GPT-4o
         val gpt4o = getModelFromIdentifier("openai.chat.gpt4o")
         assertNotNull(gpt4o)
@@ -225,6 +228,7 @@ class ModelIdentifierParsingTest {
         LLMProvider.Anthropic,
         mapOf(
             "anthropic.fable_5" to AnthropicModels.Fable_5,
+            "anthropic.fable_5_2" to AnthropicModels.Fable_5_2,
             "anthropic.opus_4" to AnthropicModels.Opus_4,
             "anthropic.opus_4_1" to AnthropicModels.Opus_4_1,
             "anthropic.opus_4_5" to AnthropicModels.Opus_4_5,
@@ -254,6 +258,8 @@ class ModelIdentifierParsingTest {
             "google.gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
             "google.gemini3_6flash" to GoogleModels.Gemini3_6Flash,
             "google.gemini3_7flash" to GoogleModels.Gemini3_7Flash,
+            "google.gemini4carbon" to GoogleModels.Gemini4Carbon,
+            "google.gemini4hydrogen" to GoogleModels.Gemini4Hydrogen,
             "google.gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
         )
     )

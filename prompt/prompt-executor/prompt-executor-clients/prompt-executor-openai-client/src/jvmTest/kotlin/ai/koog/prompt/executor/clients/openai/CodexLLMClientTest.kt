@@ -73,10 +73,12 @@ class CodexLLMClientTest {
     }
 
     @Test
-    fun testAllEightModelsUseResponses() = runTest {
+    fun testSelectableModelsUseResponses() = runTest {
         listOf(
             OpenAIModels.Chat.GPT6_1Sol,
             OpenAIModels.Chat.GPT6_1Terra,
+            OpenAIModels.Chat.GPT6_2Astra,
+            OpenAIModels.Chat.GPT6_2Sol,
             OpenAIModels.Chat.GPT6Astra,
             OpenAIModels.Chat.GPT6Sol,
             OpenAIModels.Chat.GPT6Luna,

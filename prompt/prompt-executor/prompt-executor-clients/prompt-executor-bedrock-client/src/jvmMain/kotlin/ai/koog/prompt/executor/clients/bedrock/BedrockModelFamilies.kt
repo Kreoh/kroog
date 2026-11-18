@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.bedrock
 
+import ai.koog.prompt.params.LLMParams
 import kotlinx.serialization.Serializable
 
 /**
@@ -71,6 +72,17 @@ public sealed class BedrockModelFamilies(
      */
     @Serializable
     public data object OpenAI : BedrockModelFamilies("bedrock.openai", "AWS Bedrock (OpenAI)")
+}
+
+internal fun String.isBedrockFable52(): Boolean =
+    this == "us.anthropic.claude-fable-5-2" || this == "global.anthropic.claude-fable-5-2" ||
+        this == "anthropic.claude-fable-5-2"
+
+internal fun validateFable52Turn(toolChoice: LLMParams.ToolChoice?, assistantPrefill: Boolean) {
+    require(toolChoice == null || toolChoice == LLMParams.ToolChoice.Auto || toolChoice == LLMParams.ToolChoice.None) {
+        "Claude Fable 5.2 rejects forced tool choice."
+    }
+    require(!assistantPrefill) { "Claude Fable 5.2 rejects assistant prefill." }
 }
 
 internal fun String.knownBedrockFamily(): BedrockModelFamilies? {

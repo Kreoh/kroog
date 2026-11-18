@@ -19,13 +19,18 @@ import kotlin.test.assertTrue
 class LatestModelCatalogueIntegrationTest {
     @Test
     fun testRecentProviderDefinitionsHaveConsumerCatalogueProfiles() {
-        listOf(OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna, OpenAIModels.Chat.GPT6_1Sol).forEach {
+        listOf(
+            OpenAIModels.Chat.GPT6Sol, OpenAIModels.Chat.GPT6Luna, OpenAIModels.Chat.GPT6_1Sol,
+            OpenAIModels.Chat.GPT6_2Astra, OpenAIModels.Chat.GPT6_2Sol,
+        ).forEach {
             assertProfile(it, it.id, ProviderApi.OPENAI_RESPONSES)
         }
-        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5).forEach {
+        listOf(AnthropicModels.Opus_5_5, AnthropicModels.Sonnet_5_5, AnthropicModels.Fable_5_2).forEach {
             assertProfile(it, it.id, ProviderApi.VERTEX_ANTHROPIC_MESSAGES)
         }
-        assertProfile(GoogleModels.Gemini3_8Flash, "gemini-3.8-flash", ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT)
+        listOf(GoogleModels.Gemini3_8Flash, GoogleModels.Gemini4Carbon, GoogleModels.Gemini4Hydrogen).forEach {
+            assertProfile(it, it.id, ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT)
+        }
         listOf(
             DeepSeekModels.DeepSeekV4_1Flash, DeepSeekModels.DeepSeekV4Flash,
             DeepSeekModels.DeepSeekV4FlashVisionExp, DeepSeekModels.DeepSeekV4Pro,
@@ -34,8 +39,11 @@ class LatestModelCatalogueIntegrationTest {
 
     @Test
     fun testBedrockDeploymentDefinitionsHaveMatchingSemanticRouteProfiles() {
+        assertProfile(BedrockModels.AnthropicClaudeFable5_2, "claude-fable-5-2", ProviderApi.BEDROCK_CONVERSE)
         assertProfile(BedrockModels.AnthropicClaude55Opus, "claude-opus-5-5", ProviderApi.BEDROCK_CONVERSE)
         assertProfile(BedrockModels.AnthropicClaude55Sonnet, "claude-sonnet-5-5", ProviderApi.BEDROCK_CONVERSE)
+        assertProfile(BedrockModels.OpenAIGpt6_2Astra, "gpt-6.2-astra", ProviderApi.BEDROCK_CONVERSE)
+        assertProfile(BedrockModels.OpenAIGpt6_2Sol, "gpt-6.2-sol", ProviderApi.BEDROCK_CONVERSE)
         assertProfile(BedrockModels.OpenAIGpt6Astra, "gpt-6-astra", ProviderApi.BEDROCK_CONVERSE)
         assertProfile(BedrockModels.GoogleGemma4_31B, "gemma-4-31b", ProviderApi.OPENAI_COMPATIBLE_RESPONSES)
         assertProfile(BedrockModels.GoogleGemma4_26BA4B, "gemma-4-26b-a4b", ProviderApi.OPENAI_COMPATIBLE_RESPONSES)

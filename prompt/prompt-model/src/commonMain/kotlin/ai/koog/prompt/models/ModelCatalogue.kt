@@ -270,6 +270,10 @@ public object ModelCatalogue {
             input = 922_000,
             providerApis = openAiCodex + ProviderApi.AZURE_RESPONSES,
         ),
+        // https://developers.openai.com/api/docs/models/gpt-6.2-astra
+        // https://developers.openai.com/api/docs/models/gpt-6.2-sol
+        gpt62("gpt-6.2-astra"),
+        gpt62("gpt-6.2-sol"),
         realtime(
             id = "gpt-realtime",
             input = 27_904,
@@ -330,21 +334,9 @@ public object ModelCatalogue {
         ),
         // Provider-verified post-baseline addition:
         // https://platform.claude.com/docs/en/about-claude/models/overview
-        claude(
-            id = "claude-fable-5-1",
-            input = 1_000_000,
-            output = 128_000,
-            reasoning = categorical(
-                mapOf(
-                    "low" to 0.0,
-                    "medium" to 0.25,
-                    "high" to 0.5,
-                    "xhigh" to 0.75,
-                    "max" to 1.0,
-                )
-            ),
-            omitTemperature = true,
-        ),
+        fable5("claude-fable-5-1"),
+        // https://platform.claude.com/docs/en/models/fable-5-2/migration-guide
+        fable5("claude-fable-5-2"),
         claude(
             id = "claude-sonnet-5",
             input = 1_000_000,
@@ -478,6 +470,24 @@ public object ModelCatalogue {
             omitTemperature = true,
             mimeTypes = googleMultimodalMimeTypes,
         ),
+        // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-carbon
+        gemini(
+            id = "gemini-4-carbon",
+            input = 1_015_808,
+            output = 32_768,
+            reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.5, "high" to 1.0)),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes + googleOfficeMimeTypes,
+        ),
+        // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-hydrogen
+        gemini(
+            id = "gemini-4-hydrogen",
+            input = 983_040,
+            output = 65_536,
+            reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.4, "high" to 0.7, "xhigh" to 1.0)),
+            omitTemperature = true,
+            mimeTypes = googleMultimodalMimeTypes + googleOfficeMimeTypes,
+        ),
         gemini(
             id = "gemini-3.1-pro",
             input = 983_040,
@@ -523,7 +533,7 @@ public object ModelCatalogue {
                 reasoning = (model.reasoning as ReasoningSupport.Supported).let {
                     it.copy(efforts = it.efforts - "none")
                 },
-                // Codex model discovery (2026-10-28) reports default shared context windows, not API input ceilings.
+                // Codex model discovery reports default shared context windows, not API input ceilings.
                 // Generated output shares this budget; no independent output ceiling is established.
                 maxInputTokens = codexContextWindows.getValue(model.id),
                 maxOutputTokens = 0,
@@ -533,8 +543,8 @@ public object ModelCatalogue {
 
             api == ProviderApi.CODEX_RESPONSES -> model.copy(hostedExecution = false)
 
-            model.id == "gpt-6-astra" && api == ProviderApi.BEDROCK_CONVERSE ->
-                model.copy(structuredOutput = false, hostedExecution = false)
+            api == ProviderApi.BEDROCK_CONVERSE && model.publisher == ModelPublisher.OPENAI ->
+                model.copy(structuredOutput = model.structuredOutput && model.id != "gpt-6-astra", hostedExecution = false)
 
             api == ProviderApi.OPENAI_COMPATIBLE_RESPONSES ||
                 api == ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS ->
@@ -757,9 +767,11 @@ public object ModelCatalogue {
     }
 }
 
-// Verified default shared context windows from Codex model discovery on 2026-10-28.
+// Default shared context windows from Codex model discovery, verified per model.
 // Keep this explicit: older or future models must not inherit an unevidenced route budget.
 private val codexContextWindows: Map<String, Long> = mapOf(
+    "gpt-6.2-astra" to 272_000L,
+    "gpt-6.2-sol" to 500_000L,
     "gpt-6.1-sol" to 500_000L,
     "gpt-6.1-terra" to 500_000L,
     "gpt-6-astra" to 272_000L,
@@ -808,6 +820,18 @@ private val googleImageMimeTypes: Set<String> = setOf(
     "image/webp",
     "image/heic",
     "image/heif",
+)
+private val googleOfficeMimeTypes: Set<String> = setOf(
+    "application/msword",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.presentation",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
 )
 private val googleDocumentMimeTypes: Set<String> = setOf(
     "application/pdf",
@@ -926,6 +950,17 @@ private fun openAiReasoning(
     hostedExecution = true,
 )
 
+private fun gpt62(id: String): ModelCatalogueEntry {
+    val routes = astraApis + ProviderApi.AZURE_RESPONSES
+    return openAiReasoning(
+        id = id,
+        efforts = frontierReasoning - "none",
+        temperature = TemperatureSupport(1.0, 1.0, omittedProviderApis = routes),
+        input = 922_000,
+        providerApis = routes,
+    )
+}
+
 private fun realtime(
     id: String,
     input: Long,
@@ -981,6 +1016,14 @@ private fun claude(
     supportedMimeTypes = multimodalMimeTypes,
     structuredOutput = true,
     hostedExecution = true,
+)
+
+private fun fable5(id: String): ModelCatalogueEntry = claude(
+    id = id,
+    input = 1_000_000,
+    output = 128_000,
+    reasoning = categorical(mapOf("low" to 0.0, "medium" to 0.25, "high" to 0.5, "xhigh" to 0.75, "max" to 1.0)),
+    omitTemperature = true,
 )
 
 private fun deepSeek(): ModelCatalogueEntry = ModelCatalogueEntry(

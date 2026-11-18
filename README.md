@@ -116,16 +116,18 @@ Kroog supports OpenAI, Anthropic, Google, Amazon Bedrock, Azure OpenAI, DeepSeek
 
 | Model family | Integration |
 | --- | --- |
-| OpenAI GPT-6 Astra, Sol and Luna; GPT-6.1 Sol and Terra | OpenAI Responses; GPT-6.1 Terra also supports Azure Responses. Selected models additionally use Bedrock and compatible APIs |
+| OpenAI GPT-6 Astra, Sol and Luna; GPT-6.1 Sol and Terra, GPT-6.2 Astra and Sol | OpenAI Responses. GPT-6.1 Terra and both GPT-6.2 models also support Azure Responses. Selected models additionally use Bedrock and compatible APIs |
 | OpenAI Codex models | Codex Responses with an explicitly selected account |
-| Anthropic Claude Opus 5.5 and Sonnet 5.5 | Anthropic Messages, Vertex AI and Bedrock |
-| Google Gemini 3.8 Flash and Gemini 4 Argon | Google client; Argon uses Vertex AI |
+| Anthropic Claude Opus 5.5, Sonnet 5.5 and Fable 5.2 | Anthropic Messages, Vertex AI and Bedrock |
+| Google Gemini 3.8 Flash and Gemini 4 Argon, Carbon and Hydrogen | Google client with Vertex AI support |
 | DeepSeek | DeepSeek client and compatible APIs |
 | Other hosted and local models | OpenRouter, Ollama and provider-specific clients |
 
 The revision 6 source was checked against provider definitions and catalogue tests on 15 November 2026. The incorporated upstream baseline remains Koog 1.3.0; see the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
 
 Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
+
+For direct Anthropic Messages or Gemini API calls, select the model from `AnthropicModels` or `GoogleModels`. The catalogue exposes their cloud routes through `ProviderApi`.
 
 For Codex account selection, supported models and Gemini 4 Argon configuration, see the [Codex and Argon guide](docs/codex-and-argon.md).
 

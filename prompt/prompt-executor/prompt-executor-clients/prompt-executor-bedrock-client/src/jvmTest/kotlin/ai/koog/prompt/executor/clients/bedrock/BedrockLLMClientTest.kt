@@ -93,17 +93,24 @@ class BedrockLLMClientTest {
     }
 
     @Test
-    fun testAstraUsesRuntimeInferenceProfileWithConverse() = runTest {
+    fun testGpt6ModelsUseRuntimeInferenceProfilesWithConverse() = runTest {
         var captured: ConverseRequest? = null
         val runtime = createMockBedrockClient(onConverse = {
             captured = it
             defaultConverseResponse()
         })
         val client = BedrockLLMClient(runtime, apiMethod = BedrockAPIMethod.Converse)
-        client.execute(Prompt.build("astra") { user("Hello") }, BedrockModels.OpenAIGpt6Astra)
-        assertEquals("us.openai.gpt-6-astra", captured?.modelId)
-        assertFailsWith<LLMClientException> {
-            BedrockLLMClient(runtime).execute(Prompt.build("astra-invoke") { user("Hello") }, BedrockModels.OpenAIGpt6Astra)
+        val models = mapOf(
+            "us.openai.gpt-6-astra" to BedrockModels.OpenAIGpt6Astra,
+            "us.openai.gpt-6.2-astra" to BedrockModels.OpenAIGpt6_2Astra,
+            "us.openai.gpt-6.2-sol" to BedrockModels.OpenAIGpt6_2Sol,
+        )
+        val prompt = Prompt.build("gpt6") { user("Hello") }
+        for ((id, model) in models) {
+            assertEquals(model, BedrockModels.models.single { it.id == id })
+            client.execute(prompt, model)
+            assertEquals(id, captured?.modelId)
+            assertFailsWith<LLMClientException> { BedrockLLMClient(runtime).execute(prompt, model) }
         }
     }
 

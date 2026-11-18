@@ -425,7 +425,7 @@ public data class GoogleThinkingConfig(
 }
 
 /**
- * Levels of thinking depth for Gemini 3 models.
+ * Levels of thinking depth for Gemini models.
  */
 @Serializable
 public enum class GoogleThinkingLevel {
@@ -439,7 +439,11 @@ public enum class GoogleThinkingLevel {
     MINIMAL,
 
     @SerialName("medium")
-    MEDIUM
+    MEDIUM,
+
+    /** Extra-high reasoning depth on Gemini 4 Hydrogen. */
+    @SerialName("xhigh")
+    XHIGH
 }
 
 /**

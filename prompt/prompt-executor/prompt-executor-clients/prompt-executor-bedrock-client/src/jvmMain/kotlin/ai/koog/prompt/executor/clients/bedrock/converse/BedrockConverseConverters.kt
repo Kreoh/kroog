@@ -7,11 +7,15 @@ import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.ReasoningReplayFormat
 import ai.koog.prompt.executor.clients.anthropic.withClaudeToolIds
+import ai.koog.prompt.executor.clients.bedrock.isBedrockFable52
+import ai.koog.prompt.executor.clients.bedrock.validateFable52Turn
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.BedrockGuardrailsSettings
 import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
+import ai.koog.prompt.executor.clients.bedrock.BedrockModels
 import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
@@ -80,10 +84,12 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.io.encoding.Base64
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
@@ -99,13 +105,14 @@ internal object BedrockConverseConverters {
         explicitNulls = false
     }
 
-    private fun CacheControl.toBedrockCachePointContentBlock(): ContentBlock? =
-        toBedrockCachePointBlock()?.let { ContentBlock.CachePoint(it) }
+    private fun CacheControl.toBedrockCachePointContentBlock(model: LLModel): ContentBlock? =
+        toBedrockCachePointBlock(model)?.let { ContentBlock.CachePoint(it) }
 
-    private fun CacheControl.toBedrockSystemCachePoint(): SystemContentBlock? =
-        toBedrockCachePointBlock()?.let { SystemContentBlock.CachePoint(it) }
+    private fun CacheControl.toBedrockSystemCachePoint(model: LLModel): SystemContentBlock? =
+        toBedrockCachePointBlock(model)?.let { SystemContentBlock.CachePoint(it) }
 
-    private fun CacheControl.toBedrockCachePointBlock(): CachePointBlock? {
+    private fun CacheControl.toBedrockCachePointBlock(model: LLModel): CachePointBlock? {
+        if (BedrockModels.isGpt62(model.id)) return null
         val cacheTtl = when (this) {
             is PromptCacheControl -> when {
                 !cacheable -> return null
@@ -160,20 +167,25 @@ internal object BedrockConverseConverters {
         fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseRequestParams {
         prompt.validateClientManagedExecutionPresentation()
-        validateUnsupportedCacheMarkers(prompt)
         val family = model.id.knownBedrockFamily() ?: fallbackModelFamily
         val supportsToolStatus = family == BedrockModelFamilies.AnthropicClaude || family == BedrockModelFamilies.AmazonNova
         val params = prompt.params.toBedrockConverseParams()
-        val toolBreakpoints = tools.mapNotNull { tool ->
-            tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
+        val requestPrompt = if (BedrockModels.isGpt62(model.id)) {
+            // These models cache implicitly and ignore all caller-selected boundaries.
+            prompt
+        } else {
+            validateUnsupportedCacheMarkers(prompt)
+            val toolBreakpoints = tools.mapNotNull { tool ->
+                tool.cacheControl?.toPromptCacheMetadata()?.takeIf(PromptCacheControl::cacheable)?.ttl
+            }
+            PromptCachePolicy.requestView(
+                prompt = if (family == BedrockModelFamilies.AnthropicClaude) prompt.withClaudeToolIds(maxLength = 64) else prompt,
+                leadingBreakpoints = toolBreakpoints,
+                // GPT-6 uses implicit caching on Converse.
+                automaticBreakpoint = BedrockModels.openAiGpt6Profile(model.id) == null,
+                metadata = { it.toPromptCacheMetadata() },
+            )
         }
-        val requestPrompt = PromptCachePolicy.requestView(
-            prompt = if (family == BedrockModelFamilies.AnthropicClaude) prompt.withClaudeToolIds(maxLength = 64) else prompt,
-            leadingBreakpoints = toolBreakpoints,
-            // Astra rejects Converse cache markers. Mantle manages its caching separately.
-            automaticBreakpoint = !model.id.endsWith("openai.gpt-6-astra"),
-            metadata = { it.toPromptCacheMetadata() },
-        )
 
         val systemMessages = mutableListOf<SystemContentBlock>()
         val messages = mutableListOf<BedrockMessage>()
@@ -185,7 +197,7 @@ internal object BedrockConverseConverters {
                     message.parts.forEach {
                         systemMessages.add(SystemContentBlock.Text(it.text))
                         it.cacheControl.takeIf { _ -> it.text.isNotBlank() }?.let { cc ->
-                            cc.toBedrockSystemCachePoint()?.let(systemMessages::add)
+                            cc.toBedrockSystemCachePoint(model)?.let(systemMessages::add)
                         }
                     }
                 }
@@ -200,6 +212,9 @@ internal object BedrockConverseConverters {
 
         if (family == BedrockModelFamilies.AnthropicClaude) {
             validateClaudeImages(messages, model)
+        }
+        if (model.id.isBedrockFable52()) {
+            validateFable52Turn(params.toolChoice, messages.lastOrNull()?.role == ConversationRole.Assistant)
         }
         val outputConfig = params.schema?.let { schema ->
             require(schema is LLMParams.Schema.JSON) {
@@ -261,7 +276,7 @@ internal object BedrockConverseConverters {
                         null -> null
                     }
 
-                    this.tools = tools.flatMap { it.toConverseTools() }
+                    this.tools = tools.flatMap { it.toConverseTools(model) }
                 }
             } else {
                 null
@@ -369,7 +384,7 @@ internal object BedrockConverseConverters {
                         is MessagePart.ContentPart -> {
                             add(part.toConverseContentBlock(model))
                             part.cacheControl.takeIf { _ -> part.isBedrockCacheableContent() }?.let { cc ->
-                                cc.toBedrockCachePointContentBlock()?.let(::add)
+                                cc.toBedrockCachePointContentBlock(model)?.let(::add)
                             }
                         }
 
@@ -386,7 +401,7 @@ internal object BedrockConverseConverters {
                                 )
                             )
                             part.cacheControl.takeIf { _ -> part.hasBedrockCacheableContent() }?.let { cc ->
-                                cc.toBedrockCachePointContentBlock()?.let(::add)
+                                cc.toBedrockCachePointContentBlock(model)?.let(::add)
                             }
                         }
                     }
@@ -404,7 +419,7 @@ internal object BedrockConverseConverters {
                         is MessagePart.ContentPart -> {
                             add(part.toConverseContentBlock(model))
                             part.cacheControl.takeIf { _ -> part.isBedrockCacheableContent() }?.let { cc ->
-                                cc.toBedrockCachePointContentBlock()?.let(::add)
+                                cc.toBedrockCachePointContentBlock(model)?.let(::add)
                             }
                         }
                         is MessagePart.Reasoning -> {
@@ -446,7 +461,7 @@ internal object BedrockConverseConverters {
                                 )
                             )
                             part.cacheControl?.let { cc ->
-                                cc.toBedrockCachePointContentBlock()?.let(::add)
+                                cc.toBedrockCachePointContentBlock(model)?.let(::add)
                             }
                         }
                     }
@@ -549,6 +564,9 @@ internal object BedrockConverseConverters {
         guardrailSettings: BedrockGuardrailsSettings? = null,
         fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseStreamRequest {
+        require(prompt.params.schema == null || BedrockModels.openAiGpt6Profile(model.id) != OpenAIModels.Chat.GPT6_2Astra) {
+            "GPT-6.2 Astra supports JSON Schema only on non-streaming Converse."
+        }
         val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication
@@ -810,8 +828,27 @@ internal object BedrockConverseConverters {
     }
 
     private fun BedrockConverseParams.toAdditionalModelRequestFields(model: LLModel): Document? {
+        val fields = if (schema != null && BedrockModels.isGpt62(model.id)) {
+            val properties = additionalProperties.orEmpty()
+            val text = properties["text"]?.jsonObject.orEmpty()
+            val format = text["format"]?.jsonObject.orEmpty()
+            val strictFormat = JsonObject(format + ("strict" to JsonPrimitive(true)))
+            properties + ("text" to JsonObject(text + ("format" to strictFormat)))
+        } else if (model.id.isBedrockFable52()) {
+            val rawThinking = additionalProperties?.get("thinking")?.jsonObject
+            require(rawThinking == null || (rawThinking["type"]?.jsonPrimitive?.content == "adaptive" && "budget_tokens" !in rawThinking)) {
+                "Claude Fable 5.2 requires adaptive thinking and rejects manual thinking budgets."
+            }
+            val rawChoice = additionalProperties?.get("tool_choice")?.jsonObject
+            require(rawChoice == null || rawChoice["type"]?.jsonPrimitive?.content in setOf("auto", "none")) {
+                "Claude Fable 5.2 rejects forced tool choice."
+            }
+            additionalProperties?.filterKeys { it !in setOf("temperature", "top_p", "top_k") }?.takeIf { it.isNotEmpty() }
+        } else {
+            additionalProperties
+        }
         val thinkingConfig = thinking
-            ?: return additionalProperties?.let { JsonDocumentConverters.convertToDocument(JsonObject(it)) }
+            ?: return fields?.let { JsonDocumentConverters.convertToDocument(JsonObject(it)) }
 
         require(model.supports(LLMCapability.Thinking)) {
             "${model.id} doesn't support thinking"
@@ -824,7 +861,7 @@ internal object BedrockConverseConverters {
         }
 
         val requestFields = buildJsonObject {
-            additionalProperties.orEmpty().forEach { (key, value) -> put(key, value) }
+            fields.orEmpty().forEach { (key, value) -> put(key, value) }
             when (thinkingConfig) {
                 is BedrockThinkingConfig.Adaptive -> {
                     put(
@@ -875,7 +912,7 @@ internal object BedrockConverseConverters {
                         throw IllegalArgumentException("Bedrock Converse API doesn't support audio content.")
 
                     is AttachmentSource.File -> {
-                        require(model.supports(LLMCapability.Document)) {
+                        require(!BedrockModels.isGpt62(model.id) && model.supports(LLMCapability.Document)) {
                             "${model.id} doesn't support documents"
                         }
 
@@ -959,6 +996,7 @@ internal object BedrockConverseConverters {
         return when (val part = this) {
             is MessagePart.Text -> ToolResultContentBlock.Text(part.text)
             is MessagePart.Attachment -> {
+                require(!BedrockModels.isGpt62(model.id)) { "${model.id} supports only text in Converse tool results" }
                 when (val source = part.source) {
                     is AttachmentSource.Audio ->
                         throw IllegalArgumentException("Bedrock Converse API doesn't support audio content in tool results.")
@@ -1122,7 +1160,7 @@ internal object BedrockConverseConverters {
     /**
      * Convert [ToolDescriptor] to list of [BedrockTool], including cache point if specified.
      */
-    private fun ToolDescriptor.toConverseTools(): List<BedrockTool> {
+    private fun ToolDescriptor.toConverseTools(model: LLModel): List<BedrockTool> {
         val tool = this
 
         val toolSpec = BedrockTool.ToolSpec(
@@ -1158,7 +1196,7 @@ internal object BedrockConverseConverters {
 
         return listOfNotNull(
             toolSpec,
-            tool.cacheControl?.toBedrockCachePointBlock()?.let { BedrockTool.CachePoint(it) }
+            tool.cacheControl?.toBedrockCachePointBlock(model)?.let { BedrockTool.CachePoint(it) }
         )
     }
 

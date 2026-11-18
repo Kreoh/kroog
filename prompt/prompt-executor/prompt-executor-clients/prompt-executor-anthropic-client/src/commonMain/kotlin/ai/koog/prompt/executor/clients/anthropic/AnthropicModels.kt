@@ -3,6 +3,7 @@ package ai.koog.prompt.executor.clients.anthropic
 import ai.koog.prompt.executor.clients.LLModelDefinitions
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Fable_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Fable_5_1
+import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Fable_5_2
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Haiku_4_5
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_4
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels.Opus_4_1
@@ -30,6 +31,7 @@ import kotlin.jvm.JvmField
  * |--------------|-----------------|--------------|------------------------------|-------------|
  * | [Fable_5]    | Moderate        | $10-$50      | Text, Image, Tools, Document | Text, Tools |
  * | [Fable_5_1]  | Moderate        | $10-$50      | Text, Image, Tools, Document | Text, Tools |
+ * | [Fable_5_2]  | Moderate        | $8-$40      | Text, Image, Tools, Document | Text, Tools |
  * | [Haiku_4_5]  | Fastest         | $1-$5        | Text, Image, Tools, Document | Text, Tools |
  * | [Sonnet_4]   | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
  * | [Sonnet_4_5] | Fast            | $3-$15       | Text, Image, Tools, Document | Text, Tools |
@@ -101,6 +103,15 @@ public object AnthropicModels : LLModelDefinitions {
         contextLength = 1_000_000,
         maxOutputTokens = 128_000,
     )
+
+    /**
+     * Claude Fable 5.2 has the same context window, output limit and capabilities as [Fable_5_1].
+     * Adaptive thinking is always enabled, with low, medium, high (default), xhigh and max effort.
+     *
+     * @see <a href="https://platform.claude.com/docs/en/models/fable-5-2/migration-guide">Fable 5.2 migration guide</a>
+     */
+    @JvmField
+    public val Fable_5_2: LLModel = Fable_5_1.copy(id = "claude-fable-5-2")
 
     /**
      * Claude Haiku 4.5 is Anthropic's fastest and most intelligent Haiku model.
@@ -478,6 +489,7 @@ public object AnthropicModels : LLModelDefinitions {
     private val supportedModels: List<LLModel> = listOf(
         Fable_5,
         Fable_5_1,
+        Fable_5_2,
         Sonnet_4,
         Sonnet_4_5,
         Sonnet_4_6,
@@ -511,6 +523,7 @@ public object AnthropicModels : LLModelDefinitions {
 internal val DEFAULT_ANTHROPIC_MODEL_VERSIONS_MAP: Map<LLModel, String> = mapOf(
     Fable_5 to "claude-fable-5",
     Fable_5_1 to "claude-fable-5-1",
+    Fable_5_2 to "claude-fable-5-2",
     Haiku_4_5 to "claude-haiku-4-5-20251001",
     Sonnet_4 to "claude-sonnet-4-20250514",
     Sonnet_4_5 to "claude-sonnet-4-5-20250929",

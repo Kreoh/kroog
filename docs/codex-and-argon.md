@@ -37,7 +37,7 @@ limit fields, and supports caller-managed function tools. Hosted Code Interprete
 embeddings and moderation are unavailable. Low, medium, high, xhigh and max are
 provider reasoning levels. Codex Ultra orchestration is not a raw reasoning value.
 
-The target models are `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-6-sol`,
+The target models are `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-6-sol`,
 `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra` and `gpt-5.6-luna`. Account access can
 vary. Query the catalogue with `ProviderApi.CODEX_RESPONSES` for route-specific
 capabilities rather than using the ordinary OpenAI API profile. Codex's shared
@@ -61,11 +61,19 @@ must not end with a prefilled model response.
 Million-token output continuation is not implemented. A large context window
 does not imply that a single request can generate a million tokens.
 
+## Gemini 4 Carbon and Hydrogen
+
+Use `GoogleModels.Gemini4Carbon` or `GoogleModels.Gemini4Hydrogen` with the Google client.
+Both share a 1,048,576-token context and support up to 65,536 output tokens when streaming.
+For a non-streaming request, Carbon supports 32,768 output tokens and Hydrogen supports 65,536.
+Both accept low, medium and high thinking. Hydrogen also accepts xhigh.
+See the Vertex model cards for [Carbon](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-carbon) and [Hydrogen](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/4-hydrogen).
+
 ## Explicit live validation
 
 The integration tests make paid provider calls and must be selected explicitly.
-`CodexModelsIntegrationTest` requires `CODEX_AUTH_FILE`; it exercises all eight
-models plus tool continuation and structured output on 6.1 Sol and Terra.
+`CodexModelsIntegrationTest` requires `CODEX_AUTH_FILE`; it exercises all ten
+models, plus tool continuation and structured output on 6.1 Sol and Terra and 6.2 Astra and Sol.
 `LatestModelsIntegrationTest.integration_testVertexGemini4Argon` requires
 `VERTEX_PROJECT_ID`, `VERTEX_ACCESS_TOKEN` and optionally `VERTEX_LOCATION`.
 Run Codex checks through the OpenAI client module’s `jvmIntegrationTest` task;

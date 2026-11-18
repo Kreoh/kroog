@@ -235,6 +235,8 @@ private val OPENAI_MODELS_MAP = mapOf(
         "gpt5_4mini" to OpenAIModels.Chat.GPT5_4Mini,
         "gpt5_4" to OpenAIModels.Chat.GPT5_4,
         "gpt5_4pro" to OpenAIModels.Chat.GPT5_4Pro,
+        "gpt6_2astra" to OpenAIModels.Chat.GPT6_2Astra,
+        "gpt6_2sol" to OpenAIModels.Chat.GPT6_2Sol,
         "gpt4_1nano" to OpenAIModels.Chat.GPT4_1Nano,
         "gpt4_1mini" to OpenAIModels.Chat.GPT4_1Mini,
         "gpt4omini" to OpenAIModels.Chat.GPT4oMini,
@@ -255,6 +257,7 @@ private val OPENAI_MODELS_MAP = mapOf(
 
 private val ANTHROPIC_MODELS_MAP = mapOf(
     "fable_5" to AnthropicModels.Fable_5,
+    "fable_5_2" to AnthropicModels.Fable_5_2,
     "opus_4" to AnthropicModels.Opus_4,
     "opus_4_1" to AnthropicModels.Opus_4_1,
     "opus_4_5" to AnthropicModels.Opus_4_5,
@@ -280,6 +283,8 @@ private val GOOGLE_MODELS_MAP = mapOf(
     "gemini3_5flashlite" to GoogleModels.Gemini3_5FlashLite,
     "gemini3_6flash" to GoogleModels.Gemini3_6Flash,
     "gemini3_7flash" to GoogleModels.Gemini3_7Flash,
+    "gemini4carbon" to GoogleModels.Gemini4Carbon,
+    "gemini4hydrogen" to GoogleModels.Gemini4Hydrogen,
     "gemini_embedding001" to GoogleModels.Embeddings.GeminiEmbedding001,
 )
 

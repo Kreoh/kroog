@@ -8,6 +8,7 @@ import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesCapability
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesDialect
+import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
@@ -16,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Bedrock Mantle client for OpenAI-compatible Chat Completions and Responses endpoints.
- * Supports Gemma 4 and GPT-6 Astra using an Amazon Bedrock API key.
+ * Supports Gemma 4, GPT-6 Astra and GPT-6.2 Astra and Sol using an Amazon Bedrock API key.
  * Configure Responses behaviour with OpenAI parameters, including explicit stateless mode where needed.
  * AWS credential signing and the Runtime Converse API belong to [BedrockLLMClient].
  */
@@ -53,12 +54,18 @@ public class BedrockMantleLLMClient : OpenAILLMClient {
     ): List<Message.Assistant> = super.executeMultipleChoices(prompt, mantleModel(model), tools)
 
     private fun mantleModel(model: LLModel): LLModel {
-        val baseId = model.id.removePrefix("us.").removePrefix("global.")
-        if (baseId != "openai.gpt-6-astra") return model
-        require(region == BedrockRegions.US_WEST_2) {
-            "GPT-6 Astra on Mantle requires the us-west-2 region."
-        }
-        return OpenAIModels.Chat.GPT6Astra.copy(provider = LLMProvider.Bedrock, id = baseId)
+        val profile = BedrockModels.openAiGpt6Profile(model.id) ?: return model
+        val requiredRegion = if (profile == OpenAIModels.Chat.GPT6Astra) BedrockRegions.US_WEST_2 else BedrockRegions.US_EAST_1
+        require(region == requiredRegion) { "${profile.id} on Mantle requires the ${requiredRegion.regionCode} region." }
+        return profile.copy(
+            provider = LLMProvider.Bedrock,
+            id = "openai.${profile.id}",
+            capabilities = if (BedrockModels.isGpt62(model.id)) {
+                profile.capabilities.orEmpty() - LLMCapability.OpenAIExplicitPromptCaching
+            } else {
+                profile.capabilities
+            },
+        )
     }
 
     override fun llmProvider(): LLMProvider = LLMProvider.Bedrock

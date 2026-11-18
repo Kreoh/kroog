@@ -35,7 +35,7 @@ class CodexModelsIntegrationTest {
     fun integration_testTransportSmoke() = integration_testSelectableModel("gpt-6.1-sol")
 
     @ParameterizedTest
-    @ValueSource(strings = ["gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])
+    @ValueSource(strings = ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"])
     fun integration_testSelectableModel(id: String) = runTest(timeout = 180.seconds) {
         val model = OpenAIModels.models.single { it.id == id }
         client().use { client ->
@@ -52,7 +52,7 @@ class CodexModelsIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["gpt-6.1-sol", "gpt-6.1-terra"])
+    @ValueSource(strings = ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra"])
     fun integration_testToolsAndStructuredOutput(id: String) = runTest(timeout = 180.seconds) {
         val model = OpenAIModels.models.single { it.id == id }
         val tool = ToolDescriptor("read_probe", "Read the probe value. Call this tool to obtain the value.")

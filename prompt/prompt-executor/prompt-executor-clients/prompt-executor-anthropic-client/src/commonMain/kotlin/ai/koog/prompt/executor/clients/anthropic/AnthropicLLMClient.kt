@@ -665,13 +665,13 @@ public open class AnthropicLLMClient @JvmOverloads constructor(
                 mergedOutputConfig?.let { put("output_config", it) }
             }
 
-        return json.encodeToString(JsonObject.serializer(), requestDialect.transformRequestBody(normaliseClaude55Request(mergedRequest)))
+        return json.encodeToString(JsonObject.serializer(), requestDialect.transformRequestBody(normaliseMandatoryThinkingRequest(mergedRequest)))
     }
 
     // Validate the flattened payload so raw properties cannot bypass model restrictions.
-    private fun normaliseClaude55Request(request: JsonObject): JsonObject {
+    private fun normaliseMandatoryThinkingRequest(request: JsonObject): JsonObject {
         val modelId = request["model"]?.jsonPrimitive?.content
-        if (modelId !in setOf("claude-opus-5-5", "claude-sonnet-5-5")) return request
+        if (modelId !in setOf("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-2")) return request
         val thinking = request["thinking"]?.jsonObject
         val thinkingType = thinking?.get("type")?.jsonPrimitive?.content
         require(thinkingType == null || thinkingType == "adaptive" ||
