@@ -123,7 +123,7 @@ Keep repository documentation self-contained: do not name consuming projects or 
 
 - Add or update the canonical semantic profile, explicit aliases and supported provider APIs in the same change.
   For a new deployment of an existing semantic model, update its route compatibility instead of duplicating the profile.
-  Keep deployment names separate from semantic IDs.
+  Keep deployment names separate from semantic IDs. When a provider uses a deployment name or versioned model ID, test the public client with that identifier and verify that the model’s limits and request restrictions still apply.
 - Verify token limits, reasoning efforts, temperature restrictions, MIME types, structured output and hosted execution
   against provider evidence. Preserve the distinction between a context window and the catalogue's input limit.
   Do not invent limits or declare an API supported merely because another route supports the model.
