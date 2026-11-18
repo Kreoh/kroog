@@ -6,10 +6,13 @@ import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.utils.ActiveProperty
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
+import ai.koog.prompt.executor.clients.openai.usesOpenAIResponses
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.executor.model.StructureFixingParser
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.executor.model.parseResponseToStructuredResponse
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.LLMChoice
 import ai.koog.prompt.message.Message
@@ -112,11 +115,10 @@ public abstract class AIAgentLLMReadSessionCommon internal constructor(
     public suspend fun requestLLMWithoutTools(): Message.Assistant {
         validateSession()
 
-        val promptWithDisabledTools = prompt
-            .withUpdatedParams { toolChoice = null }
-            .let { preparePrompt(it, emptyList()) }
-
-        return execute(promptWithDisabledTools, emptyList())
+        if (model.provider == LLMProvider.OpenAI && model.supports(LLMCapability.ToolChoice) && model.usesOpenAIResponses(prompt.params)) {
+            return execute(prompt.withUpdatedParams { toolChoice = LLMParams.ToolChoice.None }, tools)
+        }
+        return execute(prompt.withUpdatedParams { toolChoice = null }, emptyList())
     }
 
     /**

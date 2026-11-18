@@ -3,10 +3,11 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
+import ai.koog.prompt.message.PromptCacheControl
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-internal fun Prompt.forOpenAIToolReplay(): Prompt {
+internal fun Prompt.forOpenAIToolReplay(preserveMarkedContent: Boolean = false): Prompt {
     val ordered = inToolCallOrder()
     var updated: MutableList<Message>? = null
     for ((index, turn) in ordered.messages.withIndex()) {
@@ -14,7 +15,7 @@ internal fun Prompt.forOpenAIToolReplay(): Prompt {
         val target = updated ?: ordered.messages.toMutableList().also { updated = it }
         target[index] = turn.copy(
             parts = turn.parts.map { part ->
-                if (part is MessagePart.Tool.Result && part.needsStatusEnvelope()) part.withStatusEnvelope() else part
+                if (part is MessagePart.Tool.Result && part.needsStatusEnvelope()) part.withStatusEnvelope(preserveMarkedContent) else part
             }
         )
     }
@@ -70,12 +71,13 @@ private fun MessagePart.Tool.Result.needsStatusEnvelope(): Boolean {
     return firstText.startsWith("{\"status\":\"error\"") || firstText.startsWith("{\"status\":\"success\"")
 }
 
-private fun MessagePart.Tool.Result.withStatusEnvelope(): MessagePart.Tool.Result {
-    val textOnly = parts.all { it is MessagePart.Text }
+private fun MessagePart.Tool.Result.withStatusEnvelope(preserveMarkedContent: Boolean): MessagePart.Tool.Result {
+    val textOnly = parts.all { it is MessagePart.Text } &&
+        !(preserveMarkedContent && parts.size > 1 && parts.any { (it.cacheControl as? PromptCacheControl)?.cacheable == true })
     val envelope = buildJsonObject {
         put("status", if (isError) "error" else "success")
         if (textOnly) put("output", parts.filterIsInstance<MessagePart.Text>().joinToString("\n") { it.text })
     }
-    val marker = MessagePart.Text(envelope.toString())
+    val marker = MessagePart.Text(envelope.toString(), cacheControl = if (textOnly) parts.singleOrNull()?.cacheControl else null)
     return copy(parts = if (textOnly) listOf(marker) else listOf(marker) + parts)
 }

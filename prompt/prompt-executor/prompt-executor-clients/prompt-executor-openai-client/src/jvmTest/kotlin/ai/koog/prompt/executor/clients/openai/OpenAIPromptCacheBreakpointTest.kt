@@ -1,6 +1,8 @@
 package ai.koog.prompt.executor.clients.openai
 
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.executor.clients.openai.models.*
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -108,6 +110,117 @@ class OpenAIPromptCacheBreakpointTest {
         val content = requestFor(attached, documentModel).getValue("input").jsonArray.single().jsonObject.getValue("content").jsonArray
         assertEquals(listOf("input_text", "input_image", "input_file"), content.map { it.jsonObject.getValue("type").jsonPrimitive.content })
         content.forEach { assertEquals("explicit", it.jsonObject.getValue("prompt_cache_breakpoint").jsonObject.getValue("mode").jsonPrimitive.content) }
+    }
+
+    @Test
+    fun testToolResultBreakpointsOnSingleAndMultipartOutput() = runTest {
+        val text = MessagePart.Text("partial", cacheControl = cacheable)
+        val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.URL("https://example.com/image.png"), "png"))
+        val file = MessagePart.Attachment(AttachmentSource.File(AttachmentContent.URL("https://example.com/ref.pdf"), "ref.pdf", "application/pdf"))
+        val results = listOf(
+            MessagePart.Tool.Result("a", "lookup", "unmarked"),
+            MessagePart.Tool.Result("b", "lookup", listOf(text)),
+            MessagePart.Tool.Result("c", "lookup", "complete", cacheControl = cacheable),
+            MessagePart.Tool.Result("d", "lookup", listOf(text, image, file), cacheControl = cacheable),
+            MessagePart.Tool.Result("e", "lookup", listOf(text), isError = true),
+            MessagePart.Tool.Result("f", "lookup", listOf(text, MessagePart.Text("end")), isError = true),
+        )
+        val request = Prompt.build("results", OpenAIResponsesParams()) { user(results) }
+        val output = requestFor(request, OpenAIModels.Chat.GPT6_2Astra).getValue("input").jsonArray.map {
+            it.jsonObject.getValue("output")
+        }
+        val explicit = buildJsonObject { put("mode", "explicit") }
+        fun markers(value: JsonElement) = value.jsonArray.map { it.jsonObject["prompt_cache_breakpoint"] }
+        assertEquals(JsonPrimitive("unmarked"), output[0])
+        assertEquals(listOf(explicit), markers(output[1]))
+        assertEquals(listOf(explicit), markers(output[2]))
+        assertEquals(listOf(explicit, null, explicit), markers(output[3]))
+        assertEquals(listOf("input_text", "input_image", "input_file"), output[3].jsonArray.map { it.jsonObject["type"]?.jsonPrimitive?.content })
+        assertEquals(listOf(explicit), markers(output[4]))
+        assertEquals(listOf(null, explicit, null), markers(output[5]))
+        val unsupported = requestFor(request, OpenAIModels.Chat.GPT4o).getValue("input").jsonArray
+        assertEquals(JsonPrimitive("partial"), unsupported[1].jsonObject["output"])
+        assertFalse("prompt_cache_breakpoint" in unsupported.toString())
+    }
+
+    @Test
+    fun testSettingsReplayInOriginalPositionsWithUnchangedRequestDefaults() = runTest {
+        val params = OpenAIResponsesParams(reasoning = ReasoningConfig(ReasoningEffort.LOW))
+        val original = Prompt.build("settings", params) {
+            system("Instructions")
+            user("Start")
+        }
+        val schema = LLMParams.Schema.JSON.Standard("answer", buildJsonObject { put("type", "object") })
+        val next = Prompt.build(original) {
+            assistant("Started")
+            openAIConfigurationUpdate(ReasoningEffort.HIGH, schema)
+            user("Produce a report")
+        }
+        val restored = next.withMessages { Json.decodeFromString<List<Message>>(Json.encodeToString(it)) }
+        val last = Prompt.build(restored) {
+            assistant("{}")
+            openAIConfigurationUpdate(plainText = true)
+            user("Explain")
+        }
+        val astra = OpenAIModels.Chat.GPT6_2Astra.copy(id = "astra-deployment")
+        val firstRequest = requestFor(original, astra)
+        val secondRequest = requestFor(next, astra)
+        val transport = OpenAIResponsesParityTest.ScriptedResponsesTransport(
+            streamAttempts = ArrayDeque(listOf(listOf(OpenAIStreamEvent.ResponseCompleted(response(astra.id), 1)))),
+        )
+        OpenAILLMClient(OpenAIClientSettings(), transport).executeStreaming(last, astra).toList()
+        val finalRequest = Json.parseToJsonElement(transport.requests.single()).jsonObject
+        val secondInput = secondRequest.getValue("input").jsonArray
+        val finalInput = finalRequest.getValue("input").jsonArray
+        assertEquals(firstRequest.getValue("input").jsonArray, secondInput.take(2))
+        assertEquals(secondInput, finalInput.take(secondInput.size))
+        for (request in listOf(firstRequest, secondRequest, finalRequest)) {
+            assertEquals(JsonPrimitive(astra.id), request["model"])
+            assertEquals(JsonPrimitive("low"), request.getValue("reasoning").jsonObject["effort"])
+            assertNull(request["text"])
+        }
+        val update = secondInput[3].jsonObject
+        assertEquals(JsonPrimitive("configuration_update"), update["type"])
+        assertEquals(JsonPrimitive("high"), update.getValue("reasoning").jsonObject["effort"])
+        val format = update.getValue("text").jsonObject.getValue("format").jsonObject
+        assertEquals(JsonPrimitive("json_schema"), format["type"])
+        assertEquals(schema.schema, format["schema"])
+        assertEquals(JsonPrimitive("answer"), format["name"])
+        assertEquals(JsonPrimitive(true), format["strict"])
+        val reset = finalInput[6].jsonObject
+        assertNull(reset["reasoning"])
+        assertEquals(JsonPrimitive("text"), reset.getValue("text").jsonObject.getValue("format").jsonObject["type"])
+    }
+
+    @Test
+    fun testInvalidConfigurationUpdatesAreRejected() = runTest {
+        assertFailsWith<IllegalArgumentException> { Prompt.build("empty") { openAIConfigurationUpdate() } }
+        val astra = OpenAIModels.Chat.GPT6_2Astra.copy(id = "astra-deployment")
+        val invalid = Prompt.build("invalid") {
+            openAIConfigurationUpdate(ReasoningEffort.NONE)
+            user("Continue")
+        }
+        assertFailsWith<IllegalArgumentException> { requestFor(invalid, astra) }
+        val valid = Prompt.build("valid") {
+            openAIConfigurationUpdate(ReasoningEffort.HIGH)
+            user("Continue")
+        }
+        assertFailsWith<IllegalArgumentException> { requestFor(valid.withParams(OpenAIResponsesParams()), OpenAIModels.Chat.GPT4o) }
+        assertFailsWith<IllegalArgumentException> { requestFor(valid.withParams(OpenAIChatParams()), astra) }
+    }
+
+    @Test
+    fun testExplicitOnlyRetentionAndCacheDiagnosticsSurviveParameterCopies() = runTest {
+        val diagnostics = buildJsonObject { put("comparison_response_id", "previous") }
+        val params = OpenAIResponsesParams(additionalProperties = mapOf("prompt_cache_options" to diagnostics))
+            .withPromptCacheOptions(OpenAIPromptCacheMode.Explicit, OpenAIPromptCacheTtl.TwelveHours)
+        val sent = requestFor(prompt().withParams(params.asStateless()), OpenAIModels.Chat.GPT6_2Astra)
+        assertEquals(buildJsonObject {
+            put("mode", "explicit")
+            put("ttl", "12h")
+            put("comparison_response_id", "previous")
+        }, sent["prompt_cache_options"])
+        assertFalse("prompt_cache_options" in requestFor(prompt()))
     }
 
     @Test

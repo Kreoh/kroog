@@ -64,11 +64,16 @@ class CodexLLMClientTest {
         val marked = Prompt.build("codex", params = OpenAIResponsesParams()) {
             system("Be brief", PromptCacheControl(cacheable = true))
             user("Hello", PromptCacheControl(cacheable = true))
+            assistant { toolCall("call_1", "lookup", "{}") }
+            user(listOf(MessagePart.Tool.Result("call_1", "lookup", "answer", cacheControl = PromptCacheControl(true))))
         }
         client.execute(marked, model)
         assertFalse("prompt_cache_breakpoint" in http.bodies.single())
-        val content = Json.parseToJsonElement(http.bodies.single()).jsonObject["input"]!!.jsonArray.single().jsonObject["content"]!!
-        assertEquals("Hello", content.jsonArray.single().jsonObject["text"]!!.jsonPrimitive.content)
+        val input = Json.parseToJsonElement(http.bodies.single()).jsonObject.getValue("input").jsonArray
+        val content = input.first().jsonObject.getValue("content")
+        assertEquals("Hello", content.jsonArray.single().jsonObject.getValue("text").jsonPrimitive.content)
+        val output = input.last().jsonObject.getValue("output").jsonArray.single().jsonObject
+        assertEquals("answer", output.getValue("text").jsonPrimitive.content)
         client.close()
     }
 

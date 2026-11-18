@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlin.time.Instant
 
-class TestLLMExecutor : PromptExecutor() {
+class TestLLMExecutor(private val onExecute: (Prompt, List<ToolDescriptor>) -> Unit = { _, _ -> }) : PromptExecutor() {
 
     private val logger = KotlinLogging.logger {}
 
@@ -45,6 +45,7 @@ class TestLLMExecutor : PromptExecutor() {
     }
 
     override suspend fun execute(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Message.Assistant {
+        onExecute(prompt, tools)
         return handlePrompt(prompt)
     }
 

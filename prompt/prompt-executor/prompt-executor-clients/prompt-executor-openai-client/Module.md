@@ -23,6 +23,17 @@ and up to 128,000 output tokens. Both default to Responses for tool calling. Exp
 text generation. Both accept reasoning efforts from `LOW` through `MAX` and omit sampling controls and output
 log probabilities. [GPT-6.2 migration guide](https://developers.openai.com/api/docs/guides/latest-model)
 
+On the direct Responses API, put reusable instructions in the first `system` message and append each new turn. Kroog sends that first message with the `developer` role. Use `openAIConfigurationUpdate` before the next user message to change reasoning effort, set a JSON schema or restore plain text. Keep the initial request parameters when replaying the conversation. For example:
+
+```kotlin
+val followUp = Prompt.build(previousPrompt) {
+    openAIConfigurationUpdate(effort = ReasoningEffort.HIGH, schema = reportSchema)
+    user("Prepare the report")
+}
+```
+
+Implicit prompt caching is the default. Mark the last reusable content block with `PromptCacheControl(cacheable = true)` to set an explicit breakpoint. A marker on a tool result applies to its last emitted content block. To limit writes to explicit breakpoints, use `OpenAIResponsesParams().withPromptCacheOptions(OpenAIPromptCacheMode.Explicit)`. The optional `ttl` selects the request-wide cache lifetime. Use the response's cache-read and cache-write token counts to measure reuse.
+
 ### GPT-6.1 Sol
 
 `OpenAIModels.Chat.GPT6_1Sol` uses `gpt-6.1-sol`, with a 1,050,000-token context window and a 128,000-token output limit. It defaults to Responses, which is required for tool calling. Explicit Chat Completions supports text generation without tools. Reasoning efforts are `LOW`, `MEDIUM` (the provider default), `HIGH`, `XHIGH` and `MAX`; `NONE` and `MINIMAL` are rejected, including raw overrides. Sampling controls and output log probabilities are omitted. Deployment aliases retain these rules.

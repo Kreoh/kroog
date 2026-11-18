@@ -41,7 +41,6 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIModelsResponse
-import ai.koog.prompt.executor.clients.openai.models.OpenAIOutputFormat
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIRequestSerializer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIResponse
@@ -49,7 +48,6 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesTool
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesTool.Function
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesToolChoice
 import ai.koog.prompt.executor.clients.openai.models.OpenAIStreamEvent
-import ai.koog.prompt.executor.clients.openai.models.OpenAITextConfig
 import ai.koog.prompt.executor.clients.openai.models.OutputContent
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
@@ -86,6 +84,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -451,20 +450,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         if (params.stateless) {
             require(params.store != true) { "Stateless Responses requests require store=false" }
         }
-        val responseFormat = params.schema?.let { schema ->
-            require(model.supports(schema.capability)) {
-                "Model ${model.id} does not support structured output schema ${schema.name}"
-            }
-            when (schema) {
-                is LLMParams.Schema.JSON -> OpenAITextConfig(
-                    format = OpenAIOutputFormat.JsonSchema(
-                        name = schema.name,
-                        schema = schema.schema,
-                        strict = true
-                    )
-                )
-            }
-        }
+        val responseFormat = params.schema?.toResponsesTextConfig(model)
 
         val responsesTools = buildList {
             addAll(tools.orEmpty())
@@ -568,25 +554,6 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
         return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
     }
-
-    private fun LLModel.isGpt6ReasoningOnly(): Boolean {
-        val semanticId = if (provider == LLMProvider.Bedrock) id.removePrefix("openai.") else id
-        return when (semanticId) {
-            OpenAIModels.Chat.GPT6Astra.id, OpenAIModels.Chat.GPT6_1Sol.id,
-            OpenAIModels.Chat.GPT6_2Astra.id, OpenAIModels.Chat.GPT6_2Sol.id -> true
-            else -> matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
-        }
-    }
-
-    private fun LLModel.isGpt6(): Boolean = isGpt6ReasoningOnly() ||
-        id == OpenAIModels.Chat.GPT6Sol.id ||
-        id == OpenAIModels.Chat.GPT6Luna.id ||
-        matchesGpt6Profile(OpenAIModels.Chat.GPT6Sol)
-
-    private fun LLModel.matchesGpt6Profile(profile: LLModel): Boolean =
-        contextLength == profile.contextLength &&
-            maxOutputTokens == profile.maxOutputTokens &&
-            capabilities == profile.capabilities
 
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
         val validated = OpenAICodeInterpreterConfig(fileIds = fileIds.toList(), containerId = containerId)
@@ -1399,6 +1366,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             prompt.messages.forEach { message ->
                 when (message) {
                     is Message.System -> {
+                        message.configurationUpdate()?.let { update ->
+                            require(settings.responsesDialect == OpenAIResponsesDialect.OpenAI && model.isGpt6()) {
+                                "Configuration updates require the direct OpenAI GPT-6 Responses API"
+                            }
+                            require(update.effort != ReasoningEffort.MINIMAL && !(model.isGpt6ReasoningOnly() && update.effort == ReasoningEffort.NONE)) {
+                                "Unsupported configuration update effort for ${model.id}"
+                            }
+                            add(update.toItem(model))
+                            return@forEach
+                        }
                         add(
                             Item.InputMessage(
                                 role = "developer",
@@ -1411,71 +1388,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         // First add tool results
                         message.parts.filterIsInstance<MessagePart.Tool.Result>().forEach { part ->
                             if (model.supports(LLMCapability.Tools)) {
-                                val output: JsonElement = if (part.parts.size == 1 && part.parts.single() is MessagePart.Text) {
-                                    JsonPrimitive((part.parts.single() as MessagePart.Text).text)
-                                } else {
-                                    buildJsonArray {
-                                        part.parts.forEach { p ->
-                                            when (p) {
-                                                is MessagePart.Text -> add(
-                                                    buildJsonObject {
-                                                        put("type", "input_text")
-                                                        put("text", p.text)
-                                                    }
-                                                )
-                                                is MessagePart.Attachment -> {
-                                                    when (val source = p.source) {
-                                                        is AttachmentSource.Image -> {
-                                                            val imageUrl = when (val c = source.content) {
-                                                                is AttachmentContent.URL -> c.url
-                                                                is AttachmentContent.Binary -> "data:${source.mimeType};base64,${c.asBase64()}"
-                                                                else -> {
-                                                                    logger.warn { "Unsupported image content type in tool result for OpenAI: ${c::class}, skipping" }
-                                                                    null
-                                                                }
-                                                            }
-                                                            if (imageUrl != null) {
-                                                                add(
-                                                                    buildJsonObject {
-                                                                        put("type", "input_image")
-                                                                        put("image_url", imageUrl)
-                                                                        put("detail", "auto")
-                                                                    }
-                                                                )
-                                                            }
-                                                        }
-                                                        is AttachmentSource.File -> {
-                                                            when (val c = source.content) {
-                                                                is AttachmentContent.Binary -> add(
-                                                                    buildJsonObject {
-                                                                        put("type", "input_file")
-                                                                        put("file_data", "data:${source.mimeType};base64,${c.asBase64()}")
-                                                                        source.fileName?.let { put("filename", it) }
-                                                                    }
-                                                                )
-                                                                is AttachmentContent.URL -> add(
-                                                                    buildJsonObject {
-                                                                        put("type", "input_file")
-                                                                        put("file_url", c.url)
-                                                                        source.fileName?.let { put("filename", it) }
-                                                                    }
-                                                                )
-                                                                else -> logger.warn { "Unsupported file content type in tool result for OpenAI: ${c::class}, skipping" }
-                                                            }
-                                                        }
-                                                        else -> logger.warn { "Unsupported attachment type in tool result for OpenAI: ${source::class}, skipping" }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
                                 add(
                                     Item.FunctionToolCallOutput(
                                         callId = requireNotNull(part.id) {
                                             "OpenAI function-result replay requires a call ID"
                                         },
-                                        output = output,
+                                        output = part.toResponsesToolOutput(model),
                                         id = part.providerItemId,
                                     )
                                 )
@@ -1596,6 +1514,47 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 }
             }
         }
+    }
+
+    private fun MessagePart.Tool.Result.toResponsesToolOutput(model: LLModel): JsonElement {
+        val resultMarker = openAIBreakpoint(model, settings.responsesDialect)
+        val single = parts.singleOrNull() as? MessagePart.Text
+        if (single != null && resultMarker == null && single.openAIBreakpoint(model, settings.responsesDialect) == null) {
+            return JsonPrimitive(single.text)
+        }
+        val blocks = parts.mapNotNull { part ->
+            val marker = part.openAIBreakpoint(model, settings.responsesDialect)
+            val block = when (part) {
+                is MessagePart.Text -> InputContent.Text(part.text, marker)
+                is MessagePart.Attachment -> when (val source = part.source) {
+                    is AttachmentSource.Image -> when (val content = source.content) {
+                        is AttachmentContent.URL -> InputContent.Image(imageUrl = content.url, promptCacheBreakpoint = marker)
+                        is AttachmentContent.Binary -> InputContent.Image(
+                            imageUrl = "data:${source.mimeType};base64,${content.asBase64()}",
+                            promptCacheBreakpoint = marker,
+                        )
+                        else -> null
+                    }
+                    is AttachmentSource.File -> when (val content = source.content) {
+                        is AttachmentContent.URL -> InputContent.File(fileUrl = content.url, filename = source.fileName, promptCacheBreakpoint = marker)
+                        is AttachmentContent.Binary -> InputContent.File(
+                            fileData = "data:${source.mimeType};base64,${content.asBase64()}",
+                            filename = source.fileName,
+                            promptCacheBreakpoint = marker,
+                        )
+                        else -> null
+                    }
+                    else -> null
+                }
+            }
+            if (block == null) logger.warn { "Skipping unsupported attachment in OpenAI tool result" }
+            block?.let { json.encodeToJsonElement(InputContent.serializer(), it).jsonObject }
+        }.toMutableList()
+        if (resultMarker != null && blocks.isNotEmpty()) {
+            val last = blocks.last()
+            blocks[blocks.lastIndex] = JsonObject(last + ("prompt_cache_breakpoint" to json.encodeToJsonElement(resultMarker)))
+        }
+        return JsonArray(blocks)
     }
 
     private fun List<MessagePart.ContentPart>.toResponsesMessageContent(model: LLModel): List<InputContent> {
@@ -2031,16 +1990,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             params
         }
 
-        model.isGpt6() -> {
+        model.usesOpenAIResponses(params) -> {
             settings.requireResponsesCapability()
             model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
             params.toOpenAIResponsesParams()
         }
         model.supports(LLMCapability.OpenAIEndpoint.Completions) -> params.toOpenAIChatParams()
-        model.supports(LLMCapability.OpenAIEndpoint.Responses) -> {
-            settings.requireResponsesCapability()
-            params.toOpenAIResponsesParams()
-        }
         else -> throw LLMClientException(clientName, "Cannot determine proper LLM params for OpenAI model: ${model.id}")
     }
 
@@ -2102,5 +2057,41 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         prompt: Prompt,
         model: LLModel,
         action: (Prompt, OpenAIParams) -> T
-    ): T = action(prompt.forOpenAIToolReplay(), determineParams(prompt.params, model))
+    ): T {
+        val params = determineParams(prompt.params, model)
+        if (params is OpenAIChatParams) {
+            require(prompt.messages.none { it is Message.System && it.metaInfo.metadata?.containsKey(CONFIGURATION_UPDATE) == true }) {
+                "Configuration updates require the OpenAI Responses API"
+            }
+        }
+        val preserveMarkers = params is OpenAIResponsesParams && settings.responsesDialect != OpenAIResponsesDialect.Compatible &&
+            model.supports(LLMCapability.OpenAIExplicitPromptCaching)
+        return action(prompt.forOpenAIToolReplay(preserveMarkers), params)
+    }
 }
+
+/** Whether OpenAI routes these parameters and this model to the Responses API. */
+public fun LLModel.usesOpenAIResponses(params: LLMParams): Boolean = when (params) {
+    is OpenAIResponsesParams -> true
+    is OpenAIChatParams -> false
+    else -> isGpt6() || (!supports(LLMCapability.OpenAIEndpoint.Completions) && supports(LLMCapability.OpenAIEndpoint.Responses))
+}
+
+private fun LLModel.isGpt6ReasoningOnly(): Boolean {
+    val semanticId = if (provider == LLMProvider.Bedrock) id.removePrefix("openai.") else id
+    return when (semanticId) {
+        OpenAIModels.Chat.GPT6Astra.id, OpenAIModels.Chat.GPT6_1Sol.id,
+        OpenAIModels.Chat.GPT6_2Astra.id, OpenAIModels.Chat.GPT6_2Sol.id -> true
+        else -> matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
+    }
+}
+
+private fun LLModel.isGpt6(): Boolean = isGpt6ReasoningOnly() ||
+    id == OpenAIModels.Chat.GPT6Sol.id ||
+    id == OpenAIModels.Chat.GPT6Luna.id ||
+    matchesGpt6Profile(OpenAIModels.Chat.GPT6Sol)
+
+private fun LLModel.matchesGpt6Profile(profile: LLModel): Boolean =
+    contextLength == profile.contextLength &&
+        maxOutputTokens == profile.maxOutputTokens &&
+        capabilities == profile.capabilities

@@ -2,6 +2,7 @@ package ai.koog.agents.core.agent.session
 
 import ai.koog.agents.core.CalculatorChatExecutor.testClock
 import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.dsl.extension.TestLLMExecutor
 import ai.koog.agents.core.environment.AIAgentEnvironment
 import ai.koog.agents.core.environment.ReceivedToolResult
 import ai.koog.agents.core.environment.ToolResultKind
@@ -16,6 +17,8 @@ import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.executor.clients.openai.OpenAIChatParams
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.executor.ollama.client.OllamaModels
 import ai.koog.prompt.llm.LLModel
@@ -215,6 +218,28 @@ class AIAgentLLMWriteSessionTest {
         assertEquals("Response without tools", assertIs<MessagePart.Text>(response.parts.single()).text)
         assertEquals(initialMessageCount + 1, session.prompt.messages.size)
         assertEquals(assistantMessage("Response without tools"), session.prompt.messages.last())
+    }
+
+    @Test
+    fun testWithoutToolsPreservesAstraResponsesHistoryAndRestoresChoiceOnNextTurn() = runTest {
+        val requests = mutableListOf<Pair<Prompt, List<ToolDescriptor>>>()
+        val executor = TestLLMExecutor { prompt, tools -> requests.add(prompt to tools) }
+        val history = createConversationPrompt()
+        val astra = OpenAIModels.Chat.GPT6_2Astra.copy(id = "astra-deployment")
+        val session = createSession(executor, prompt = history, model = astra)
+        session.requestLLMWithoutTools()
+        session.requestLLM()
+        val (disabled, definitions) = requests.first()
+        assertEquals(listOf("test-tool", "custom-tool"), definitions.map { it.name })
+        assertEquals(history.messages, disabled.messages)
+        assertEquals(LLMParams.ToolChoice.None, disabled.params.toolChoice)
+        assertEquals(definitions, requests.last().second)
+        assertEquals(history.params.toolChoice, requests.last().first.params.toolChoice)
+
+        createSession(executor, prompt = history.withParams(OpenAIChatParams()), model = astra).requestLLMWithoutTools()
+        val (chat, chatTools) = requests.last()
+        assertTrue(chatTools.isEmpty())
+        assertTrue(chat.messages.flatMap { it.parts }.none { it is MessagePart.Tool })
     }
 
     @Test
