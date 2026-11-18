@@ -42,15 +42,9 @@ class BedrockGpt62ConverseTest {
             assertEquals("result", spec.name)
             assertEquals(schema.toString(), spec.schema)
             assertEquals(expected, JsonDocumentConverters.convertToJsonElement(request.additionalModelRequestFields))
-            if (model == BedrockModels.OpenAIGpt6_2Astra) {
-                assertFailsWith<IllegalArgumentException> {
-                    BedrockConverseConverters.createConverseStreamRequest(prompt, model, emptyList())
-                }
-            } else {
-                val stream = BedrockConverseConverters.createConverseStreamRequest(prompt, model, emptyList())
-                assertEquals(request.outputConfig, stream.outputConfig)
-                assertEquals(expected, JsonDocumentConverters.convertToJsonElement(stream.additionalModelRequestFields))
-            }
+            val stream = BedrockConverseConverters.createConverseStreamRequest(prompt, model, emptyList())
+            assertEquals(request.outputConfig, stream.outputConfig)
+            assertEquals(expected, JsonDocumentConverters.convertToJsonElement(stream.additionalModelRequestFields))
         }
     }
 

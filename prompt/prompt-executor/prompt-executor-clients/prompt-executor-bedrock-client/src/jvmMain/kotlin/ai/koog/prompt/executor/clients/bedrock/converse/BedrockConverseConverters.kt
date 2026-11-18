@@ -15,7 +15,6 @@ import ai.koog.prompt.executor.clients.bedrock.BedrockModelFamilies
 import ai.koog.prompt.executor.clients.bedrock.BedrockModels
 import ai.koog.prompt.executor.clients.bedrock.knownBedrockFamily
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockToolSerialization
-import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.clients.bedrock.util.JsonDocumentConverters
 import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
@@ -564,9 +563,6 @@ internal object BedrockConverseConverters {
         guardrailSettings: BedrockGuardrailsSettings? = null,
         fallbackModelFamily: BedrockModelFamilies? = null,
     ): ConverseStreamRequest {
-        require(prompt.params.schema == null || BedrockModels.openAiGpt6Profile(model.id) != OpenAIModels.Chat.GPT6_2Astra) {
-            "GPT-6.2 Astra supports JSON Schema only on non-streaming Converse."
-        }
         val params = createConverseRequestParams(prompt, model, tools, guardrailSettings, fallbackModelFamily)
 
         @Suppress("DuplicatedCode") // AWS SDK requires duplication

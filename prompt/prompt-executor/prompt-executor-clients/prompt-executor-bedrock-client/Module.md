@@ -435,7 +435,7 @@ AWS supports global profiles too; use `model.copy(id = "global.openai.gpt-6-astr
 GPT-6.2 Astra and Sol use `BedrockModels.OpenAIGpt6_2Astra` and `BedrockModels.OpenAIGpt6_2Sol`.
 Converse defaults to US inference profiles, uses implicit caching, and omits explicit cache points.
 User messages accept text and images. Tool results accept text. Both models accept strict JSON Schema on
-non-streaming Converse. Sol also accepts it on ConverseStream. Mantle uses implicit caching through this
+Converse and ConverseStream. Mantle uses implicit caching through this
 client's OpenAI-compatible dialect and omits explicit cache hints. Mantle requires
 `BedrockRegions.US_EAST_1` and sends the unprefixed model ID to the OpenAI-compatible endpoints.
 [Astra endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-6-2-astra.html)
