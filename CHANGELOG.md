@@ -1,3 +1,11 @@
+# Kroog 1.3.0-kroog.8
+
+Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.8` and beta modules use `1.3.0-beta-kroog.8`.
+
+- Preserve the reusable prompt prefix across direct OpenAI Responses turns. Use `openAIConfigurationUpdate` to change reasoning effort or response format for subsequent turns. Budgeted history compression keeps these updates in conversation order, and the response cache distinguishes prompts that request different schemas.
+- Set explicit prompt-cache breakpoints on tool results and configure cache mode and lifetime with `withPromptCacheOptions`. The Codex client strips explicit cache options and rejects conversation configuration updates before sending the request.
+- Keep tool calls disabled when a call-start interceptor edits the prompt or the executor selects a fallback model. Supported OpenAI Responses models can retain tool definitions for prefix reuse.
+
 # Kroog 1.3.0-kroog.7
 
 Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.7` and beta modules use `1.3.0-beta-kroog.7`.
