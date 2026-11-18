@@ -6,7 +6,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
 shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.3.0-kroog.6`; modules which apply a beta version transform
+stable version is `1.3.0-kroog.7`; modules which apply a beta version transform
 retain their module-specific version. Publication requires Ubuntu 24.04,
 Java 21, `--no-parallel` and `--no-daemon`.
 
@@ -39,20 +39,20 @@ examples on confirmed published coordinates until new artefacts are available
 from Central and dependency resolution has been verified.
 See `VERSIONING.md` for the policy and beta-module version forms.
 
-For the current release configured as `1.3.0-kroog.6`, the version forms are:
+For the current release configured as `1.3.0-kroog.7`, the version forms are:
 
 | Purpose | Version or tag |
 |---------|----------------|
-| Stable modules | `1.3.0-kroog.6` |
-| Beta modules, derived automatically | `1.3.0-beta-kroog.6` |
-| Stable module snapshots | `1.3.0-kroog.6-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.6-SNAPSHOT` |
-| Annotated release tag | `1.3.0-kroog.6` |
+| Stable modules | `1.3.0-kroog.7` |
+| Beta modules, derived automatically | `1.3.0-beta-kroog.7` |
+| Stable module snapshots | `1.3.0-kroog.7-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.7-SNAPSHOT` |
+| Annotated release tag | `1.3.0-kroog.7` |
 
 The release tag exactly matches the stable version, with no `v` prefix.
 Beta modules share that release tag; they do not need separate tags. These
 forms describe the configured release revision. Local preparation does not
-publish artefacts to Maven Central. See the [revision 6 release notes](CHANGELOG.md#kroog-130-kroog6). The preceding release tag is `1.3.0-kroog.5`. Installation examples use the previously verified revision 2 consumer configuration.
+publish artefacts to Maven Central. See the [revision 7 release notes](CHANGELOG.md#kroog-130-kroog7). The preceding release tag is `1.3.0-kroog.6`. Installation examples use the previously verified revision 2 consumer configuration.
 
 ## Exact target closure
 
@@ -75,8 +75,8 @@ bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
 `com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.3.0-beta-kroog.6-SNAPSHOT`, and its release version is
-`1.3.0-beta-kroog.6`. It remains excluded from the stable `koog-agents`
+snapshot version is `1.3.0-beta-kroog.7-SNAPSHOT`, and its release version is
+`1.3.0-beta-kroog.7`. It remains excluded from the stable `koog-agents`
 umbrella and is included in the JVM publication of `koog-agents-additions`.
 Remote publication remains
 part of the normal release workflow.
@@ -160,28 +160,14 @@ dependency locks and dependency-verification checksums from that generation.
 
 ### Release preparation
 
-1. Merge the intended feature and fix PRs into `master`, including any branch
-   refreshes. Choose the exact source commit to prepare for release.
-2. Verify the incorporated Koog version against the alignment audit. Match the
-   Kroog base to that version and reset the revision to `1` when the upstream
-   base changes. Check existing tags and published coordinates before choosing
-   the next unused revision on that base. Update
-   `version` in `gradle.properties`, current dependency examples and version
-   documentation. Keep historical release notes and audit evidence unchanged.
-3. Add Kroog release notes covering user-visible features, fixes, compatibility
-   changes and the incorporated upstream version. Complete the README release
-   gate below and review the release commit.
-4. Complete the model catalogue release gate below for every model change.
-   Run the relevant module-specific JVM tests and JVM ABI checks. Investigate
-   failing CI checks and document any existing limitations before release.
-   Validate all 87 publications from a clean archive of the exact release commit
-   using the local publication procedure above and a fresh output directory.
-5. Merge the reviewed release preparation into `master`. If the final commit
-   changes the validated source, repeat the affected checks. Check out the exact
-   release commit with a clean working tree before creating its annotated tag.
-6. Push the tag and verify its object on origin, then manually dispatch the
-   release workflow with that exact tag, as described below.
-7. Inspect the signed bundle and Central Portal validation results. Approve
+1. Collect the intended changes on the release preparation branch and resolve any conflicts with `master` before tagging.
+2. Verify the incorporated Koog version against the alignment audit. If the upstream base changed, use the new base and reset the Kroog revision to `1`. Check existing tags and published coordinates, then commit the next unused version in `gradle.properties`, the version documentation and the release notes. Keep installation examples on verified published coordinates.
+3. Document user-visible features, fixes, compatibility changes and the incorporated upstream version. Complete the README release gate below and review the preparation commit.
+4. Complete the model catalogue release gate for each model change. Run the relevant JVM tests and ABI checks, investigate failures and record existing limitations. Validate all 87 publications from a clean archive of the exact preparation commit in a fresh output directory.
+5. **Before merging into `master`, create the annotated version tag on the validated preparation commit.** Use a clean checkout, push the preparation branch and tag, and verify the tag object and its target on origin.
+6. Choose **Squash and merge** on the preparation PR into `master`. GitHub creates a new commit on `master`; the release tag continues to point to the validated preparation commit. Review any differences between the tagged source and the squash commit with `git diff "$version" <squash-commit>`. If a change must ship and is missing from the tag, prepare a new revision.
+7. After the PR is merged, open **Actions → Publish Maven release → Run workflow**. Select `master` and enter the existing annotated tag as `release_tag`.
+8. Inspect the signed bundle and Central Portal validation results. Approve
    publication in Central Portal only after validation succeeds. Create the
    GitHub release against the same tag with the reviewed release notes, then
    update consumers once the artefacts are available from Central.
@@ -278,12 +264,7 @@ test "$(git ls-remote --refs origin "refs/tags/$version" | cut -f1)" = \
   "$(git rev-parse "refs/tags/$version")"
 ```
 
-To dispatch in the GitHub browser, open **Actions**, select **Publish Maven
-release**, and choose **Run workflow**. Select the repository default branch in
-the branch selector, enter the exact annotated tag in `release_tag`, and run
-the workflow. The branch selects the trusted workflow definition. The workflow
-checks out and publishes the commit peeled from `release_tag`, rather than the
-default-branch commit.
+A browser dispatch loads the workflow definition from the default branch. The workflow checks out the commit identified by `release_tag`, signs its artefacts and uploads them to Central Portal for approval.
 
 The equivalent GitHub CLI command is:
 

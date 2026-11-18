@@ -11,6 +11,8 @@ import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamDeltaCont
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamEventType
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicStreamResponse
 import ai.koog.prompt.executor.clients.anthropic.models.AnthropicUsage
+import ai.koog.prompt.executor.clients.bedrock.isBedrockFable52
+import ai.koog.prompt.executor.clients.bedrock.validateFable52Turn
 import ai.koog.prompt.executor.clients.bedrock.BedrockCacheControl
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModel
 import ai.koog.prompt.executor.clients.bedrock.modelfamilies.BedrockAnthropicInvokeModelContent
@@ -338,6 +340,9 @@ internal object BedrockAnthropicClaudeSerialization {
         }
 
         val params: LLMParams = prompt.params
+        if (model?.id?.isBedrockFable52() == true) {
+            validateFable52Turn(params.toolChoice, messages.lastOrNull() is BedrockAnthropicWireMessage.Assistant)
+        }
         val temperature = params.temperature.takeIf {
             model == null || model.supports(LLMCapability.Temperature)
         }

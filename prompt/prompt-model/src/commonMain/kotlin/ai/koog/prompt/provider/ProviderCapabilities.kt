@@ -25,6 +25,10 @@ public enum class ProviderApi {
     AZURE_REALTIME,
     /** Text embedding through Bedrock Runtime InvokeModel. */
     BEDROCK_EMBEDDINGS,
+    /** Direct Claude Messages API. */
+    ANTHROPIC_MESSAGES,
+    /** Gemini Developer API GenerateContent. */
+    GEMINI_GENERATE_CONTENT,
 }
 
 /** How provider-side code is executed. */
@@ -46,6 +50,8 @@ public enum class HostedExecutionUnsupportedReason {
     CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION,
     CODEX_EXECUTION_IS_OUT_OF_SCOPE,
     MODEL_API_IS_NOT_AN_EXECUTION_API,
+    /** The client does not implement hosted execution on this route. */
+    CLIENT_INTEGRATION_UNAVAILABLE,
 }
 
 /** Whether the current Kroog clients implement the declared provider capability. */
@@ -203,6 +209,11 @@ public object ProviderCapabilityMatrix {
 
         ProviderApi.AZURE_RESPONSES -> inlineCodeInterpreter()
 
+        ProviderApi.ANTHROPIC_MESSAGES -> HostedExecutionCapability.Unsupported(
+            HostedExecutionUnsupportedReason.CLIENT_INTEGRATION_UNAVAILABLE
+        )
+
+        ProviderApi.GEMINI_GENERATE_CONTENT,
         ProviderApi.VERTEX_GEMINI_GENERATE_CONTENT -> HostedExecutionCapability.Supported(
             HostedExecutionConfiguration(
                 mode = HostedExecutionMode.INLINE_PROVIDER_TOOL,

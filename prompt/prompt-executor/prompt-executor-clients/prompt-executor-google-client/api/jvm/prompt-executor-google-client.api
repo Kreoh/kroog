@@ -108,6 +108,8 @@ public final class ai/koog/prompt/executor/clients/google/GoogleModels : ai/koog
 	public static final field Gemini3_7Flash Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini3_8Flash Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini4Argon Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini4Carbon Lai/koog/prompt/llm/LLModel;
+	public static final field Gemini4Hydrogen Lai/koog/prompt/llm/LLModel;
 	public static final field Gemini3_Flash_Preview Lai/koog/prompt/llm/LLModel;
 	public static final field INSTANCE Lai/koog/prompt/executor/clients/google/GoogleModels;
 	public fun addCustomModel (Lai/koog/prompt/llm/LLModel;)V
@@ -178,6 +180,7 @@ public final class ai/koog/prompt/executor/clients/google/models/GoogleThinkingL
 	public static final field LOW Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
 	public static final field MEDIUM Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
 	public static final field MINIMAL Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
+	public static final field XHIGH Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;
 	public static fun values ()[Lai/koog/prompt/executor/clients/google/models/GoogleThinkingLevel;

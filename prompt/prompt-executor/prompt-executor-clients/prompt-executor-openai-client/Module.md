@@ -16,6 +16,13 @@ requirements.
 
 ### Supported Models
 
+### GPT-6.2 Astra and Sol
+
+Select `OpenAIModels.Chat.GPT6_2Astra` or `OpenAIModels.Chat.GPT6_2Sol` for a 1,050,000-token context window
+and up to 128,000 output tokens. Both default to Responses for tool calling. Explicit Chat Completions supports
+text generation. Both accept reasoning efforts from `LOW` through `MAX` and omit sampling controls and output
+log probabilities. [GPT-6.2 migration guide](https://developers.openai.com/api/docs/guides/latest-model)
+
 ### GPT-6.1 Sol
 
 `OpenAIModels.Chat.GPT6_1Sol` uses `gpt-6.1-sol`, with a 1,050,000-token context window and a 128,000-token output limit. It defaults to Responses, which is required for tool calling. Explicit Chat Completions supports text generation without tools. Reasoning efforts are `LOW`, `MEDIUM` (the provider default), `HIGH`, `XHIGH` and `MAX`; `NONE` and `MINIMAL` are rejected, including raw overrides. Sampling controls and output log probabilities are omitted. Deployment aliases retain these rules.

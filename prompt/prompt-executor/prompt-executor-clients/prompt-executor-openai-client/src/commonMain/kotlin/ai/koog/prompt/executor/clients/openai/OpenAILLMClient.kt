@@ -569,8 +569,14 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
     }
 
-    private fun LLModel.isGpt6ReasoningOnly(): Boolean =
-        id == OpenAIModels.Chat.GPT6Astra.id || id == OpenAIModels.Chat.GPT6_1Sol.id || matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
+    private fun LLModel.isGpt6ReasoningOnly(): Boolean {
+        val semanticId = if (provider == LLMProvider.Bedrock) id.removePrefix("openai.") else id
+        return when (semanticId) {
+            OpenAIModels.Chat.GPT6Astra.id, OpenAIModels.Chat.GPT6_1Sol.id,
+            OpenAIModels.Chat.GPT6_2Astra.id, OpenAIModels.Chat.GPT6_2Sol.id -> true
+            else -> matchesGpt6Profile(OpenAIModels.Chat.GPT6Astra)
+        }
+    }
 
     private fun LLModel.isGpt6(): Boolean = isGpt6ReasoningOnly() ||
         id == OpenAIModels.Chat.GPT6Sol.id ||

@@ -4,6 +4,8 @@ Koog is a Kotlin multiplatform framework for building AI agents with graph-based
 It supports JVM and JS targets and integrates with multiple LLM providers
 (OpenAI, Anthropic, Google, OpenRouter, Ollama) and Model Context Protocol (MCP).
 
+For new model support, follow [Adding models](docs/adding-models.md).
+
 ## Kroog release versioning
 
 - Use `UPSTREAM_VERSION-kroog.REVISION`. The base must match the latest incorporated Koog release.

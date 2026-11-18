@@ -299,6 +299,32 @@ public object GoogleModels : LLModelDefinitions {
     )
 
     /**
+     * Gemini 4 Carbon supports 32,768 output tokens per unary request and up to 65,536 when streaming.
+     * Input and output share a 1,048,576-token context window.
+     */
+    @JvmField
+    public val Gemini4Carbon: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-4-carbon",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 32_768,
+    )
+
+    /**
+     * Gemini 4 Hydrogen supports 65,536 output tokens per unary or streaming request.
+     * Input and output share a 1,048,576-token context window.
+     */
+    @JvmField
+    public val Gemini4Hydrogen: LLModel = LLModel(
+        provider = LLMProvider.Google,
+        id = "gemini-4-hydrogen",
+        capabilities = fixedSamplingCapabilities,
+        contextLength = 1_048_576,
+        maxOutputTokens = 65_536,
+    )
+
+    /**
      * Models for generating text embeddings.
      */
     public object Embeddings {
@@ -336,6 +362,8 @@ public object GoogleModels : LLModelDefinitions {
         Gemini3_7Flash,
         Gemini3_8Flash,
         Gemini4Argon,
+        Gemini4Carbon,
+        Gemini4Hydrogen,
         Embeddings.GeminiEmbedding001,
     )
 

@@ -30,6 +30,7 @@ import ai.koog.prompt.executor.clients.google.models.GoogleModelsResponse
 import ai.koog.prompt.executor.clients.google.models.GooglePart
 import ai.koog.prompt.executor.clients.google.models.GoogleRequest
 import ai.koog.prompt.executor.clients.google.models.GoogleResponse
+import ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel
 import ai.koog.prompt.executor.clients.google.models.GoogleTool
 import ai.koog.prompt.executor.clients.google.models.GoogleToolConfig
 import ai.koog.prompt.executor.clients.google.models.GoogleUsageMetadata
@@ -48,6 +49,8 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.isClientManagedExecutionPresentation
 import ai.koog.prompt.message.validateClientManagedExecutionPresentation
+import ai.koog.prompt.models.ModelCatalogue
+import ai.koog.prompt.models.ReasoningSupport
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -141,13 +144,17 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     private companion object {
         private const val GOOGLE_CLIENT_NAME = "GoogleLLMClient"
 
+        private val GEMINI_4_MODEL_IDS = setOf(
+            GoogleModels.Gemini4Argon.id,
+            GoogleModels.Gemini4Carbon.id,
+            GoogleModels.Gemini4Hydrogen.id,
+        )
         private val FIXED_SAMPLING_MODEL_IDS = setOf(
             "gemini-3.5-flash-lite",
             "gemini-3.6-flash",
             "gemini-3.7-flash",
             "gemini-3.8-flash",
-            "gemini-4-argon",
-        )
+        ) + GEMINI_4_MODEL_IDS
         private val UNSUPPORTED_SAMPLING_PROPERTY_NAMES = setOf(
             "temperature",
             "candidateCount",
@@ -522,11 +529,12 @@ public open class GoogleLLMClient @JvmOverloads constructor(
         }
     }
 
-    private fun List<GoogleContent>.imageCount(): Int = sumOf { content ->
+    private fun List<GoogleContent>.countFiles(matches: (String) -> Boolean): Int = sumOf { content ->
         content.parts.orEmpty().sumOf { part ->
             when (part) {
-                is GooglePart.InlineData -> if (part.inlineData.mimeType.startsWith("image/")) 1 else 0
-                is GooglePart.FunctionResponse -> part.functionResponse.parts.orEmpty().count { it.inlineData.mimeType.startsWith("image/") }
+                is GooglePart.InlineData -> if (matches(part.inlineData.mimeType)) 1 else 0
+                is GooglePart.FileData -> if (matches(part.fileData.mimeType)) 1 else 0
+                is GooglePart.FunctionResponse -> part.functionResponse.parts.orEmpty().count { matches(it.inlineData.mimeType) }
                 else -> 0
             }
         }
@@ -535,7 +543,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
     private fun requestException(error: Exception, request: GoogleRequest): Exception {
         if (error is ai.koog.http.client.KoogHttpClientException &&
             (error.statusCode == 413 || error.statusCode == 400 && error.errorBody.orEmpty().contains("request payload size exceeds the limit", ignoreCase = true)) &&
-            request.contents.imageCount() > 0
+            request.contents.countFiles { it.startsWith("image/") } > 0
         ) {
             return ImageInputException("The request containing these images exceeds the size this Gemini endpoint accepts.")
         }
@@ -583,12 +591,29 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             "Model ${model.id} does not accept a GenerateContent request whose final content role is model"
         }
 
+        val isGemini4 = model.id in GEMINI_4_MODEL_IDS
+        val profile = if (isGemini4 || model.id == GoogleModels.Gemini3_8Flash.id) {
+            checkNotNull(ModelCatalogue.find(model.id))
+        } else {
+            null
+        }
         if (settings.defaultPath.trimEnd('/').endsWith("/publishers/google/models") &&
-            (model.id == GoogleModels.Gemini3_8Flash.id || model.id == GoogleModels.Gemini4Argon.id)
+            profile != null
         ) {
-            val count = contents.imageCount()
+            // Vertex counts Office, OpenDocument and PDF inputs against the image limit on Carbon and Hydrogen.
+            val sharesDocumentLimit = model.id == GoogleModels.Gemini4Carbon.id || model.id == GoogleModels.Gemini4Hydrogen.id
+            val count = contents.countFiles { mime ->
+                mime.startsWith("image/") || sharesDocumentLimit && mime.startsWith("application/")
+            }
             if (count > 3_000) {
-                throw ImageInputException("Gemini on Vertex accepts up to 3,000 images per request. This request contains $count.")
+                val inputs = if (sharesDocumentLimit) "images and documents combined" else "images"
+                throw ImageInputException("Gemini on Vertex accepts up to 3,000 $inputs per request. This request contains $count.")
+            }
+            if (sharesDocumentLimit) {
+                val totalFiles = contents.countFiles { true }
+                require(totalFiles <= 6_500) {
+                    "Gemini on Vertex accepts up to 6,500 files per request. This request contains $totalFiles."
+                }
             }
         }
 
@@ -644,38 +669,52 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             }
         }
 
-        if (model.id == GoogleModels.Gemini3_8Flash.id || model.id == GoogleModels.Gemini4Argon.id) {
+        val rawThinkingConfigs = listOfNotNull(
+            googleParams.additionalProperties?.get("thinkingConfig"),
+            googleParams.additionalProperties?.get("thinking_config"),
+        )
+        if (profile == null) {
+            val requestsXhigh = googleParams.thinkingConfig?.thinkingLevel == GoogleThinkingLevel.XHIGH ||
+                rawThinkingConfigs.any { config ->
+                    val fields = config as? JsonObject
+                    listOf(fields?.get("thinkingLevel"), fields?.get("thinking_level")).any {
+                        (it as? JsonPrimitive)?.content.equals("xhigh", ignoreCase = true)
+                    }
+                }
+            require(!requestsXhigh || (ModelCatalogue.find(model.id)?.reasoning as? ReasoningSupport.Supported)
+                ?.efforts?.containsKey("xhigh") == true) { "Model ${model.id} does not support xhigh thinking." }
+        }
+        if (profile != null) {
+            val allowedLevels = (profile.reasoning as ReasoningSupport.Supported).efforts.keys
             require(googleParams.thinkingConfig?.thinkingBudget == null) {
                 "Model ${model.id} requires thinkingLevel instead of thinkingBudget."
             }
-            require(googleParams.thinkingConfig?.thinkingLevel !=
-                ai.koog.prompt.executor.clients.google.models.GoogleThinkingLevel.MINIMAL) {
-                "Model ${model.id} supports low, medium and high thinking; minimal is unsupported."
+            googleParams.thinkingConfig?.thinkingLevel?.let { level ->
+                require(level.name.lowercase() in allowedLevels) {
+                    "Model ${model.id} supports thinking levels ${allowedLevels.joinToString()}."
+                }
             }
-            listOfNotNull(
-                googleParams.additionalProperties?.get("thinkingConfig"),
-                googleParams.additionalProperties?.get("thinking_config"),
-            ).forEach { rawThinking ->
+            rawThinkingConfigs.forEach { rawThinking ->
                 val thinking = rawThinking.jsonObject
                 require("thinkingBudget" !in thinking && "thinking_budget" !in thinking &&
                     listOfNotNull(thinking["thinkingLevel"], thinking["thinking_level"]).all {
-                        it.jsonPrimitive.content.lowercase() in setOf("low", "medium", "high")
+                        it.jsonPrimitive.content.lowercase() in allowedLevels
                     }) {
-                    "Model ${model.id} requires low, medium or high thinkingLevel without a manual budget."
+                    "Model ${model.id} requires one of ${allowedLevels.joinToString()} without a manual thinking budget."
                 }
             }
         }
-        val isArgon = model.id == GoogleModels.Gemini4Argon.id
-        val maxOutputTokens = if (isArgon) {
-            val limit = if (streaming) 65_536 else 32_768
+        val maxOutputTokens = if (isGemini4) {
+            val unaryLimit = checkNotNull(profile).maxOutputTokens.toInt()
+            val limit = if (streaming) profile.forStreaming().maxOutputTokens.toInt() else unaryLimit
             require(googleParams.additionalProperties.orEmpty().keys.none {
                 it in setOf("cachedContent", "cached_content", "maxOutputTokens", "max_output_tokens")
             }) {
-                "Gemini 4 Argon does not support explicit caching; set the output limit using maxTokens."
+                "Model ${model.id} does not support explicit caching; set the output limit using maxTokens."
             }
-            (googleParams.maxTokens ?: 32_768).also {
+            (googleParams.maxTokens ?: unaryLimit).also {
                 require(it in 1..limit) {
-                    "Gemini 4 Argon supports 1..$limit output tokens for this request; long decodes are unsupported."
+                    "Model ${model.id} supports 1..$limit output tokens for this request; long decodes are unsupported."
                 }
             }
         } else {
@@ -694,7 +733,7 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             thinkingConfig = googleParams.thinkingConfig,
             additionalProperties = googleParams.additionalProperties
                 ?.filterKeys { supportsCustomSampling || it !in UNSUPPORTED_SAMPLING_PROPERTY_NAMES }
-                ?.filterKeys { !isArgon || it !in setOf(
+                ?.filterKeys { !isGemini4 || it !in setOf(
                     "frequencyPenalty", "frequency_penalty", "presencePenalty", "presence_penalty"
                 ) }
                 ?.takeIf { it.isNotEmpty() }
@@ -1275,9 +1314,10 @@ public open class GoogleLLMClient @JvmOverloads constructor(
             } else {
                 knownTotal.takeIf { totalTokenCount == null || it == totalTokenCount }
             },
-            metadata = cachedContentTokenCount?.let { cached ->
-                buildJsonObject { put("cachedContentTokenCount", cached) }
-            },
+            metadata = buildJsonObject {
+                cachedContentTokenCount?.let { put("cachedContentTokenCount", it) }
+                thoughtsTokenCount?.let { put("thoughtsTokenCount", it) }
+            }.takeIf { it.isNotEmpty() },
             cacheReadTokensCount = cachedContentTokenCount,
             reasoningTokensCount = thoughtsTokenCount,
         )

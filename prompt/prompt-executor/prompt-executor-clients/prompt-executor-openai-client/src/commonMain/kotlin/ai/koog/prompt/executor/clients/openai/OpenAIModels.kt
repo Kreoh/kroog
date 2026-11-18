@@ -1031,6 +1031,14 @@ public object OpenAIModels : LLModelDefinitions {
         @JvmField
         public val GPT6_1Terra: LLModel = GPT6Sol.copy(id = "gpt-6.1-terra")
 
+        /** GPT-6.2 Astra uses Responses for tools and supports low through max reasoning. */
+        @JvmField
+        public val GPT6_2Astra: LLModel = GPT6Astra.copy(id = "gpt-6.2-astra")
+
+        /** GPT-6.2 Sol uses Responses for tools and supports low through max reasoning. */
+        @JvmField
+        public val GPT6_2Sol: LLModel = GPT6Astra.copy(id = "gpt-6.2-sol")
+
         private val gpt5_6Capabilities: List<LLMCapability> = listOf(
             LLMCapability.Completion,
             LLMCapability.Speculation,
@@ -1326,6 +1334,8 @@ public object OpenAIModels : LLModelDefinitions {
             Chat.GPT6Sol,
             Chat.GPT6_1Sol,
             Chat.GPT6_1Terra,
+            Chat.GPT6_2Astra,
+            Chat.GPT6_2Sol,
             Chat.GPT6Luna,
             Chat.GPT5Mini,
 

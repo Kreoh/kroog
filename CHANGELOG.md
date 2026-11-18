@@ -1,3 +1,12 @@
+# Kroog 1.3.0-kroog.7
+
+Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.7` and beta modules use `1.3.0-beta-kroog.7`.
+
+- Add GPT-6.2 Astra and Sol, Claude Fable 5.2, and Gemini 4 Carbon and Hydrogen to the provider clients and model catalogue. Use `forStreaming()` on a route profile to look up streaming budgets. Direct Gemini GenerateContent for Carbon and Hydrogen remains unverified.
+- Validate Fable restrictions for versioned Vertex deployments, accept strict JSON Schema on Bedrock ConverseStream for both GPT-6.2 models, and validate Gemini thinking levels before sending requests.
+- Report Gemini cache reads and thinking tokens separately in Langfuse usage details.
+- SQL persistence and SQL chat memory now use Exposed 1.6.0. Applications that use Exposed types in provider constructors, tables or persistence filters must update their imports to `org.jetbrains.exposed.v1.core` or `org.jetbrains.exposed.v1.jdbc` and recompile. For example, import `org.jetbrains.exposed.v1.jdbc.Database` when constructing a provider.
+
 # Kroog 1.3.0-kroog.6
 
 Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.6` and beta modules use `1.3.0-beta-kroog.6`.

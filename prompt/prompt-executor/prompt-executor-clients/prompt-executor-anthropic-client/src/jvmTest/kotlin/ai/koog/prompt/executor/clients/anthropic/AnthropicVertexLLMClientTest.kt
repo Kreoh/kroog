@@ -41,6 +41,28 @@ import kotlin.test.Test
 
 class AnthropicVertexLLMClientTest {
     @Test
+    fun testVersionedFableUsesSemanticModelRestrictions() {
+        val fable = AnthropicModels.Fable_5_2
+        val client = AnthropicVertexLLMClient(
+            AnthropicVertexClientSettings(projectId, location, mapOf(fable to "claude-fable-5-2@fixture")),
+            RecordingAnthropicVertexHttpClient(),
+        )
+        for (stream in listOf(false, true)) {
+            val prefill = Prompt.build("prefill") { user("Hello"); assistant("Hello") }
+            shouldThrow<IllegalArgumentException> {
+                client.createAnthropicRequest(prefill, emptyList(), fable, stream)
+            }.message shouldContain "assistant prefill"
+            val forced = Prompt.build("forced", LLMParams(toolChoice = LLMParams.ToolChoice.Required)) { user("Hello") }
+            shouldThrow<IllegalArgumentException> {
+                client.createAnthropicRequest(forced, emptyList(), fable, stream)
+            }.message shouldContain "forced tool choice"
+            val sampling = Prompt.build("sampling", AnthropicParams(topP = 0.4)) { user("Hello") }
+            val body = Json.parseToJsonElement(client.createAnthropicRequest(sampling, emptyList(), fable, stream)).jsonObject
+            body.containsKey("top_p") shouldBe false
+        }
+    }
+
+    @Test
     fun testVertexImageLimitsIncludeToolResultsAcrossTurns() {
         val image = MessagePart.Attachment(AttachmentSource.Image(AttachmentContent.Binary.Bytes(byteArrayOf(1)), "png"))
         for (limit in listOf(100, 600)) {

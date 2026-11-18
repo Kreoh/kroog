@@ -52,17 +52,22 @@ private val badRequest: String = """
 class GoogleModelsTest {
 
     @Test
-    fun testArgonProfileUsesUnifiedContextAndConservativeOutput() {
-        val model = GoogleModels.Gemini4Argon
-        assertEquals("gemini-4-argon", model.id)
-        assertEquals(1_048_576, model.contextLength)
-        assertEquals(32_768, model.maxOutputTokens)
-        assertTrue(model in GoogleModels.models)
-        assertTrue(model.supports(LLMCapability.Thinking))
-        assertTrue(model.supports(LLMCapability.Tools))
-        assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
-        assertFalse(model.supports(LLMCapability.Temperature))
-        assertFalse(model.supports(LLMCapability.MultipleChoices))
+    fun testGemini4ProfilesUseUnifiedContextAndSingleRequestOutputLimits() {
+        for ((model, id, output) in listOf(
+            Triple(GoogleModels.Gemini4Argon, "gemini-4-argon", 32_768L),
+            Triple(GoogleModels.Gemini4Carbon, "gemini-4-carbon", 32_768L),
+            Triple(GoogleModels.Gemini4Hydrogen, "gemini-4-hydrogen", 65_536L),
+        )) {
+            assertEquals(id, model.id)
+            assertEquals(1_048_576, model.contextLength)
+            assertEquals(output, model.maxOutputTokens)
+            assertTrue(model in GoogleModels.models)
+            assertTrue(model.supports(LLMCapability.Thinking))
+            assertTrue(model.supports(LLMCapability.Tools))
+            assertTrue(model.supports(LLMCapability.Schema.JSON.Standard))
+            assertFalse(model.supports(LLMCapability.Temperature))
+            assertFalse(model.supports(LLMCapability.MultipleChoices))
+        }
     }
 
     @Test

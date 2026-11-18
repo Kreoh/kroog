@@ -2234,6 +2234,7 @@ public final class ai/koog/prompt/models/ModelCatalogueEntry {
 	public final fun copy (Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZ)Lai/koog/prompt/models/ModelCatalogueEntry;
 	public static synthetic fun copy$default (Lai/koog/prompt/models/ModelCatalogueEntry;Ljava/lang/String;Ljava/util/Set;Lai/koog/prompt/models/ModelPublisher;Lai/koog/prompt/models/ModelKind;Ljava/util/Set;Ljava/util/Map;Lai/koog/prompt/models/ReasoningSupport;JJLai/koog/prompt/models/TemperatureSupport;Ljava/util/Set;ZZILjava/lang/Object;)Lai/koog/prompt/models/ModelCatalogueEntry;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun forStreaming ()Lai/koog/prompt/models/ModelCatalogueEntry;
 	public final fun getAliases ()Ljava/util/Set;
 	public final fun getExplicitPromptCachingApis ()Ljava/util/Set;
 	public final fun getHostedExecution ()Z
@@ -2803,6 +2804,7 @@ public final class ai/koog/prompt/provider/HostedExecutionMode : java/lang/Enum 
 public final class ai/koog/prompt/provider/HostedExecutionUnsupportedReason : java/lang/Enum {
 	public static final field API_DOES_NOT_EXPOSE_HOSTED_EXECUTION Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
 	public static final field CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
+	public static final field CLIENT_INTEGRATION_UNAVAILABLE Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
 	public static final field CODEX_EXECUTION_IS_OUT_OF_SCOPE Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
 	public static final field MODEL_API_IS_NOT_AN_EXECUTION_API Lai/koog/prompt/provider/HostedExecutionUnsupportedReason;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
@@ -2824,6 +2826,7 @@ public final class ai/koog/prompt/provider/ManagedExecutionServiceKind$Companion
 }
 
 public final class ai/koog/prompt/provider/ProviderApi : java/lang/Enum {
+	public static final field ANTHROPIC_MESSAGES Lai/koog/prompt/provider/ProviderApi;
 	public static final field AZURE_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;
 	public static final field AZURE_REALTIME Lai/koog/prompt/provider/ProviderApi;
 	public static final field AZURE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
@@ -2831,6 +2834,7 @@ public final class ai/koog/prompt/provider/ProviderApi : java/lang/Enum {
 	public static final field BEDROCK_CONVERSE Lai/koog/prompt/provider/ProviderApi;
 	public static final field BEDROCK_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;
 	public static final field CODEX_RESPONSES Lai/koog/prompt/provider/ProviderApi;
+	public static final field GEMINI_GENERATE_CONTENT Lai/koog/prompt/provider/ProviderApi;
 	public static final field OPENAI_COMPATIBLE_CHAT_COMPLETIONS Lai/koog/prompt/provider/ProviderApi;
 	public static final field OPENAI_COMPATIBLE_RESPONSES Lai/koog/prompt/provider/ProviderApi;
 	public static final field OPENAI_EMBEDDINGS Lai/koog/prompt/provider/ProviderApi;

@@ -26,10 +26,11 @@ import aws.sdk.kotlin.services.bedrockruntime.model.Tool as BedrockTool
 class BedrockCacheControlTest {
     @Test
     fun testAstraDoesNotReceiveAutomaticConverseCacheMarkers() {
-        for (id in listOf("us.openai.gpt-6-astra", "global.openai.gpt-6-astra")) {
+        val models = listOf(BedrockModels.OpenAIGpt6Astra, BedrockModels.OpenAIGpt6_2Astra, BedrockModels.OpenAIGpt6_2Sol)
+        for (model in models.flatMap { listOf(it, it.copy(id = it.id.replaceFirst("us.", "global."))) }) {
             val request = BedrockConverseConverters.createConverseRequest(
                 Prompt.build("astra-cache") { user("Hello") },
-                BedrockModels.OpenAIGpt6Astra.copy(id = id),
+                model,
                 emptyList(),
             )
             assertEquals(1, requireNotNull(request.messages).single().content.size)

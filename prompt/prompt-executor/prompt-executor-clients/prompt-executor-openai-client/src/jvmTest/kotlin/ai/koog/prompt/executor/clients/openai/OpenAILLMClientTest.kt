@@ -4,6 +4,7 @@ import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
 import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
+import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.params.LLMParams
 import io.kotest.matchers.shouldBe
@@ -30,12 +31,15 @@ import kotlin.test.assertIs
 class OpenAILLMClientTest {
 
     @Test
-    fun testSol61RoutingReasoningAndRawToolRestrictions() {
+    fun testMandatoryReasoningModelsRoutingAndRawToolRestrictions() {
         val original = OpenAIModels.Chat.GPT6_1Sol
         listOf(
             original,
             original.copy(id = "sol61-deployment"),
             original.copy(id = "rebuilt-sol61", capabilities = original.capabilities.orEmpty().toList()),
+            OpenAIModels.Chat.GPT6_2Astra,
+            OpenAIModels.Chat.GPT6_2Sol,
+            OpenAIModels.Chat.GPT6_2Sol.copy(capabilities = OpenAIModels.Chat.GPT6_2Sol.capabilities.orEmpty() - LLMCapability.OpenAIExplicitPromptCaching),
         ).forEach { model ->
             assertIs<OpenAIResponsesParams>(client.determineParams(LLMParams(), model))
             assertIs<OpenAIChatParams>(client.determineParams(OpenAIChatParams(), model))

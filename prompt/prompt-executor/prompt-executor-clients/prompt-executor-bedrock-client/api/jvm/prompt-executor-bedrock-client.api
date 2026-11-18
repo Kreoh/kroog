@@ -256,6 +256,7 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public final fun getAnthropicClaude5Sonnet ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaudeFable5 ()Lai/koog/prompt/llm/LLModel;
 	public final fun getAnthropicClaudeFable5_1 ()Lai/koog/prompt/llm/LLModel;
+	public final fun getAnthropicClaudeFable5_2 ()Lai/koog/prompt/llm/LLModel;
 	public final fun getGoogleGemma3_12BIt ()Lai/koog/prompt/llm/LLModel;
 	public final fun getGoogleGemma3_27BIt ()Lai/koog/prompt/llm/LLModel;
 	public final fun getGoogleGemma3_4BIt ()Lai/koog/prompt/llm/LLModel;
@@ -277,6 +278,8 @@ public final class ai/koog/prompt/executor/clients/bedrock/BedrockModels : ai/ko
 	public final fun getMoonshotKimiK2Thinking ()Lai/koog/prompt/llm/LLModel;
 	public final fun getMoonshotKimiK2_5 ()Lai/koog/prompt/llm/LLModel;
 	public final fun getOpenAIGpt6Astra ()Lai/koog/prompt/llm/LLModel;
+	public final fun getOpenAIGpt6_2Astra ()Lai/koog/prompt/llm/LLModel;
+	public final fun getOpenAIGpt6_2Sol ()Lai/koog/prompt/llm/LLModel;
 	public final fun getOpenAIGptOss120B ()Lai/koog/prompt/llm/LLModel;
 	public final fun getOpenAIGptOss20B ()Lai/koog/prompt/llm/LLModel;
 }

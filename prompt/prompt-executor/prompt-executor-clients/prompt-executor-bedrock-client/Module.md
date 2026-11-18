@@ -432,6 +432,15 @@ Claude Opus 5.5 and Sonnet 5.5 use global inference profiles by default. GPT-6 A
 Automatic Converse cache markers are disabled for Astra because AWS rejects them.
 AWS supports global profiles too; use `model.copy(id = "global.openai.gpt-6-astra")` when needed.
 
+GPT-6.2 Astra and Sol use `BedrockModels.OpenAIGpt6_2Astra` and `BedrockModels.OpenAIGpt6_2Sol`.
+Converse defaults to US inference profiles, uses implicit caching, and omits explicit cache points.
+User messages accept text and images. Tool results accept text. Both models accept strict JSON Schema on
+Converse and ConverseStream. Mantle uses implicit caching through this
+client's OpenAI-compatible dialect and omits explicit cache hints. Mantle requires
+`BedrockRegions.US_EAST_1` and sends the unprefixed model ID to the OpenAI-compatible endpoints.
+[Astra endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-6-2-astra.html)
+and [Sol endpoints](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-openai-gpt-6-2-sol.html).
+
 Gemma 4 31B, 26B-A4B and E2B require `BedrockMantleLLMClient`. This client supports
 Chat Completions and Responses at AWS's explicit `openai/v1` paths, with a Bedrock API key.
 It also supports GPT-6 Astra in `US_WEST_2`, translating its Runtime inference profile into

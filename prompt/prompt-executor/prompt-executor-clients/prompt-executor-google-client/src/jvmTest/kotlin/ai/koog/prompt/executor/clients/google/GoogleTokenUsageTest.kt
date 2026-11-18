@@ -40,6 +40,7 @@ class GoogleTokenUsageTest {
                 streamingClient.executeStreaming(prompt, model).toList().filterIsInstance<StreamFrame.End>().single().metaInfo!!
             )
             metas.forEach { meta ->
+                assertEquals(expected[4]?.let(::JsonPrimitive), meta.metadata?.get("thoughtsTokenCount"))
                 assertEquals(expected[3]?.let(::JsonPrimitive), meta.metadata?.get("cachedContentTokenCount"))
                 assertEquals(
                     expected,

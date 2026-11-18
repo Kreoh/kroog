@@ -104,6 +104,18 @@ public enum class BedrockInferencePrefixes(public val prefix: String) {
  * Bedrock models available through the AWS Bedrock API
  */
 public object BedrockModels : LLModelDefinitions {
+    internal fun openAiGpt6Profile(id: String): LLModel? = when (id.removePrefix("us.").removePrefix("global.")) {
+        "openai.gpt-6-astra" -> OpenAIModels.Chat.GPT6Astra
+        "openai.gpt-6.2-astra" -> OpenAIModels.Chat.GPT6_2Astra
+        "openai.gpt-6.2-sol" -> OpenAIModels.Chat.GPT6_2Sol
+        else -> null
+    }
+
+    internal fun isGpt62(id: String): Boolean = when (openAiGpt6Profile(id)) {
+        OpenAIModels.Chat.GPT6_2Astra, OpenAIModels.Chat.GPT6_2Sol -> true
+        else -> false
+    }
+
     /** Claude Opus 5.5, using AWS's global inference profile. */
     public val AnthropicClaude55Opus: LLModel = BedrockModel(
         AnthropicModels.Opus_5_5,
@@ -119,13 +131,21 @@ public object BedrockModels : LLModelDefinitions {
     ).effectiveModel
 
     /** GPT-6 Astra. Use Converse on Bedrock Runtime or [BedrockMantleLLMClient] on Mantle. */
-    public val OpenAIGpt6Astra: LLModel = BedrockModel(
-        OpenAIModels.Chat.GPT6Astra.copy(
-            capabilities = OpenAIModels.Chat.GPT6Astra.capabilities.orEmpty().filterNot {
-                it == LLMCapability.Schema.JSON.Standard || it == LLMCapability.OpenAIExplicitPromptCaching
+    public val OpenAIGpt6Astra: LLModel = gpt6(OpenAIModels.Chat.GPT6Astra)
+
+    /** GPT-6.2 Astra on Runtime Converse or Mantle in us-east-1. */
+    public val OpenAIGpt6_2Astra: LLModel = gpt6(OpenAIModels.Chat.GPT6_2Astra)
+
+    /** GPT-6.2 Sol on Runtime Converse or Mantle in us-east-1. */
+    public val OpenAIGpt6_2Sol: LLModel = gpt6(OpenAIModels.Chat.GPT6_2Sol)
+
+    private fun gpt6(model: LLModel): LLModel = BedrockModel(
+        model.copy(
+            capabilities = model.capabilities.orEmpty().filterNot {
+                it == LLMCapability.OpenAIExplicitPromptCaching || (model == OpenAIModels.Chat.GPT6Astra && it == LLMCapability.Schema.JSON.Standard)
             },
         ),
-        "openai.gpt-6-astra",
+        "openai.${model.id}",
     ).effectiveModel
 
     private fun gemma4(id: String, contextLength: Long): LLModel = LLModel(
@@ -287,6 +307,15 @@ public object BedrockModels : LLModelDefinitions {
     public val AnthropicClaudeFable5_1: LLModel = BedrockModel(
         AnthropicModels.Fable_5_1,
         "anthropic.claude-fable-5-1",
+    ).effectiveModel
+
+    /**
+     * Claude Fable 5.2 on Amazon Bedrock, using the US inference profile by default.
+     * Use [BedrockInferencePrefixes.GLOBAL] when constructing a [BedrockModel] for the global profile.
+     */
+    public val AnthropicClaudeFable5_2: LLModel = BedrockModel(
+        AnthropicModels.Fable_5_2,
+        "anthropic.claude-fable-5-2",
     ).effectiveModel
 
     /**
@@ -988,6 +1017,8 @@ public object BedrockModels : LLModelDefinitions {
         AnthropicClaude55Opus,
         AnthropicClaude55Sonnet,
         OpenAIGpt6Astra,
+        OpenAIGpt6_2Astra,
+        OpenAIGpt6_2Sol,
         GoogleGemma4_31B,
         GoogleGemma4_26BA4B,
         GoogleGemma4E2B,
@@ -1002,6 +1033,7 @@ public object BedrockModels : LLModelDefinitions {
         AnthropicClaude5Opus,
         AnthropicClaudeFable5,
         AnthropicClaudeFable5_1,
+        AnthropicClaudeFable5_2,
         AnthropicClaude4Sonnet,
         AnthropicClaude4_5Sonnet,
         AnthropicClaude4_6Sonnet,

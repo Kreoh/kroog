@@ -2,6 +2,8 @@ package ai.koog.prompt.executor.clients.bedrock
 
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
+import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.anthropic.AnthropicModels
@@ -56,6 +58,39 @@ import kotlin.test.assertTrue
 import aws.sdk.kotlin.services.bedrockruntime.model.Message as BedrockMessage
 
 class BedrockAnthropicReplayTest {
+    @Test
+    fun testFable52BedrockProfilesEnforceRequestRestrictions() {
+        for (prefix in listOf("us", "global")) {
+            val model = BedrockModels.AnthropicClaudeFable5_2.copy(id = "$prefix.anthropic.claude-fable-5-2")
+            val userPrompt = prompt("fable") { user("Hello") }
+            val prefill = prompt("prefill") {
+                user("Hello")
+                assistant("Answer:")
+            }
+            val forced = prompt("forced", params = LLMParams(toolChoice = LLMParams.ToolChoice.Required)) { user("Hello") }
+            for (invalid in listOf(prefill, forced)) {
+                assertFailsWith<IllegalArgumentException> { BedrockConverseConverters.createConverseRequest(invalid, model, emptyList()) }
+                assertFailsWith<IllegalArgumentException> { BedrockAnthropicClaudeSerialization.createAnthropicRequest(invalid, model, emptyList()) }
+            }
+            for (raw in listOf(
+                """{"thinking":{"type":"disabled"}}""",
+                """{"thinking":{"type":"adaptive","budget_tokens":1024}}""",
+                """{"tool_choice":{"type":"tool","name":"lookup"}}""",
+            )) {
+                val params = LLMParams(additionalProperties = Json.parseToJsonElement(raw).jsonObject)
+                assertFailsWith<IllegalArgumentException> {
+                    BedrockConverseConverters.createConverseStreamRequest(userPrompt.copy(params = params), model, emptyList())
+                }
+            }
+            val fields = Json.parseToJsonElement("""{"temperature":0.9,"top_p":0.8,"top_k":10,"thinking":{"type":"adaptive"}}""").jsonObject
+            val request = BedrockConverseConverters.createConverseRequest(
+                userPrompt.copy(params = LLMParams(temperature = 0.9, additionalProperties = fields)), model, emptyList(),
+            )
+            assertEquals(null, request.inferenceConfig?.temperature)
+            assertEquals(mapOf("thinking" to fields.getValue("thinking")), JsonDocumentConverters.convertToJsonElement(request.additionalModelRequestFields).jsonObject)
+        }
+    }
+
     @Test
     fun testForeignToolIdsRemainPairedAcrossClaudeWireFormats() = runTest {
         // These two foreign IDs collide under String.hashCode. A later native ID also reserves their first alias.
