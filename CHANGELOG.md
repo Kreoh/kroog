@@ -1,3 +1,7 @@
+# Unreleased
+
+- SQL persistence and SQL chat memory now use Exposed 1.6.0. Applications that use Exposed types in provider constructors, tables or persistence filters must update their imports to `org.jetbrains.exposed.v1.core` or `org.jetbrains.exposed.v1.jdbc` and recompile. For example, import `org.jetbrains.exposed.v1.jdbc.Database` when constructing a provider.
+
 # Kroog 1.3.0-kroog.6
 
 Release preparation on upstream Koog 1.3.0. Stable modules use `1.3.0-kroog.6` and beta modules use `1.3.0-beta-kroog.6`.
