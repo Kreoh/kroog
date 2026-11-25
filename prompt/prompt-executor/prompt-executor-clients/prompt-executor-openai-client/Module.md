@@ -348,3 +348,25 @@ The default model is `gpt-live-transcribe`. Language hints, context, keywords an
 This API only performs setup. The browser must create its data channel before the offer, wait for session readiness, handle partial and final transcript events, commit audio turns and close the connection. Stopping a media track or receiving an SDP answer does not prove that audio has been fully transcribed. Applications must verify final audio delivery and final transcript handling before submitting dictated text. Cancelling setup does not undo a provider request already accepted; close any abandoned browser peer connection too.
 
 Setup uses the unified multipart [call endpoint](https://developers.openai.com/api/reference/resources/realtime/subresources/calls/methods/create). Its reference currently declares conversational configuration only; transcription-only setup was verified against the live endpoint. See the [transcription guide](https://developers.openai.com/api/docs/guides/realtime-transcription) for browser event semantics. No agent loop, audio relay or browser library is introduced by this setup API.
+
+### Hosted shell execution
+
+Use `OpenAIResponsesParams().withHostedShell(OpenAIHostedShellConfig())` to enable shell execution in an OpenAI-managed container. This implementation supports direct OpenAI Responses only. `ModelCatalogue.supportsHostedShell(modelId, ProviderApi.OPENAI_RESPONSES)` and `ProviderCapabilityMatrix.acceptHostedShell` expose the verified model support independently of the existing Code Interpreter capability. Unsupported models and routes fail before the request is sent. Local shell execution is not enabled by this option.
+
+```kotlin
+val params = OpenAIResponsesParams(maxToolCalls = 2).withHostedShell(
+    OpenAIHostedShellConfig(fileIds = listOf(providerFileId))
+)
+val request = prompt("process-file", params = params) {
+    user("Use the shell to inspect the supplied file and report its format.")
+}
+val reply = client.execute(request, OpenAIModels.Chat.GPT6Luna, emptyList())
+```
+
+Automatic containers have outbound networking disabled. To reuse a workspace, pass its provider ID as `containerId`. The caller must authorise that container and its files for the current user and retain control of its network policy. Do not share containers between unrelated users. A request with `withHostedShell()` rejects Code Interpreter and any explicit `additionalProperties["tools"]` array before dispatch. The existing `OpenAIContainersClient` handles container creation, file retrieval and deletion.
+
+Shell commands and results are returned as `MessagePart.HostedExecution.Request`, `Result` and `Error`, including container and call identities. Streaming emits `StreamFrame.HostedExecutionUpdate`. Results expose display output and exit status. Timeouts and unfinished calls or outputs produce an error part. If the stream ends before a command is available, callers can still collect earlier text and terminal usage. File citations use the existing generated-file representation.
+
+Use direct OpenAI Responses to continue a conversation with native shell history. Keep the complete assistant message for a finished call so its command array, stdout, stderr and exit outcomes can be replayed. Response-only fields such as `created_by` stay in history and are omitted from the follow-up request. The client checks item types and identities before dispatch. If a call is unfinished, is missing its output or has an output still in progress, omit that call and its associated output before continuing.
+
+Container startup, model generation, execution and file transfer are separate latency costs. Hosted shell support makes no latency guarantee relative to Code Interpreter. See the provider's [shell guide](https://developers.openai.com/api/docs/guides/tools-shell) for runtime and container limits.

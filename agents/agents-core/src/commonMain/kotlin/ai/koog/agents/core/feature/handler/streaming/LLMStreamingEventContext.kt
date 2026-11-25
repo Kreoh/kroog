@@ -38,6 +38,10 @@ public interface LLMStreamingEventContext : AgentLifecycleEventContext {
  * Represents the context for handling a before-stream event.
  * This context is provided when streaming is about to begin.
  *
+ * The agent context exposes read-only conversation history. Attempts to write to it fail before dispatch.
+ * Use [prompt] to edit the request within the handler.
+ *
+ * @property prompt The prompt for this request. Handlers can replace it without updating the agent's conversation history.
  * @property tools The list of tool descriptors available for the streaming call.
  */
 public data class LLMStreamingStartingContext(
@@ -45,7 +49,7 @@ public data class LLMStreamingStartingContext(
     override val executionInfo: AgentExecutionInfo,
     override val context: AIAgentContext,
     override val runId: String,
-    override val prompt: Prompt,
+    override var prompt: Prompt,
     override val model: LLModel,
     public val tools: List<ToolDescriptor>,
 ) : LLMStreamingEventContext {

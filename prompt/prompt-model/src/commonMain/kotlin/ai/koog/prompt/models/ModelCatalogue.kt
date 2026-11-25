@@ -54,6 +54,7 @@ public data class TemperatureSupport(
 /** Why a known provider route is unavailable for a semantic model. */
 public enum class ModelProviderApiUnsupportedReason {
     MODEL_SUPPORT_NOT_ESTABLISHED,
+
     /** Provider documentation explicitly excludes this model from the API. */
     MODEL_API_NOT_SUPPORTED,
 }
@@ -187,18 +188,35 @@ public object ModelCatalogue {
             temperature = fixedAzureOmittedTemperature,
             providerApis = setOf(ProviderApi.AZURE_RESPONSES),
         ),
-        openAiReasoning("gpt-5.2", extendedReasoning, conditionalTemperature),
+        openAiReasoning(
+            id = "gpt-5.2",
+            efforts = extendedReasoning,
+            temperature = conditionalTemperature,
+            aliases = setOf("gpt-5.2-2025-12-11"),
+        ),
         openAiReasoning(
             id = "gpt-5.4",
+            aliases = setOf("gpt-5.4-2026-03-05"),
             efforts = extendedReasoning,
             temperature = conditionalTemperatureWithCodex,
             input = 922_000,
             providerApis = openAiAzureCodex,
         ),
-        openAiReasoning("gpt-5.4-mini", extendedReasoning, conditionalTemperature),
-        openAiReasoning("gpt-5.4-nano", extendedReasoning, conditionalTemperature),
+        openAiReasoning(
+            id = "gpt-5.4-mini",
+            efforts = extendedReasoning,
+            temperature = conditionalTemperature,
+            aliases = setOf("gpt-5.4-mini-2026-03-17"),
+        ),
+        openAiReasoning(
+            id = "gpt-5.4-nano",
+            efforts = extendedReasoning,
+            temperature = conditionalTemperature,
+            aliases = setOf("gpt-5.4-nano-2026-03-17"),
+        ),
         openAiReasoning(
             id = "gpt-5.5",
+            aliases = setOf("gpt-5.5-2026-04-23"),
             efforts = extendedReasoning,
             temperature = conditionalTemperatureWithCodex,
             input = 922_000,
@@ -261,7 +279,9 @@ public object ModelCatalogue {
             id = "gpt-6.1-sol",
             efforts = frontierReasoning - "none",
             temperature = TemperatureSupport(
-                1.0, 1.0, omittedProviderApis = openAiCodex,
+                1.0,
+                1.0,
+                omittedProviderApis = openAiCodex,
             ),
             input = 922_000,
             providerApis = openAiCodex,
@@ -517,6 +537,25 @@ public object ModelCatalogue {
         }
     }
 
+    // Verified in the Responses tool tables at https://developers.openai.com/api/docs/models/<model-id>.
+    private val openAiHostedShellModels = setOf(
+        "gpt-5.2",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5.5",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-6-astra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
+    )
+
     init {
         val issues = validate(entries)
         require(issues.isEmpty()) {
@@ -562,6 +601,18 @@ public object ModelCatalogue {
 
             else -> model
         }
+    }
+
+    /**
+     * Whether the canonical model or an explicit alias has verified hosted shell support through [api].
+     *
+     * Kroog currently exposes the hosted shell through direct OpenAI Responses only. This capability is
+     * independent of the model's Code Interpreter support.
+     */
+    public fun supportsHostedShell(idOrAlias: String, api: ProviderApi): Boolean {
+        if (api != ProviderApi.OPENAI_RESPONSES) return false
+        val model = find(idOrAlias, api) ?: return false
+        return model.id in openAiHostedShellModels
     }
 
     /** Validate catalogue invariants without performing provider I/O. */
@@ -948,8 +999,10 @@ private fun openAiReasoning(
     temperature: TemperatureSupport,
     input: Long = 272_000,
     providerApis: Set<ProviderApi> = openAiAzure,
+    aliases: Set<String> = emptySet(),
 ): ModelCatalogueEntry = ModelCatalogueEntry(
     id = id,
+    aliases = aliases,
     publisher = ModelPublisher.OPENAI,
     kind = ModelKind.TEXT,
     providerApis = providerApis,

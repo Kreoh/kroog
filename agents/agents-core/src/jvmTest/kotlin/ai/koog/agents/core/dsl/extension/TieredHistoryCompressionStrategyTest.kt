@@ -14,11 +14,12 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.executor.clients.google.GoogleParams
 import ai.koog.prompt.executor.clients.openai.OpenAICodeInterpreterConfig
+import ai.koog.prompt.executor.clients.openai.OpenAIHostedShellConfig
 import ai.koog.prompt.executor.clients.openai.OpenAIPromptCacheIdentity
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParams
-import ai.koog.prompt.executor.clients.openai.openAIConfigurationUpdate
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
+import ai.koog.prompt.executor.clients.openai.openAIConfigurationUpdate
 import ai.koog.prompt.executor.model.PromptExecutor
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -383,6 +384,27 @@ class TieredHistoryCompressionStrategyTest {
         assertEquals(listOf("System", assertHandover(result.messages[1], "TLDR"), "New"), result.messages.map(Message::textContent))
         assertPortableExecutionParams(params, result.prompt.params)
         assertEquals("saved-container", params.codeInterpreter?.containerId)
+    }
+
+    @Test
+    fun testCompressionClearsShellContainersAndRetainsInputFiles() = runTest {
+        val shell = OpenAIHostedShellConfig(fileIds = listOf("file_input"), containerId = "cntr_old")
+        val params = OpenAIResponsesParams().withHostedShell(shell)
+        val automaticShell = shell.copy(containerId = null)
+        for (strategy in listOf(
+            HistoryCompressionStrategy.Tiered(1),
+            HistoryCompressionStrategy.Budgeted(1, 3000, characterTokenizer()),
+        )) {
+            val executor = RecordingPromptExecutor { request ->
+                assertEquals(automaticShell, assertIs<OpenAIResponsesParams>(request.params).hostedShell)
+                assistant("Summary", 10)
+            }
+            val context = context(twoTurnMessages(), defaultModel, executor, params)
+            context.writeSession { strategy.compress(this, emptyList()) }
+            assertEquals(listOf(defaultModel), executor.models)
+            assertEquals(automaticShell, context.readSession { assertIs<OpenAIResponsesParams>(prompt.params).hostedShell })
+            assertEquals(shell, params.hostedShell)
+        }
     }
 
     @Test
@@ -823,10 +845,14 @@ class TieredHistoryCompressionStrategyTest {
         }.messages
         for (retain in listOf(0, 1, 2)) {
             val requests = mutableListOf<Prompt>()
-            val context = context(history, defaultModel, RecordingPromptExecutor {
-                requests += it
-                assistant("Summary", 10)
-            })
+            val context = context(
+                history,
+                defaultModel,
+                RecordingPromptExecutor {
+                    requests += it
+                    assistant("Summary", 10)
+                }
+            )
             context.writeSession { HistoryCompressionStrategy.Budgeted(retain, 3000, characterTokenizer()).compress(this, emptyList()) }
             assertTrue(requests.isNotEmpty())
             assertTrue(requests.all { it.messages.filterIsInstance<Message.System>() == listOf(history.first()) })

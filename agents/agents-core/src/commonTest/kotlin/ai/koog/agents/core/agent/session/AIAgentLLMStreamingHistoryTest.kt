@@ -4,9 +4,11 @@ package ai.koog.agents.core.agent.session
 
 import ai.koog.agents.core.CalculatorChatExecutor.testClock
 import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.agent.config.MissingToolsConversionStrategy
 import ai.koog.agents.core.agent.config.ToolCallDescriber
 import ai.koog.agents.core.agent.context.AgentTestBase
+import ai.koog.agents.core.agent.entity.createStorageKey
 import ai.koog.agents.core.agent.functionalStrategy
 import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
@@ -14,6 +16,14 @@ import ai.koog.agents.core.dsl.extension.ReceivedToolResults
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestStreaming
 import ai.koog.agents.core.dsl.extension.nodeLLMSendMessageStreaming
 import ai.koog.agents.core.dsl.extension.nodeLLMSendToolResultsStreaming
+import ai.koog.agents.core.feature.AIAgentFunctionalFeature
+import ai.koog.agents.core.feature.AIAgentGraphFeature
+import ai.koog.agents.core.feature.config.FeatureConfig
+import ai.koog.agents.core.feature.handler.llm.LLMCallStartingContext
+import ai.koog.agents.core.feature.handler.streaming.LLMStreamingStartingContext
+import ai.koog.agents.core.feature.pipeline.AIAgentFunctionalPipeline
+import ai.koog.agents.core.feature.pipeline.AIAgentGraphPipeline
+import ai.koog.agents.core.feature.pipeline.AIAgentPipeline
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.prompt.Prompt
@@ -28,6 +38,9 @@ import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import ai.koog.prompt.structure.markdown.MarkdownStructureDefinition
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
@@ -35,8 +48,11 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.fail
 
 abstract class StreamingHistoryTestBase : AgentTestBase() {
     protected val frames = listOf(
@@ -190,6 +206,114 @@ class AIAgentLLMStreamingHistoryTest : StreamingHistoryTestBase() {
     }
 
     @Test
+    fun testLegacyStreamingPromptReplacementFailsBeforeDispatchAndLeavesHistoryForRetry() = runTest {
+        val textFrames = frames.filterNot { it is StreamFrame.ToolCallComplete }
+        val executor = RecordingExecutor(textFrames)
+        val originalMessage = Message.User("Question", RequestMetaInfo.Empty)
+        val config = createTestConfig().let { it.copy(prompt = it.prompt.withMessages { listOf(originalMessage) }) }
+        val graph = strategy<Unit, Prompt>("retry-stream") {
+            val request by node<Unit, Prompt> {
+                val error = assertFailsWith<IllegalStateException> {
+                    llm.writeSession { requestLLMStreaming().toList() }
+                }
+                assertContains(error.message.orEmpty(), "LLMStreamingStartingContext.prompt")
+                assertEquals(0, executor.streamRequests)
+                assertEquals(config.prompt, llm.readSession { prompt })
+
+                llm.writeSession { requestLLMStreaming().toList() }
+                llm.readSession { prompt }
+            }
+            edge(nodeStart forwardTo request)
+            edge(request forwardTo nodeFinish)
+        }
+        var attempts = 0
+        var assignmentCompleted = false
+        val agent = AIAgent(promptExecutor = executor, agentConfig = config, strategy = graph) {
+            install(
+                StreamingPromptFeature { event ->
+                    if (attempts++ == 0) {
+                        event.context.llm.prompt = event.prompt.withMessages { emptyList() }
+                        assignmentCompleted = true
+                    }
+                }
+            )
+        }
+
+        assertEquals(listOf(originalMessage, textFrames.toMessageResponse()), agent.run(Unit).messages)
+        assertFalse(assignmentCompleted)
+        assertEquals(listOf(config.prompt), executor.prompts)
+    }
+
+    @Test
+    fun testConcurrentNonStreamingHistoryEditDoesNotInterruptStreaming() = runTest {
+        val textFrames = frames.filterNot { it is StreamFrame.ToolCallComplete }
+        val executor = RecordingExecutor(textFrames)
+        val config = createTestConfig()
+        val addedContext = Message.System("Context for the other request", RequestMetaInfo.Empty)
+        val augmentedPrompt = config.prompt.withMessages { it + addedContext }
+        val streamingStarted = CompletableDeferred<Unit>()
+        val nonStreamingFinished = CompletableDeferred<Unit>()
+        val graph = strategy<Unit, Prompt>("concurrent-requests") {
+            val request by node<Unit, Prompt> {
+                coroutineScope {
+                    val streaming = async { llm.readSession { requestLLMStreaming().toList() } }
+                    streamingStarted.await()
+                    llm.readSession { requestLLM() }
+                    nonStreamingFinished.complete(Unit)
+                    assertEquals(textFrames, streaming.await())
+                }
+                llm.readSession { prompt }
+            }
+            edge(nodeStart forwardTo request)
+            edge(request forwardTo nodeFinish)
+        }
+        val agent = AIAgent(promptExecutor = executor, agentConfig = config, strategy = graph) {
+            install(
+                StreamingPromptFeature(onLLMCall = { it.context.llm.prompt = augmentedPrompt }) {
+                    streamingStarted.complete(Unit)
+                    nonStreamingFinished.await()
+                }
+            )
+        }
+
+        assertEquals(augmentedPrompt, agent.run(Unit))
+        assertEquals(listOf(augmentedPrompt, config.prompt), executor.prompts)
+    }
+
+    @Test
+    fun testStreamingPromptReplacementRemainsRequestLocal() = runTest {
+        val executor = RecordingExecutor(frames.filterNot { it is StreamFrame.ToolCallComplete })
+        val requestContext = Message.System("Request context", RequestMetaInfo.Empty)
+        val agent = AIAgent(
+            promptExecutor = executor,
+            agentConfig = createTestConfig(),
+            strategy = functionalStrategy<String, Prompt> { input ->
+                requestLLMStreaming(input).toList()
+                llm.readSession { prompt }
+            },
+        ) {
+            install(
+                StreamingPromptFeature { event ->
+                    val history = event.context.llm.readSession { prompt }
+                    assertFailsWith<IllegalStateException> {
+                        event.context.llm.withPrompt { fail("Unexpected prompt transformation") }
+                    }
+                    assertFailsWith<IllegalStateException> {
+                        event.context.llm.writeSession<Unit> { fail("Unexpected write session") }
+                    }
+                    event.prompt = event.prompt.withMessages { listOf(requestContext) + it }
+                    assertEquals(history, event.context.llm.prompt)
+                }
+            )
+        }
+
+        val history = agent.run("Question")
+        assertEquals(listOf(requestContext), executor.prompts.single().messages.filterIsInstance<Message.System>())
+        assertEquals(emptyList(), history.messages.filterIsInstance<Message.System>())
+        assertEquals(1, history.messages.filterIsInstance<Message.Assistant>().size)
+    }
+
+    @Test
     fun testGraphStreamingNodePersistsHistoryForNextRequest() = runTest {
         val executor = RecordingExecutor(frames)
         val graph = strategy<String, String>("stream-history") {
@@ -238,5 +362,23 @@ class AIAgentLLMStreamingHistoryTest : StreamingHistoryTestBase() {
         }
         val agent = AIAgent(promptExecutor = executor, llmModel = createTestConfig().model, strategy = graph)
         assertEquals("1", agent.run("Question"))
+    }
+
+    private class StreamingPromptFeature(
+        private val onLLMCall: (suspend (LLMCallStartingContext) -> Unit)? = null,
+        private val onStreamingStart: suspend (LLMStreamingStartingContext) -> Unit,
+    ) : AIAgentFunctionalFeature<FeatureConfig, Unit>, AIAgentGraphFeature<FeatureConfig, Unit> {
+        override val key = createStorageKey<Unit>("streaming-prompt-test")
+
+        override fun createInitialConfig(agentConfig: AIAgentConfig): FeatureConfig = object : FeatureConfig() {}
+
+        override fun install(config: FeatureConfig, pipeline: AIAgentFunctionalPipeline) = register(pipeline)
+
+        override fun install(config: FeatureConfig, pipeline: AIAgentGraphPipeline) = register(pipeline)
+
+        private fun register(pipeline: AIAgentPipeline) {
+            onLLMCall?.let { pipeline.interceptLLMCallStarting(this, it) }
+            pipeline.interceptLLMStreamingStarting(this, onStreamingStart)
+        }
     }
 }

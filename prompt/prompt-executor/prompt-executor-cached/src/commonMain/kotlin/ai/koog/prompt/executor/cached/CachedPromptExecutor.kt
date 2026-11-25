@@ -17,11 +17,12 @@ import ai.koog.prompt.structure.json.generator.BasicJsonSchemaGenerator
 import ai.koog.prompt.structure.json.generator.StandardJsonSchemaGenerator
 import ai.koog.utils.time.KoogClock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlin.jvm.JvmSynthetic
 
 /**
- * A CodePromptExecutor that caches responses from a nested executor.
+ * Caches responses from a nested executor when the prompt parameters allow response caching.
  *
  * @param cache The cache implementation to use
  * @param nested The nested executor to use for cache misses
@@ -36,7 +37,11 @@ public class CachedPromptExecutor(
         nested.resolveModel(model, promptExecutorOperation)
 
     override suspend fun execute(prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>): Message.Assistant =
-        getOrPut(prompt, tools, model)
+        if (prompt.params.allowsResponseCaching) {
+            getOrPut(prompt, tools, model)
+        } else {
+            nested.execute(prompt, model, tools)
+        }
 
     override suspend fun execute(
         prompt: Prompt,
@@ -44,7 +49,7 @@ public class CachedPromptExecutor(
         tools: List<ToolDescriptor>
     ): Message.Assistant {
         val resolvedModel = nested.resolveModel(model, PromptExecutorOperation.Execute)
-        return getOrPut(prompt, tools, resolvedModel)
+        return execute(prompt, resolvedModel, tools)
     }
 
     @JvmSynthetic
@@ -55,15 +60,20 @@ public class CachedPromptExecutor(
     ): Flow<StreamFrame> =
         flow {
             val resolvedModel = nested.resolveModel(model, PromptExecutorOperation.Streaming)
-            getOrPut(prompt, tools, resolvedModel).toStreamFrames().forEach { emit(it) }
+            emitAll(executeStreaming(prompt, resolvedModel, tools))
         }
 
-    private suspend fun getOrPut(prompt: Prompt, model: LLModel): Message.Assistant {
-        return cache.get(prompt, emptyList(), clock) as? Message.Assistant? ?: nested
-            .execute(prompt, model, emptyList())
-            .let { it as Message.Assistant }
-            .also { cache.put(prompt, emptyList(), it) }
-    }
+    @JvmSynthetic
+    override fun executeStreaming(
+        prompt: Prompt,
+        resolvedModel: ResolvedModel,
+        tools: List<ToolDescriptor>
+    ): Flow<StreamFrame> =
+        if (prompt.params.allowsResponseCaching) {
+            flow { getOrPut(prompt, tools, resolvedModel).toStreamFrames().forEach { emit(it) } }
+        } else {
+            nested.executeStreaming(prompt, resolvedModel, tools)
+        }
 
     private suspend fun getOrPut(
         prompt: Prompt,

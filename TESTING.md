@@ -2,6 +2,18 @@
 
 When making changes in the project, please make sure that the corresponding tests are not failing.
 
+## JVM continuous integration
+
+Kroog targets the JVM. Pull requests to `master` and pushes to `master` run the JVM build and tests, JVM binary compatibility checks, and Kotlin lint for changed files. The `JVM checks result` job succeeds only when every required job succeeds; failed, cancelled or skipped jobs fail the summary.
+
+Run `JAVA_HOME=/path/to/jdk-21 bash .github/scripts/check-jvm.sh` for the same build and test scope locally. The script uses `gradle/kroog-jvm-publications.txt` to cover every published JVM module, runs the offline integration-module tests and compiles the standalone skills API consumer. It retains Gradle caches, limits Gradle workers to two and caps each test task at one fork with two visible processors. For focused module runs, add `--init-script gradle/kroog-ci.init.gradle` to retain the same test engine and limits. It does not compile Android, JavaScript, Wasm or Native targets.
+
+The JVM ABI check uses the published baseline selected in `.github/workflows/checks.yml`. Run `./gradlew --init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=1.3.0-kroog.8 :checkKroogJvmAbi` to compare public JVM APIs. Update the baseline deliberately after a release. Beta modules follow the existing exemption from ABI compatibility checks.
+
+Maven release and snapshot publication remain manual workflows. The manual OpenAI hosted execution workflow runs paid tests only from `master` and requires `OPENAI_API_KEY` or `OPEN_AI_API_TEST_KEY` in repository secrets. Other credentialled provider checks can be run explicitly using the commands below. A2A protocol conformance runs separately for changes to its published protocol modules. Upstream example, documentation deployment and non-JVM workflows are not part of Kroog CI.
+
+Run `bash .github/scripts/check-lint.sh origin/master` to lint changed Kotlin files, or append `ktlintFormat` to format them. CI compares PRs with their base commit and pushes with their previous commit, so unrelated upstream formatting does not block changes.
+
 ## Quality Gates
 
 These rules are non-negotiable and apply to **every** change that touches production code.
@@ -14,9 +26,9 @@ A change is NOT done until ALL of the following are true:
     - New public function/class → new unit test covering happy path + at least one edge case.
     - Bug fix → a regression test that fails WITHOUT the fix and passes WITH it.
     - Behavior change → existing tests updated to reflect the new contract.
-2. **Tests actually run and pass locally** via `./gradlew jvmTest` (and `jsTest` if the module has a JS target).
+2. **Tests actually run and pass locally** through the affected module-specific JVM test tasks.
    Do NOT report a task as complete based on "it compiles". Compilation ≠ tests pass.
-3. **`./gradlew build` succeeds** for the affected modules before the change is handed back to the user.
+3. **The affected JVM JAR tasks succeed** before the change is handed back to the user. Use `jvmJar` for multiplatform modules and `jar` for JVM modules; do not run root `build` or `assemble`.
 4. **No suppressed warnings, no `@Ignore`, no `@Disabled`, no commented-out assertions** were introduced to make tests pass.
 5. **Public API changes** (new/removed/renamed public symbols) are documented with KDoc.
 
@@ -198,6 +210,17 @@ For the focused parallel-call regression, use the same opt-in flag and run `--te
 The expired-container case requires an expired container ID in `KROOG_REPLAY_EXPIRED_CONTAINER_ID`. File lookup and cited search use test tools with controlled records. Hosted execution cases call the provider's execution tool.
 
 Case names and their source and destination capability checks are in `ReplayHistories.kt`. Standard output records the case and actual route for each attempt.
+
+### OpenAI hosted shell live checks
+
+Run the opt-in hosted shell checks with a direct OpenAI API key in `OPENAI_API_KEY` or `OPEN_AI_API_TEST_KEY`. These tests call paid endpoints and create temporary provider containers. They verify automatic container creation, streamed shell output, file persistence, native history replay, a follow-up with execution disabled, file download integrity and container deletion. The Python Code Interpreter case provides a baseline using the same model.
+
+```shell
+KROOG_HOSTED_EXECUTION_LIVE=1 ./gradlew :integration-tests:jvmIntegrationTest --rerun \
+  --tests 'ai.koog.integration.tests.client.HostedExecutionLiveIntegrationTest*'
+```
+
+Timing output separates explicit container provisioning, the first streamed result, the complete cold response, a warm non-streamed response and file download. One sample per path is a functionality check, not a latency guarantee. Timeouts guard against hangs; elapsed time is not a correctness assertion. Missing credentials fail an explicitly enabled run. Tests delete observed test-owned containers in cleanup and report when provider failure prevents confirming deletion.
 
 ### Required API tokens for integration tests
 

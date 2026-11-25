@@ -1,6 +1,7 @@
 package ai.koog.agents.core.feature
 
 import ai.koog.agents.core.agent.context.AIAgentContext
+import ai.koog.agents.core.agent.context.DetachedPromptExecutorAPI
 import ai.koog.agents.core.agent.session.forNoToolsTurn
 import ai.koog.agents.core.annotation.InternalAgentsApi
 import ai.koog.agents.core.tools.ToolDescriptor
@@ -18,6 +19,7 @@ import ai.koog.prompt.structure.json.generator.StandardJsonSchemaGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -55,7 +57,10 @@ public class ContextualPromptExecutor(
         execute(prompt, model, tools, withoutTools = false)
 
     internal suspend fun execute(
-        prompt: Prompt, model: ResolvedModel, tools: List<ToolDescriptor>, withoutTools: Boolean,
+        prompt: Prompt,
+        model: ResolvedModel,
+        tools: List<ToolDescriptor>,
+        withoutTools: Boolean,
     ): Message.Assistant {
         @OptIn(ExperimentalUuidApi::class)
         val eventId = Uuid.random().toString()
@@ -83,7 +88,9 @@ public class ContextualPromptExecutor(
 
         val (effectivePrompt, effectiveTools) = if (withoutTools && interceptedPrompt !== prompt) {
             interceptedPrompt.forNoToolsTurn(model.effectiveModel, tools, context.config.missingToolsConversionStrategy)
-        } else interceptedPrompt to tools
+        } else {
+            interceptedPrompt to tools
+        }
 
         try {
             val response = executor.execute(effectivePrompt, model, effectiveTools)
@@ -135,43 +142,30 @@ public class ContextualPromptExecutor(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>
-    ): Flow<StreamFrame> {
+    ): Flow<StreamFrame> = flow {
         @OptIn(ExperimentalUuidApi::class)
         val eventId: String = Uuid.random().toString()
 
-        logger.debug { "Executing LLM streaming call (event id: $eventId, prompt: $prompt, tools: [${tools.joinToString { it.name }}])" }
+        var effectivePrompt = prompt
+        var effectiveModel = model
 
-        var effectivePrompt: Prompt = prompt
-        var effectiveModel: LLModel = model
-
-        return flow {
+        val stream = flow {
             val resolvedModel = executor.resolveModel(model, PromptExecutorOperation.Streaming)
             effectiveModel = resolvedModel.effectiveModel
 
-            val promptBeforeInterceptors = context.llm.prompt // because onLLMStreamingStarting might change it
-
             logger.debug { "Starting LLM streaming call (event id: $eventId)" }
-            context.pipeline.onLLMStreamingStarting(
+            effectivePrompt = context.pipeline.onLLMStreamingStarting(
                 eventId = eventId,
                 executionInfo = context.executionInfo,
-                context = context,
+                context = StreamingStartAgentContext(context),
                 runId = context.runId,
                 prompt = prompt,
                 model = effectiveModel,
                 tools = tools
             )
 
-            effectivePrompt = if (context.llm.prompt !== promptBeforeInterceptors) {
-                logger.debug { "Executing LLM streaming call with modified prompt (event id: $eventId, prompt: ${context.llm.prompt}, tools: [${tools.joinToString { it.name }}])" }
-                context.llm.prompt
-            } else {
-                logger.debug { "Executing LLM streaming call (event id: $eventId, prompt: $prompt, tools: [${tools.joinToString { it.name }}])" }
-                prompt
-            }
-
-            executor.executeStreaming(effectivePrompt, resolvedModel, tools).collect { frame ->
-                emit(frame)
-            }
+            logger.debug { "Executing LLM streaming call (event id: $eventId, prompt: $effectivePrompt, tools: [${tools.joinToString { it.name }}])" }
+            emitAll(executor.executeStreaming(effectivePrompt, resolvedModel, tools))
         }
             .onEach { frame ->
                 logger.trace { "Received frame from LLM streaming call (event id: $eventId): $frame" }
@@ -213,6 +207,7 @@ public class ContextualPromptExecutor(
                     tools = tools
                 )
             }
+        emitAll(stream)
     }
 
     // TODO: Add Pipeline interceptors for this method. Without them features cannot modify prompts before calls to LLMs.
@@ -307,5 +302,17 @@ public class ContextualPromptExecutor(
 
     override fun close() {
         executor.close()
+    }
+}
+
+@OptIn(DetachedPromptExecutorAPI::class, InternalAgentsApi::class)
+private class StreamingStartAgentContext(context: AIAgentContext) : AIAgentContext by context {
+    override val llm = context.llm.let { llm ->
+        val executor = llm.promptExecutor
+        llm.copyWithReadOnlyPrompt((executor as? ContextualPromptExecutor)?.withContext(this) ?: executor)
+    }
+
+    override val parentContext: AIAgentContext? by lazy {
+        context.parentContext?.let(::StreamingStartAgentContext)
     }
 }

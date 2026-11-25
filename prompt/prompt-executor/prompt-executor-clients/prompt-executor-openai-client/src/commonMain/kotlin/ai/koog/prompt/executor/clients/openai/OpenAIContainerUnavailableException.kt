@@ -1,6 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
-/** Why OpenAI rejected a Code Interpreter container. */
+/** Why OpenAI rejected a hosted execution container. */
 public enum class OpenAIContainerUnavailableReason {
     /** The container has expired. */
     Expired,
@@ -20,4 +20,4 @@ public class OpenAIContainerUnavailableException(
     public val containerId: String?,
     public val reason: OpenAIContainerUnavailableReason,
     cause: Throwable,
-) : Exception("OpenAI Code Interpreter container is unavailable: $reason", cause)
+) : Exception("OpenAI hosted execution container is unavailable: $reason", cause)

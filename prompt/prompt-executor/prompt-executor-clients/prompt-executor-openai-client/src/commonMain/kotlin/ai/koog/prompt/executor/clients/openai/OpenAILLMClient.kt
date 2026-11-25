@@ -38,6 +38,7 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAICodeInterpreterContai
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingBatchRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingRequest
 import ai.koog.prompt.executor.clients.openai.models.OpenAIEmbeddingResponse
+import ai.koog.prompt.executor.clients.openai.models.OpenAIHostedShellEnvironment
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIModelsResponse
@@ -60,7 +61,12 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.isClientManagedExecutionPresentation
 import ai.koog.prompt.message.validateClientManagedExecutionPresentation
+import ai.koog.prompt.models.ModelCatalogue
+import ai.koog.prompt.models.ModelPublisher
 import ai.koog.prompt.params.LLMParams
+import ai.koog.prompt.provider.HostedExecutionAcceptance
+import ai.koog.prompt.provider.ProviderApi
+import ai.koog.prompt.provider.ProviderCapabilityMatrix
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.buildStreamFrameFlow
 import ai.koog.prompt.streaming.requireEndFrame
@@ -75,15 +81,16 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
@@ -403,7 +410,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 ?.minus(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY),
         )
 
-        return normaliseGpt6Request(json.encodeToString(OpenAIChatCompletionRequestSerializer, request), model, false)
+        return serialiseRequest(OpenAIChatCompletionRequestSerializer, request, model, responses = false)
     }
 
     private fun List<Item>.imageCount(): Int = sumOf { item ->
@@ -456,6 +463,11 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         val responsesTools = buildList {
             addAll(tools.orEmpty())
             params.codeInterpreter?.let { add(it.toOpenAIResponsesTool()) }
+            params.hostedShell?.let { config ->
+                val environment = config.containerId?.let { OpenAIHostedShellEnvironment.Reference(it) }
+                    ?: OpenAIHostedShellEnvironment.Auto(config.fileIds.takeIf { it.isNotEmpty() })
+                add(OpenAIResponsesTool.HostedShell(environment))
+            }
         }.ifEmpty { null }
 
         val request = OpenAIResponsesAPIRequest(
@@ -495,7 +507,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             additionalProperties = params.additionalProperties.withoutReservedPromptCacheKey(),
         )
 
-        return normaliseGpt6Request(json.encodeToString(OpenAIResponsesAPIRequestSerializer, request), model, true)
+        return serialiseRequest(OpenAIResponsesAPIRequestSerializer, request, model, responses = true)
     }
 
     private fun List<OpenAIInclude>?.withEncryptedReasoningForStateless(stateless: Boolean): List<OpenAIInclude>? {
@@ -511,10 +523,44 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         effort: ReasoningEffort?,
     ): Double? = temperature.takeUnless { isGpt56() && effort != null && effort != ReasoningEffort.NONE }
 
-    // Validate after flattening additional properties so raw options obey the same model restrictions.
-    private fun normaliseGpt6Request(payload: String, model: LLModel, responses: Boolean): String {
-        if (!model.isGpt6()) return payload
-        val request = json.parseToJsonElement(payload).jsonObject
+    // Check the flattened request so additional properties obey the same model restrictions.
+    private fun <T> serialiseRequest(
+        serializer: SerializationStrategy<T>,
+        value: T,
+        model: LLModel,
+        responses: Boolean,
+    ): String {
+        val gpt6 = model.isGpt6()
+        val temperatureEfforts = if (responses && !gpt6) model.responsesTemperatureEfforts() else null
+        if (!gpt6 && temperatureEfforts == null) return json.encodeToString(serializer, value)
+
+        val request = json.encodeToJsonElement(serializer, value).jsonObject
+        val compatible = if (temperatureEfforts != null) {
+            val reasoning = request["reasoning"] as? JsonObject
+            val effort = (reasoning?.get("effort") as? JsonPrimitive)?.contentOrNull
+            if (effort != null && effort !in temperatureEfforts && "temperature" in request) {
+                JsonObject(request - "temperature")
+            } else {
+                request
+            }
+        } else {
+            normaliseGpt6Request(request, model, responses)
+        }
+        return json.encodeToString(JsonObject.serializer(), compatible)
+    }
+
+    private fun LLModel.responsesTemperatureEfforts(): Set<String>? {
+        val api = when (settings.responsesDialect) {
+            OpenAIResponsesDialect.OpenAI -> ProviderApi.OPENAI_RESPONSES
+            OpenAIResponsesDialect.Azure -> ProviderApi.AZURE_RESPONSES
+            OpenAIResponsesDialect.Compatible -> return null
+        }
+        return ModelCatalogue.find(id, api)
+            ?.takeIf { it.publisher == ModelPublisher.OPENAI }
+            ?.temperature?.allowedReasoningEfforts
+    }
+
+    private fun normaliseGpt6Request(request: JsonObject, model: LLModel, responses: Boolean): JsonObject {
         val effort = if (responses) {
             request["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.contentOrNull
         } else {
@@ -543,7 +589,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
             ) { "GPT-6 tool calling with reasoning requires Responses. Use OpenAIResponsesParams. GPT-6 Sol and Luna also allow Chat with effort none." }
         }
-        if (!model.isGpt6ReasoningOnly() && effort == "none") return payload
+        if (!model.isGpt6ReasoningOnly() && effort == "none") return request
         val compatible = request.toMutableMap()
         setOf("temperature", "top_p", "top_logprobs", "logprobs").forEach { compatible.remove(it) }
         if (responses) {
@@ -553,7 +599,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 }
             }
         }
-        return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
+        return JsonObject(compatible)
     }
 
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
@@ -660,7 +706,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     model.requireCapability(LLMCapability.OpenAIEndpoint.Responses)
                     val result = getResponseWithResponsesAPI(request, params, model, tools)
                     ReasoningReplayFormat.RESPONSES.record(
-                        processResponsesAPIResponse(result.response, result.recoveredContainerId),
+                        processResponsesAPIResponse(result),
                         model
                     )
                 }
@@ -682,7 +728,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return selectExecutionStrategy(prompt, model) { request, params ->
             when (params) {
                 is OpenAIResponsesParams -> ReasoningReplayFormat.RESPONSES.record(
-                    executeResponsesStreaming(request, model, tools, params),
+                    flow { emitAll(executeResponsesStreaming(request, model, tools, params)) },
                     model
                 )
                 is OpenAIChatParams -> super.executeStreaming(request, model, tools)
@@ -698,7 +744,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): Flow<StreamFrame> {
         logger.debug { "Executing streaming prompt: $prompt with model: $model" }
 
-        if (tools.isNotEmpty() || params.codeInterpreter != null) {
+        if (tools.isNotEmpty() || params.codeInterpreter != null || params.hostedShell != null) {
             model.requireCapability(LLMCapability.Tools)
         }
         val llmTools = tools.takeIf { it.isNotEmpty() }?.map {
@@ -721,8 +767,22 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         val toolCallsByItemId = mutableMapOf<String, Item.FunctionToolCall>()
         val orderedFrames = OpenAIFunctionCallOrderBuffer(clientName)
         val codeContainerByItemId = mutableMapOf<String, String>()
+        val shell = OpenAIHostedShellExecution(json, params.hostedShell)
+        val completedShellItems = mutableSetOf<Int>()
+        val pendingShellProgress = mutableMapOf<String, MessagePart.HostedExecution.Progress>()
         val citationsByItemId = mutableMapOf<String, MutableList<MessagePart.GeneratedFileCitation>>()
         var providerEventSeen = false
+
+        fun MutableList<StreamFrame>.addShellCall(item: Item.ShellCall, index: Int) {
+            val update = shell.call(item)
+            val progress = pendingShellProgress.remove(item.callId)
+            val updates = if (update is MessagePart.HostedExecution.Request) {
+                listOfNotNull(update, progress)
+            } else {
+                listOfNotNull(progress, update)
+            }
+            updates.forEach { add(StreamFrame.HostedExecutionUpdate(it, index)) }
+        }
 
         return httpClient.sse(
             path = settings.responsesAPIPath,
@@ -759,6 +819,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     }
                                     toolCallsByItemId[itemId] = item
                                     drained += orderedFrames.resolve(itemId, item)
+                                }
+                                is Item.ShellCall -> {
+                                    // Wait for the final item to introduce a complete request before showing its progress.
+                                    pendingShellProgress[item.callId] = shell.started(item, event.sequenceNumber)
                                 }
                                 is Item.CodeInterpreterToolCall -> {
                                     codeContainerByItemId[item.id] = item.containerId
@@ -904,6 +968,18 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     )
                                 }
 
+                                is Item.ShellCall -> {
+                                    if (completedShellItems.add(event.outputIndex)) {
+                                        addShellCall(item, event.outputIndex)
+                                    }
+                                }
+
+                                is Item.ShellCallOutput -> {
+                                    if (completedShellItems.add(event.outputIndex)) {
+                                        add(StreamFrame.HostedExecutionUpdate(shell.result(item), event.outputIndex))
+                                    }
+                                }
+
                                 is Item.CodeInterpreterToolCall -> {
                                     codeContainerByItemId.remove(item.id)
                                     val part = item.toMessagePart()
@@ -949,6 +1025,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             }
                         }
 
+                        // Completed output items hold the full commands and outputs for presentation and replay.
+                        is OpenAIStreamEvent.ResponseShellCallCommandAdded,
+                        is OpenAIStreamEvent.ResponseShellCallCommandDelta,
+                        is OpenAIStreamEvent.ResponseShellCallCommandDone,
+                        is OpenAIStreamEvent.ResponseShellCallOutputContentDelta,
+                        is OpenAIStreamEvent.ResponseShellCallOutputContentDone -> Unit
+
                         is OpenAIStreamEvent.ResponseCompleted,
                         is OpenAIStreamEvent.ResponseIncomplete -> {
                             val terminalResponse = when (event) {
@@ -957,6 +1040,15 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 else -> error("Unexpected terminal event")
                             }
                             orderedFrames.requireResolved()
+                            terminalResponse.output.forEachIndexed { index, item ->
+                                if (index !in completedShellItems) {
+                                    when (item) {
+                                        is Item.ShellCall -> addShellCall(item, index)
+                                        is Item.ShellCallOutput -> add(StreamFrame.HostedExecutionUpdate(shell.result(item), index))
+                                        else -> Unit
+                                    }
+                                }
+                            }
                             add(
                                 StreamFrame.End(
                                     finishReason = null,
@@ -988,7 +1080,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             val recoveryParams = params.staleContainerRecoveryParams(typedFailure, providerEventSeen)
             if (recoveryParams != null) {
                 val recoveryPrompt = recoveryPrompt(prompt, recoveryParams, typedFailure)
-                val staleContainerId = requireNotNull(params.codeInterpreter?.containerId)
+                val staleContainerId = requireNotNull(params.hostedContainerId)
                 emit(
                     StreamFrame.HostedExecutionUpdate(
                         MessagePart.HostedExecution.Progress(
@@ -1027,7 +1119,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         async {
                             val result = getResponseWithResponsesAPI(request, params, model, tools)
                             ReasoningReplayFormat.RESPONSES.record(
-                                processResponsesAPIResponse(result.response, result.recoveredContainerId),
+                                processResponsesAPIResponse(result),
                                 model
                             )
                         }
@@ -1207,7 +1299,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
         val modelsById = OpenAIModels.modelsById()
 
-        return models.data.map { modelsById[it.id] ?: LLModel(provider = llmProvider(), id = it.id) }
+        return models.data.map { (id) ->
+            modelsById[id] ?: ModelCatalogue.find(id)
+                ?.takeIf { it.publisher == ModelPublisher.OPENAI }
+                ?.let { modelsById[it.id]?.copy(id = id) }
+                ?: LLModel(provider = llmProvider(), id = id)
+        }
     }
 
     private fun convertModerationResult(result: OpenAIModerationResult): ModerationResult {
@@ -1296,6 +1393,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private data class ResponsesExecutionResult(
         val response: OpenAIResponsesAPIResponse,
         val recoveredContainerId: String? = null,
+        val hostedShell: OpenAIHostedShellConfig? = null,
     )
 
     private suspend fun getResponseWithResponsesAPI(
@@ -1306,7 +1404,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): ResponsesExecutionResult {
         logger.debug { "Executing prompt: $prompt with tools: $tools and model: $model" }
 
-        if (tools.isNotEmpty() || params.codeInterpreter != null) {
+        if (tools.isNotEmpty() || params.codeInterpreter != null || params.hostedShell != null) {
             model.requireCapability(LLMCapability.Tools)
         }
 
@@ -1342,7 +1440,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
 
         return try {
-            ResponsesExecutionResult(post(params))
+            ResponsesExecutionResult(post(params), hostedShell = params.hostedShell)
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
             val typedFailure = params.containerFailure(failure) ?: failure
@@ -1356,7 +1454,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     if (retryFailure is CancellationException) throw retryFailure
                     throw recoveryParams.containerFailure(retryFailure) ?: retryFailure
                 },
-                recoveredContainerId = params.codeInterpreter?.containerId,
+                recoveredContainerId = params.hostedContainerId,
+                hostedShell = recoveryParams.hostedShell,
             )
         }
     }
@@ -1419,6 +1518,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     is Message.Assistant -> {
                         val history = ReasoningReplayFormat.RESPONSES.requestView(message, model) ?: return@forEach
                         val codeInterpreterReplay = history.parts.canonicalOpenAICodeInterpreterReplay()
+                        val shellReplay = OpenAIHostedShellReplay(json)
                         val emittedCodeInterpreterIds = mutableSetOf<String>()
                         history.parts.forEach { part ->
                             when (part) {
@@ -1499,7 +1599,14 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
 
                                 is MessagePart.HostedExecution -> {
-                                    if (
+                                    val replay = part.nativeReplay()
+                                    if (replay != null) {
+                                        require(!part.isClientManagedExecutionPresentation()) {
+                                            "Client-managed execution presentation cannot carry native hosted shell replay"
+                                        }
+                                        requireHostedShellCapability(model)
+                                        add(shellReplay.item(part, replay))
+                                    } else if (
                                         !part.isClientManagedExecutionPresentation() &&
                                         (part !is MessagePart.HostedExecution.Progress || part.providerItemId != null)
                                     ) {
@@ -1511,6 +1618,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 }
                             }
                         }
+                        shellReplay.requireResolved()
                     }
                 }
             }
@@ -1632,10 +1740,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         return LLMClientException(clientName, code?.takeIf { it.isNotBlank() }?.let { "$it: $detail" } ?: detail)
     }
 
-    private fun processResponsesAPIResponse(
-        response: OpenAIResponsesAPIResponse,
-        recoveredContainerId: String? = null,
-    ): Message.Assistant {
+    private fun processResponsesAPIResponse(result: ResponsesExecutionResult): Message.Assistant {
+        val response = result.response
+        val shell = OpenAIHostedShellExecution(json, result.hostedShell)
         if (response.status == OpenAIInputStatus.FAILED) {
             throw responsesFailure(response.error?.code, response.error?.message)
         }
@@ -1646,7 +1753,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         var finishReason: String? = null
 
         val parts = buildList {
-            recoveredContainerId?.let { staleContainerId ->
+            result.recoveredContainerId?.let { staleContainerId ->
                 add(
                     MessagePart.HostedExecution.Progress(
                         message = "stale_container_recovered",
@@ -1702,6 +1809,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             )
                         )
                     }
+
+                    is Item.ShellCall -> add(shell.call(output))
+                    is Item.ShellCallOutput -> add(shell.result(output))
 
                     is Item.CodeInterpreterToolCall -> {
                         add(output.toMessagePart())
@@ -1816,7 +1926,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private fun List<MessagePart.ResponsePart>.canonicalOpenAICodeInterpreterReplay(): Map<String, List<Item>> =
         filter {
             it is MessagePart.CodeExecution ||
-                (it is MessagePart.HostedExecution && !it.isClientManagedExecutionPresentation())
+                (it is MessagePart.HostedExecution && !it.isClientManagedExecutionPresentation() && it.nativeReplay() == null)
         }
             .filterNot {
                 it is MessagePart.HostedExecution.Progress && it.providerItemId == null
@@ -1976,6 +2086,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     internal fun determineParams(params: LLMParams, model: LLModel): OpenAIParams = when {
         params is OpenAIResponsesParams -> {
             settings.requireResponsesCapability()
+            if (params.hostedShell != null) {
+                requireHostedShellCapability(model)
+                require(params.codeInterpreter == null) { "Choose either hosted shell or Code Interpreter" }
+                require(params.additionalProperties?.containsKey("tools") != true) {
+                    "withHostedShell cannot be combined with an explicit tools array in additionalProperties"
+                }
+            }
             model.requireCapability(
                 LLMCapability.OpenAIEndpoint.Responses,
                 message = "Must be supported to use OpenAI responses params."
@@ -2000,6 +2117,17 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         else -> throw LLMClientException(clientName, "Cannot determine proper LLM params for OpenAI model: ${model.id}")
     }
 
+    private fun requireHostedShellCapability(model: LLModel) {
+        if (settings.responsesDialect != OpenAIResponsesDialect.OpenAI) {
+            throw OpenAIResponsesConfigurationException("Hosted shell requires direct OpenAI Responses")
+        }
+        if (ProviderCapabilityMatrix.acceptHostedShell(ProviderApi.OPENAI_RESPONSES, model.id)
+                !is HostedExecutionAcceptance.NativeInline
+        ) {
+            throw OpenAIResponsesConfigurationException("Hosted shell is unavailable for OpenAI model ${model.id}")
+        }
+    }
+
     private fun OpenAIClientSettings.requireResponsesCapability() {
         when (val capability = responsesCapability) {
             OpenAIResponsesCapability.Supported -> Unit
@@ -2017,28 +2145,35 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             ?.copy(params = params) ?: retryPrompt
     }
 
+    private val OpenAIResponsesParams.hostedContainerId: String?
+        get() = codeInterpreter?.containerId ?: hostedShell?.containerId
+
     private fun OpenAIResponsesParams.staleContainerRecoveryParams(
         failure: Throwable,
         providerEventSeen: Boolean,
     ): OpenAIResponsesParams? {
-        val interpreter = codeInterpreter ?: return null
-        if (interpreter.containerId == null || !stateless || providerEventSeen) return null
+        if (hostedContainerId == null || !stateless || providerEventSeen) return null
         if (failure !is OpenAIContainerUnavailableException) return null
-        return withCodeInterpreter(OpenAICodeInterpreterConfig(fileIds = interpreter.fileIds))
+        return hostedShell?.let { withHostedShell(it.copy(containerId = null)) }
+            ?: withCodeInterpreter(OpenAICodeInterpreterConfig(fileIds = requireNotNull(codeInterpreter).fileIds))
     }
 
     private fun OpenAIResponsesParams.containerFailure(failure: Throwable): OpenAIContainerUnavailableException? {
         val httpFailure = generateSequence(failure as Throwable?) { it.cause }
             .filterIsInstance<KoogHttpClientException>()
             .firstOrNull() ?: return null
-        if (codeInterpreter == null || httpFailure.statusCode !in setOf(400, 404)) return null
+        if ((codeInterpreter == null && hostedShell == null) || httpFailure.statusCode !in setOf(400, 404)) return null
         val reason = runCatching {
             val envelope = json.parseToJsonElement(httpFailure.errorBody ?: return null).jsonObject
             val error = envelope["error"]?.jsonObject ?: envelope
             val code = error["code"]?.jsonPrimitive?.contentOrNull?.lowercase()
             val param = error["param"]?.jsonPrimitive?.contentOrNull?.lowercase()
             val message = error["message"]?.jsonPrimitive?.contentOrNull?.trim()?.lowercase()
-            val containerParam = param == "container" || param?.matches(Regex("tools\\[\\d+]\\.container")) == true
+            val containerParam = if (hostedShell != null) {
+                param == "container_id" || param?.matches(Regex("tools\\[\\d+]\\.environment(?:\\.container_id)?")) == true
+            } else {
+                param == "container" || param?.matches(Regex("tools\\[\\d+]\\.container")) == true
+            }
             when {
                 (param == null || containerParam) && message == "container is expired." ->
                     OpenAIContainerUnavailableReason.Expired
@@ -2048,7 +2183,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 else -> null
             }
         }.getOrNull() ?: return null
-        return OpenAIContainerUnavailableException(codeInterpreter.containerId, reason, failure)
+        return OpenAIContainerUnavailableException(hostedContainerId, reason, failure)
     }
 
     private fun staleContainerRecoveryExecutionId(containerId: String): String =
@@ -2061,11 +2196,13 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): T {
         val params = determineParams(prompt.params, model)
         if (params is OpenAIChatParams) {
+            prompt.requireNoNativeShellReplay()
             require(prompt.messages.none { it is Message.System && it.metaInfo.metadata?.containsKey(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE) == true }) {
                 "Configuration updates require the OpenAI Responses API"
             }
         }
-        val preserveMarkers = params is OpenAIResponsesParams && settings.responsesDialect != OpenAIResponsesDialect.Compatible &&
+        val preserveMarkers = params is OpenAIResponsesParams &&
+            settings.responsesDialect != OpenAIResponsesDialect.Compatible &&
             model.supports(LLMCapability.OpenAIExplicitPromptCaching)
         return action(prompt.forOpenAIToolReplay(preserveMarkers), params)
     }

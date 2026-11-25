@@ -414,11 +414,8 @@ public class LongTermMemory(
 
             // Augment prompt before streaming LLM call
             pipeline.interceptLLMStreamingStarting(this) { ctx ->
-                val augmentedPrompt = getAugmentedPromptOrNull(ctx.prompt, retrieval)
-                if (augmentedPrompt != null) {
-                    ctx.context.llm.writeSession {
-                        prompt = augmentedPrompt
-                    }
+                getAugmentedPromptOrNull(ctx.prompt, retrieval)?.let { augmentedPrompt ->
+                    ctx.prompt = augmentedPrompt
                 }
             }
         }

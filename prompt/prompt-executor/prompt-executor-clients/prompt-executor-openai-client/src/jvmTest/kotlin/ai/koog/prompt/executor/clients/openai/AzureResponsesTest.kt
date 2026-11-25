@@ -3,11 +3,13 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.http.client.KoogHttpClient
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.azure.AzureOpenAIClientSettings
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
 import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAITextConfig
 import ai.koog.prompt.executor.clients.openai.models.OutputContent
+import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.test.utils.CapturingKoogHttpClient
@@ -17,6 +19,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class AzureResponsesTest {
     @Test
@@ -69,16 +72,21 @@ class AzureResponsesTest {
             prompt = Prompt(
                 messages = listOf(Message.User("hello", RequestMetaInfo.Empty)),
                 id = "azure-responses-v1",
-                params = OpenAIResponsesParams(),
+                params = OpenAIResponsesParams(
+                    temperature = 0.7,
+                    reasoning = ReasoningConfig(effort = ReasoningEffort.HIGH),
+                ),
             ),
-            model = OpenAIModels.Chat.GPT4o,
+            model = OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05"),
         )
 
         assertEquals("https://resource.openai.azure.com/", factory.baseUrl)
         assertEquals("openai/v1/responses", factory.transport.lastPath)
         assertEquals(mapOf("api-version" to "v1"), factory.queryParameters)
-        val request = Json.parseToJsonElement(factory.transport.lastRequest.toString())
-        assertEquals("current-deployment", request.jsonObject.getValue("model").jsonPrimitive.content)
+        val request = Json.parseToJsonElement(factory.transport.lastRequest.toString()).jsonObject
+        assertEquals("current-deployment", request.getValue("model").jsonPrimitive.content)
+        assertEquals("high", request.getValue("reasoning").jsonObject.getValue("effort").jsonPrimitive.content)
+        assertFalse("temperature" in request)
     }
 
     private class CapturingFactory : KoogHttpClient.Factory {

@@ -559,6 +559,9 @@ class CheckpointsTests {
                 is MessagePart.Tool.Result -> part.output
                 is MessagePart.Reasoning -> part.content.joinToString("\n")
                 is MessagePart.Attachment -> ""
+                is MessagePart.CodeExecution,
+                is MessagePart.GeneratedFile,
+                is MessagePart.HostedExecution -> part.toString()
             }
         }
     }

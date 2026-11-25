@@ -1,0 +1,17 @@
+// Apply limits after the repository conventions have configured test tasks.
+gradle.projectsEvaluated {
+    gradle.rootProject.allprojects {
+        tasks.withType(Test).configureEach {
+            maxParallelForks = 1
+            jvmArgs '-XX:ActiveProcessorCount=2'
+            if (name == 'test') {
+                // The Java plugin's test task owns the compiled JVM test classes.
+                useJUnitPlatform()
+                filter {
+                    excludeTestsMatching '*.integration_*'
+                    excludeTestsMatching '*.ollama_*'
+                }
+            }
+        }
+    }
+}

@@ -524,6 +524,31 @@ class OpenAILLMClientTest {
     }
 
     @Test
+    fun testResponsesSnapshotTemperatureUsesEffectiveReasoningEffort() {
+        val model = OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05")
+        val rawHighEffort = mapOf(
+            "reasoning" to buildJsonObject { put("effort", JsonPrimitive("high")) },
+            "temperature" to JsonPrimitive(0.7),
+        )
+        val high = responsesRequest(model, OpenAIResponsesParams(additionalProperties = rawHighEffort))
+        high.getValue("reasoning").jsonObject.getValue("effort").jsonPrimitive.content shouldBe "high"
+        high.containsKey("temperature") shouldBe false
+
+        val none = responsesRequest(
+            model,
+            OpenAIResponsesParams(
+                reasoning = ReasoningConfig(effort = ReasoningEffort.NONE),
+                additionalProperties = rawHighEffort,
+            ),
+        )
+        none.getValue("reasoning").jsonObject.getValue("effort").jsonPrimitive.content shouldBe "none"
+        none.getValue("temperature").jsonPrimitive.double shouldBe 0.7
+
+        val defaultEffort = responsesRequest(model, OpenAIResponsesParams(temperature = 0.7))
+        defaultEffort.getValue("temperature").jsonPrimitive.double shouldBe 0.7
+    }
+
+    @Test
     fun `GPT-5_6 deployment copy keeps wire id and model behaviour while older models remain unchanged`() {
         val deployment = OpenAIModels.Chat.GPT5_6Terra.copy(id = "azure-terra-deployment")
         chatRequest(

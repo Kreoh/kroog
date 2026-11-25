@@ -1,10 +1,12 @@
 package ai.koog.prompt.provider
 
+import ai.koog.prompt.models.ModelCatalogue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -150,6 +152,83 @@ class ProviderCapabilityMatrixTest {
                 ProviderApi.OPENAI_RESPONSES,
                 "unknown-model",
             ),
+        )
+    }
+
+    @Test
+    fun testHostedShellSelectionKeepsCodeInterpreterAvailable() {
+        val api = ProviderApi.OPENAI_RESPONSES
+        assertTrue(ModelCatalogue.supportsHostedShell("gpt-6-luna", api))
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("shell"),
+            ProviderCapabilityMatrix.acceptHostedShell(api, "gpt-6-luna"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(api, "gpt-6-luna"),
+        )
+    }
+
+    @Test
+    fun testVerifiedSnapshotsInheritTheShellModelProfile() {
+        val api = ProviderApi.OPENAI_RESPONSES
+        val snapshots = mapOf(
+            "gpt-5.2" to "gpt-5.2-2025-12-11",
+            "gpt-5.4" to "gpt-5.4-2026-03-05",
+            "gpt-5.4-mini" to "gpt-5.4-mini-2026-03-17",
+            "gpt-5.4-nano" to "gpt-5.4-nano-2026-03-17",
+            "gpt-5.5" to "gpt-5.5-2026-04-23",
+        )
+        for ((id, snapshot) in snapshots) {
+            val profile = assertNotNull(ModelCatalogue.find(id, api))
+            assertEquals(profile, ModelCatalogue.find(snapshot, api))
+            for (identifier in listOf(id, snapshot)) {
+                assertEquals(HostedExecutionAcceptance.NativeInline("shell"), ProviderCapabilityMatrix.acceptHostedShell(api, identifier))
+                assertFalse(ModelCatalogue.supportsHostedShell(identifier, ProviderApi.CODEX_RESPONSES))
+            }
+        }
+        assertFalse(ModelCatalogue.supportsHostedShell("gpt-5.4-mini-2026-03-18", api))
+    }
+
+    @Test
+    fun testHostedShellRequiresAnImplementedRouteAndVerifiedModel() {
+        val openAi = ProviderApi.OPENAI_RESPONSES
+        assertFalse(ModelCatalogue.supportsHostedShell("gpt-4.1", openAi))
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "gpt-4.1"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "claude-4.6-sonnet"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.UNKNOWN_MODEL
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "unknown-model"),
+        )
+        for (api in listOf(
+            ProviderApi.AZURE_RESPONSES,
+            ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
+            ProviderApi.CODEX_RESPONSES,
+        )) {
+            assertFalse(ModelCatalogue.supportsHostedShell("gpt-5.5", api))
+            assertEquals(
+                HostedExecutionAcceptance.Unsupported(
+                    reason = HostedExecutionAcceptanceUnsupportedReason.PROVIDER_API_UNSUPPORTED,
+                    capabilityReason = HostedExecutionUnsupportedReason.CLIENT_INTEGRATION_UNAVAILABLE,
+                ),
+                ProviderCapabilityMatrix.acceptHostedShell(api, "gpt-5.5"),
+            )
+        }
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(ProviderApi.AZURE_RESPONSES, "gpt-5.5"),
         )
     }
 

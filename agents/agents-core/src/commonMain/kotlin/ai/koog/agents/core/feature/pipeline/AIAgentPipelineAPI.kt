@@ -262,7 +262,7 @@ public interface AIAgentPipelineAPI {
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    )
+    ): Prompt
 
     @InternalAgentsApi
     public suspend fun onLLMStreamingFrameReceived(

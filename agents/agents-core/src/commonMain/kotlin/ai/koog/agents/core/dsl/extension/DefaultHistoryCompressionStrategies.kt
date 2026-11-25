@@ -190,6 +190,7 @@ internal fun String.removeHandoverFrame(): String {
 
 internal fun LLMParams.withoutSavedContainer(): LLMParams = when (this) {
     is OpenAIResponsesParams -> withCodeInterpreter(codeInterpreter?.copy(containerId = null))
+        .withHostedShell(hostedShell?.copy(containerId = null))
     else -> this
 }
 

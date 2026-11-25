@@ -4,6 +4,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.provider.ProviderApi
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.StreamFrameMergeIdentity
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -24,6 +25,40 @@ import kotlin.test.assertNull
 internal class HostedExecutionPromptTest {
 
     private val json = Json { encodeDefaults = true }
+
+    @Test
+    fun testNativeExecutionReplaySurvivesSerializationStreamingAndCopies() {
+        val replay = MessagePart.HostedExecutionReplay(
+            provider = ProviderApi.OPENAI_RESPONSES,
+            payload = "{\"type\":\"shell_call\",\"call_id\":\"call-1\"}",
+        )
+        val request = MessagePart.HostedExecution.Request(
+            code = "printf hello",
+            language = "bash",
+            executionId = "execution:call-1",
+            replay = replay,
+        )
+        val result = MessagePart.HostedExecution.Result(output = "hello", executionId = "execution:call-1", replay = replay)
+        val error = MessagePart.HostedExecution.Error(message = "failed", executionId = "execution:call-1", replay = replay)
+        val response = Message.Assistant(
+            parts = listOf(request, result, error),
+            metaInfo = ResponseMetaInfo.Empty,
+        )
+        assertEquals(response, json.decodeFromString(Message.serializer(), json.encodeToString(Message.serializer(), response)))
+        assertEquals(response, response.toStreamFrames().toMessageResponse())
+        assertEquals(replay, request.copy(code = "printf changed").replay)
+        assertEquals(replay, result.copy(output = "changed").replay)
+        assertEquals(replay, error.copy(message = "changed").replay)
+    }
+
+    @Test
+    fun testLegacyExecutionWithoutReplayStillDeserializes() {
+        val request = MessagePart.HostedExecution.Request(code = "print(1)")
+        val legacyJson = Json.encodeToString(MessagePart.HostedExecution.Request.serializer(), request)
+        val decoded = json.decodeFromString(MessagePart.HostedExecution.Request.serializer(), legacyJson)
+        assertEquals(request, decoded)
+        assertNull(decoded.replay)
+    }
 
     @Test
     fun testPromptContentVariantsRoundTripThroughSerializationAndStreaming() {

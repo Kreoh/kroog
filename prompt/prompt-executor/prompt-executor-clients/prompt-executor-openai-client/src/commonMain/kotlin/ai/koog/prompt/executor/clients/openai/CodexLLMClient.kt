@@ -56,7 +56,7 @@ public class CodexTransportException(message: String) : IllegalStateException(me
  * Codex account Responses transport using Kroog's existing Responses conversion and stream assembly.
  * Every request streams with store=false, including [execute]. Tool execution remains owned by Kroog.
  * Credentials are explicit and reloaded for each collection; this client never launches the Codex CLI.
- * Hosted Code Interpreter, moderation and embeddings are not supported by this route.
+ * Hosted Code Interpreter, hosted shell, moderation and embeddings require a different route.
  *
  * The supplied HTTP client must target the Codex backend (normally https://chatgpt.com/backend-api/codex/).
  * Its ownership transfers to this client. Configure any HTTP logging to redact authentication headers.
@@ -97,6 +97,8 @@ public class CodexLLMClient(
         require(prompt.params !is OpenAIChatParams) { "Codex requires Responses parameters" }
         val params = prompt.params.toOpenAIResponsesParams()
         require(params.codeInterpreter == null) { "Codex does not support hosted Code Interpreter" }
+        require(params.hostedShell == null) { "Codex does not support OpenAI-hosted shell" }
+        prompt.requireNoNativeShellReplay()
         require(params.numberOfChoices == null || params.numberOfChoices == 1) { "Codex supports one choice per request" }
         emitAll(
             delegate.executeStreaming(prompt.copy(params = params.asStateless()), model, tools).catch { failure ->
@@ -250,7 +252,11 @@ internal fun codexRequest(original: JsonObject): JsonObject {
 private fun Map<String, JsonElement>.withoutCacheBreakpoints(): Map<String, JsonElement> {
     val field = if (this["type"] == JsonPrimitive("function_call_output")) "output" else "content"
     val content = this[field] as? JsonArray ?: return this
-    return this + (field to JsonArray(content.map { part ->
-        (part as? JsonObject)?.let { JsonObject(it - "prompt_cache_breakpoint") } ?: part
-    }))
+    return this + (
+        field to JsonArray(
+            content.map { part ->
+                (part as? JsonObject)?.let { JsonObject(it - "prompt_cache_breakpoint") } ?: part
+            }
+        )
+        )
 }

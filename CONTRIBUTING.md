@@ -13,11 +13,11 @@ Questions about usage and general inquiries are better suited for the [#koog-age
 
 ### General guidelines
 
-Submit pull requests [here](https://github.com/JetBrains/koog/pulls).
+Submit pull requests [here](https://github.com/Kreoh/kroog/pulls).
 However, please keep in mind that maintainers will have to support the resulting code of the project,
 so do familiarize yourself with the following guidelines:
 
-* All development (both new features and bug fixes) is performed in the `develop` branch. Base your PRs against it.
+* All development (both new features and bug fixes) is integrated into the `master` branch. Base your PRs against it.
 * If you make any code changes:
     * Follow the [Kotlin Coding Conventions](https://kotlinlang.org/docs/reference/coding-conventions.html).
     * [Build the project](#building) to make sure it all works and passes the tests.
@@ -31,7 +31,7 @@ so do familiarize yourself with the following guidelines:
 
 ### Conventional PRs
 
-This project uses the "Squash & Merge" strategy, which turns each PR into a single commit when merged into `develop`.
+This project uses the "Squash & Merge" strategy, which turns each PR into a single commit when merged into `master`.
 Because of this, we follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for PR titles and descriptions.
 
 **For breaking changes**, append `!` after the type/scope: `refactor(agents)!: remove deprecated methods from Tool`
@@ -45,27 +45,14 @@ Because of this, we follow [Conventional Commits](https://www.conventionalcommit
 - `test` — Adding or updating tests
 - `build` — Build system or dependency changes
 - `ci` — CI/CD configuration changes
-- `example` — Changes to examples
+- `example`: Changes to examples
+- `chore`: Maintenance
+- `perf`: Performance improvements
+- `revert`: Revert a previous change
 
-#### Supported scopes (optional)
+#### Scopes (optional)
 
-You don't have to specify a scope for PRs that affect multiple scopes, but it's recommended to set scope(s) when possible
-for greater clarity. Currently, scopes are based on the top-level modules of the project. This might change in the future.
-The following scopes are supported:
-
-- `a2a`
-- `agents`
-- `embeddings`
-- `http-client`
-- `integration-tests`
-- `koog-agents`
-- `koog-ktor`
-- `spring-boot`
-- `prompt`
-- `rag`
-- `test-utils`
-- `utils`
-- `serialization`
+Use a concise scope naming the affected component, such as `openai`, `prompt` or `ci`. Omit the scope when the change spans several components.
 
 #### Description
 
@@ -161,45 +148,23 @@ The documentation is published on https://docs.koog.ai/, and its sources are loc
 
 ## Public API Compatibility
 
-This project uses Kotlin's built-in ABI validation to prevent accidental breaking changes to the public API.
-Every stable (non-beta) module has committed `.api` dump files that describe its public binary interface.
-CI checks these dumps on every PR via `./gradlew checkLegacyAbi` (part of the `compilation` job).
+CI checks each stable JVM publication for binary compatibility with its published baseline. Run the same check when changing a public API, using the baseline version from [the JVM workflow](.github/workflows/checks.yml).
 
-### How it works
+```sh
+./gradlew --init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=1.3.0-kroog.8 :checkKroogJvmAbi
+```
 
-* The Gradle task `checkLegacyAbi` compares the current compiled public API against the committed `.api` dump files in each module's `api/` directory.
-* If the public API has changed without updating the dumps, the task fails and CI blocks the merge.
-* Beta modules (`isBeta = true` in `build.gradle.kts`) are excluded from ABI validation.
-* APIs annotated as internal (e.g. `@InternalAgentsApi`, `@InternalAgentToolsApi`) are excluded from the check.
-
-### When you change a public API
-
-If you intentionally add, remove, or modify a public API in a stable module:
-
-1. Make your code changes.
-2. Run `./gradlew updateLegacyAbi` to regenerate the `.api` dump files.
-3. Review the diff in the `api/` directories to confirm only your intended changes are reflected.
-4. Commit the updated `.api` files alongside your code changes.
-5. CI will pass because the dumps now match the actual API.
+A failure identifies an incompatibility with a published JAR. Preserve the existing binary API for callers and third-party implementations when revising the change. Beta modules are exempt. See [TESTING.md](TESTING.md) for the JVM validation commands.
 
 ## Building
 
 ### Prerequisites
 
-Koog is a Kotlin Multiplatform framework, and you need a bunch of tools to build it:
-
-- JDK 17+ (21 is recommended)
-- [Node.js](https://nodejs.org/en/download) installed, as it is required to build Kotlin/JS targets.
-- [Android SDK](https://developer.android.com/tools) installed, as it is required for Android target.
-- On macOS, you would need [Xcode / Command Line Tools](https://developer.apple.com/xcode/resources/), these are needed to build Native targets. 
+Kroog builds and publishes JVM artefacts. Use JDK 21 and the Gradle wrapper. No Node.js, Android SDK or Xcode installation is required for the supported JVM build.
 
 ### How to build
 
-This project is built with Gradle.
-
-* Run `./gradlew build` to build. It also runs all the tests.
-* Run `./gradlew <module>:check` to test the module you are looking and to speed
-  things up during development.
+Run `bash .github/scripts/check-jvm.sh` to build and test the JVM publication inventory. For focused work, use module-qualified `jvmTest` and `jvmJar` tasks for multiplatform modules, or `test` and `jar` for JVM modules. Add `--init-script gradle/kroog-ci.init.gradle` to use the CI test engine and worker limits. Do not run root `build`, root `assemble`, or aggregate legacy ABI tasks. See [TESTING.md](TESTING.md) for the JVM CI and compatibility commands.
 
 You can import this project into IDEA, but you have to delegate build actions
 to Gradle (in Preferences -> Build, Execution, Deployment -> Build Tools -> Gradle -> Build and run).

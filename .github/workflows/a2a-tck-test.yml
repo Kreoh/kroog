@@ -2,16 +2,18 @@ name: A2A TCK Test
 
 on:
   push:
+    branches: [master]
     paths:
       - 'a2a/**'
   pull_request:
+    branches: [master]
     paths:
       - 'a2a/**'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   JAVA_VERSION: 17

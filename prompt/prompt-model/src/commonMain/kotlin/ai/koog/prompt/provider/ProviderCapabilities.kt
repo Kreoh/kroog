@@ -23,10 +23,13 @@ public enum class ProviderApi {
     AZURE_EMBEDDINGS,
     OPENAI_REALTIME,
     AZURE_REALTIME,
+
     /** Text embedding through Bedrock Runtime InvokeModel. */
     BEDROCK_EMBEDDINGS,
+
     /** Direct Claude Messages API. */
     ANTHROPIC_MESSAGES,
+
     /** Gemini Developer API GenerateContent. */
     GEMINI_GENERATE_CONTENT,
 }
@@ -50,6 +53,7 @@ public enum class HostedExecutionUnsupportedReason {
     CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION,
     CODEX_EXECUTION_IS_OUT_OF_SCOPE,
     MODEL_API_IS_NOT_AN_EXECUTION_API,
+
     /** The client does not implement hosted execution on this route. */
     CLIENT_INTEGRATION_UNAVAILABLE,
 }
@@ -202,6 +206,35 @@ public object ProviderCapabilityMatrix {
                 )
             }
         }
+    }
+
+    /**
+     * Select the provider-hosted shell for an exact model and API.
+     *
+     * Only direct OpenAI Responses is implemented. The result never selects a local shell or Code Interpreter.
+     */
+    public fun acceptHostedShell(api: ProviderApi, modelId: String): HostedExecutionAcceptance {
+        val model = ModelCatalogue.find(modelId)
+            ?: return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.UNKNOWN_MODEL
+            )
+        if (api != ProviderApi.OPENAI_RESPONSES) {
+            return HostedExecutionAcceptance.Unsupported(
+                reason = HostedExecutionAcceptanceUnsupportedReason.PROVIDER_API_UNSUPPORTED,
+                capabilityReason = HostedExecutionUnsupportedReason.CLIENT_INTEGRATION_UNAVAILABLE,
+            )
+        }
+        if (model.compatibility(api) !is ModelProviderApiCompatibility.Supported) {
+            return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
+            )
+        }
+        if (!ModelCatalogue.supportsHostedShell(model.id, api)) {
+            return HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
+            )
+        }
+        return HostedExecutionAcceptance.NativeInline(providerTool = "shell")
     }
 
     public fun hostedExecution(api: ProviderApi): HostedExecutionCapability = when (api) {

@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.core.env.StandardEnvironment
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.seconds
@@ -57,6 +58,10 @@ class KoogAutoConfigurationTest {
     private val defaultRetryConfig = RetryConfig.DEFAULT
 
     private fun createApplicationContextRunner(): ApplicationContextRunner = ApplicationContextRunner()
+        .withInitializer { context ->
+            // Provider credentials on the developer's machine must not create unrelated beans.
+            context.environment.propertySources.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)
+        }
         .withConfiguration(
             AutoConfigurations.of(
                 AnthropicLLMAutoConfiguration::class.java,

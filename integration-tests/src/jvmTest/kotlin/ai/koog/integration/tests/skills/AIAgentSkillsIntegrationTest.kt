@@ -14,6 +14,7 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLModel
 import ai.koog.rag.base.files.JVMFileSystemProvider
 import ai.koog.serialization.typeToken
+import ai.koog.skills.SkillFileSystemTrust
 import ai.koog.skills.discovery.discoverSkills
 import ai.koog.skills.prompt.SkillsPromptFormat
 import ai.koog.skills.prompt.generateSkillsPrompt
@@ -86,6 +87,7 @@ class AIAgentSkillsIntegrationTest : AIAgentTestBase() {
         val discoveredSkills = discoverSkills(
             JVMFileSystemProvider.ReadOnly,
             listOf(skillsRootDirectory()),
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
             warningLogger = warnings::add,
         )
         warnings.shouldBe(emptyList())
@@ -113,7 +115,11 @@ class AIAgentSkillsIntegrationTest : AIAgentTestBase() {
     fun integration_testAgentUsesDiscoveredSkillsPrompt(model: LLModel) = runTest(timeout = 300.seconds) {
         Models.assumeAvailable(model.provider)
         val skillsRoot = skillsRootDirectory()
-        val discoveredSkills = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(skillsRoot))
+        val discoveredSkills = discoverSkills(
+            JVMFileSystemProvider.ReadOnly,
+            listOf(skillsRoot),
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
+        )
         val generatedSkillsPrompt = generateSkillsPrompt(discoveredSkills, SkillsPromptFormat.XML)
         val pythonTool = ExecutePythonScriptTool()
 
@@ -231,7 +237,11 @@ class AIAgentSkillsIntegrationTest : AIAgentTestBase() {
     fun integration_testAgentUsesWeatherRetrievalSkillForWeatherRequest(model: LLModel) = runTest(timeout = 300.seconds) {
         Models.assumeAvailable(model.provider)
         val skillsRoot = skillsRootDirectory()
-        val discoveredSkills = discoverSkills(JVMFileSystemProvider.ReadOnly, listOf(skillsRoot))
+        val discoveredSkills = discoverSkills(
+            JVMFileSystemProvider.ReadOnly,
+            listOf(skillsRoot),
+            trust = SkillFileSystemTrust.TRUSTED_IMMUTABLE,
+        )
         val generatedSkillsPrompt = generateSkillsPrompt(discoveredSkills, SkillsPromptFormat.XML)
         val pythonTool = ExecutePythonScriptTool()
 
