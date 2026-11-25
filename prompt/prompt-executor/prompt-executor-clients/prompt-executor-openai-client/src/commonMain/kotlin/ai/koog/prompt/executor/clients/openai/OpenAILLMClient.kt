@@ -85,6 +85,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -409,7 +410,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 ?.minus(OPENAI_CHAT_TEMPLATE_KWARGS_PROPERTY),
         )
 
-        return normaliseGpt6Request(json.encodeToString(OpenAIChatCompletionRequestSerializer, request), model, false)
+        return serialiseRequest(OpenAIChatCompletionRequestSerializer, request, model, responses = false)
     }
 
     private fun List<Item>.imageCount(): Int = sumOf { item ->
@@ -506,7 +507,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             additionalProperties = params.additionalProperties.withoutReservedPromptCacheKey(),
         )
 
-        return normaliseGpt6Request(json.encodeToString(OpenAIResponsesAPIRequestSerializer, request), model, true)
+        return serialiseRequest(OpenAIResponsesAPIRequestSerializer, request, model, responses = true)
     }
 
     private fun List<OpenAIInclude>?.withEncryptedReasoningForStateless(stateless: Boolean): List<OpenAIInclude>? {
@@ -522,10 +523,44 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         effort: ReasoningEffort?,
     ): Double? = temperature.takeUnless { isGpt56() && effort != null && effort != ReasoningEffort.NONE }
 
-    // Validate after flattening additional properties so raw options obey the same model restrictions.
-    private fun normaliseGpt6Request(payload: String, model: LLModel, responses: Boolean): String {
-        if (!model.isGpt6()) return payload
-        val request = json.parseToJsonElement(payload).jsonObject
+    // Check the flattened request so additional properties obey the same model restrictions.
+    private fun <T> serialiseRequest(
+        serializer: SerializationStrategy<T>,
+        value: T,
+        model: LLModel,
+        responses: Boolean,
+    ): String {
+        val gpt6 = model.isGpt6()
+        val temperatureEfforts = if (responses && !gpt6) model.responsesTemperatureEfforts() else null
+        if (!gpt6 && temperatureEfforts == null) return json.encodeToString(serializer, value)
+
+        val request = json.encodeToJsonElement(serializer, value).jsonObject
+        val compatible = if (temperatureEfforts != null) {
+            val reasoning = request["reasoning"] as? JsonObject
+            val effort = (reasoning?.get("effort") as? JsonPrimitive)?.contentOrNull
+            if (effort != null && effort !in temperatureEfforts && "temperature" in request) {
+                JsonObject(request - "temperature")
+            } else {
+                request
+            }
+        } else {
+            normaliseGpt6Request(request, model, responses)
+        }
+        return json.encodeToString(JsonObject.serializer(), compatible)
+    }
+
+    private fun LLModel.responsesTemperatureEfforts(): Set<String>? {
+        val api = when (settings.responsesDialect) {
+            OpenAIResponsesDialect.OpenAI -> ProviderApi.OPENAI_RESPONSES
+            OpenAIResponsesDialect.Azure -> ProviderApi.AZURE_RESPONSES
+            OpenAIResponsesDialect.Compatible -> return null
+        }
+        return ModelCatalogue.find(id, api)
+            ?.takeIf { it.publisher == ModelPublisher.OPENAI }
+            ?.temperature?.allowedReasoningEfforts
+    }
+
+    private fun normaliseGpt6Request(request: JsonObject, model: LLModel, responses: Boolean): JsonObject {
         val effort = if (responses) {
             request["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.contentOrNull
         } else {
@@ -554,7 +589,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                     }
             ) { "GPT-6 tool calling with reasoning requires Responses. Use OpenAIResponsesParams. GPT-6 Sol and Luna also allow Chat with effort none." }
         }
-        if (!model.isGpt6ReasoningOnly() && effort == "none") return payload
+        if (!model.isGpt6ReasoningOnly() && effort == "none") return request
         val compatible = request.toMutableMap()
         setOf("temperature", "top_p", "top_logprobs", "logprobs").forEach { compatible.remove(it) }
         if (responses) {
@@ -564,7 +599,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 }
             }
         }
-        return json.encodeToString(JsonObject.serializer(), JsonObject(compatible))
+        return JsonObject(compatible)
     }
 
     private fun OpenAICodeInterpreterConfig.toOpenAIResponsesTool(): OpenAIResponsesTool.CodeInterpreter {
@@ -738,11 +773,15 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         val citationsByItemId = mutableMapOf<String, MutableList<MessagePart.GeneratedFileCitation>>()
         var providerEventSeen = false
 
-        fun MutableList<StreamFrame>.addShellRequest(item: Item.ShellCall, index: Int) {
-            add(StreamFrame.HostedExecutionUpdate(shell.request(item), index))
-            pendingShellProgress.remove(item.callId)?.let { progress ->
-                add(StreamFrame.HostedExecutionUpdate(progress, index))
+        fun MutableList<StreamFrame>.addShellCall(item: Item.ShellCall, index: Int) {
+            val update = shell.call(item)
+            val progress = pendingShellProgress.remove(item.callId)
+            val updates = if (update is MessagePart.HostedExecution.Request) {
+                listOfNotNull(update, progress)
+            } else {
+                listOfNotNull(progress, update)
             }
+            updates.forEach { add(StreamFrame.HostedExecutionUpdate(it, index)) }
         }
 
         return httpClient.sse(
@@ -782,7 +821,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     drained += orderedFrames.resolve(itemId, item)
                                 }
                                 is Item.ShellCall -> {
-                                    // The final item holds the full commands. Introduce the call before showing progress.
+                                    // Wait for the final item to introduce a complete request before showing its progress.
                                     pendingShellProgress[item.callId] = shell.started(item, event.sequenceNumber)
                                 }
                                 is Item.CodeInterpreterToolCall -> {
@@ -931,7 +970,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
                                 is Item.ShellCall -> {
                                     if (completedShellItems.add(event.outputIndex)) {
-                                        addShellRequest(item, event.outputIndex)
+                                        addShellCall(item, event.outputIndex)
                                     }
                                 }
 
@@ -1004,7 +1043,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             terminalResponse.output.forEachIndexed { index, item ->
                                 if (index !in completedShellItems) {
                                     when (item) {
-                                        is Item.ShellCall -> addShellRequest(item, index)
+                                        is Item.ShellCall -> addShellCall(item, index)
                                         is Item.ShellCallOutput -> add(StreamFrame.HostedExecutionUpdate(shell.result(item), index))
                                         else -> Unit
                                     }
@@ -1771,7 +1810,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                         )
                     }
 
-                    is Item.ShellCall -> add(shell.request(output))
+                    is Item.ShellCall -> add(shell.call(output))
                     is Item.ShellCallOutput -> add(shell.result(output))
 
                     is Item.CodeInterpreterToolCall -> {
@@ -2157,6 +2196,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     ): T {
         val params = determineParams(prompt.params, model)
         if (params is OpenAIChatParams) {
+            prompt.requireNoNativeShellReplay()
             require(prompt.messages.none { it is Message.System && it.metaInfo.metadata?.containsKey(RequestMetaInfo.OPENAI_CONFIGURATION_UPDATE) == true }) {
                 "Configuration updates require the OpenAI Responses API"
             }

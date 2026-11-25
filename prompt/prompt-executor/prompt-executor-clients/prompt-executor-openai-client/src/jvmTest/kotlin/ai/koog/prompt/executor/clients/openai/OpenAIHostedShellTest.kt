@@ -3,6 +3,8 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParityTest.ScriptedResponsesTransport
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
+import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.message.CLIENT_MANAGED_EXECUTION_TOOL_NAME
 import ai.koog.prompt.message.ExecutionOrigin
 import ai.koog.prompt.message.ManagedExecutionSessionReference
@@ -10,6 +12,7 @@ import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.provider.ProviderApi
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
@@ -27,6 +30,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -74,6 +78,8 @@ class OpenAIHostedShellTest {
             assertEquals(request.executionId, result.executionId)
             assertEquals("cntr_fixture", result.containerId)
             assertEquals("shell_output_item", result.providerItemId)
+            assertEquals(Json.parseToJsonElement(requested), Json.parseToJsonElement(assertNotNull(request.replay).payload))
+            assertEquals(Json.parseToJsonElement(returned), Json.parseToJsonElement(assertNotNull(result.replay).payload))
             assertIs<StreamFrame.End>(stream.last())
 
             val continuation = prompt(OpenAIHostedShellConfig(containerId = result.containerId)).copy(
@@ -95,8 +101,47 @@ class OpenAIHostedShellTest {
             assertEquals("container_reference", reused.getValue("type").jsonPrimitive.content)
             assertEquals("cntr_fixture", reused.getValue("container_id").jsonPrimitive.content)
             val input = next.getValue("input").jsonArray
-            assertEquals(Json.parseToJsonElement(requested), input[0])
-            assertEquals(Json.parseToJsonElement(returned), input[1])
+            assertEquals(Json.parseToJsonElement(call(includeCreatedBy = false)), input[0])
+            assertEquals(Json.parseToJsonElement(output(includeCreatedBy = false)), input[1])
+        }
+    }
+
+    @Test
+    fun testIncompleteStreamPreservesTextAndUsageWhenShellCallHasNoCommands() = runTest {
+        val unfinished = call(status = "in_progress", commands = "[]")
+        val terminal = response(
+            ANSWER,
+            unfinished,
+            status = "incomplete",
+            usage = """{"input_tokens":10,"output_tokens":5,"total_tokens":15}""",
+        )
+        val events = listOf(
+            """{"type":"response.output_text.done","sequence_number":1,"item_id":"msg_fixture","output_index":0,"content_index":0,"text":"ready"}""",
+            itemEvent("added", 1, 2, unfinished),
+            """{"type":"response.incomplete","sequence_number":3,"response":$terminal}""",
+        )
+        val transport = ScriptedResponsesTransport(streamAttempts = ArrayDeque(listOf(events)))
+        OpenAILLMClient(OpenAIClientSettings(), transport).use { client ->
+            val initial = prompt(OpenAIHostedShellConfig())
+            val stream = client.executeStreaming(initial, model).toList()
+            val end = assertIs<StreamFrame.End>(stream.last())
+            val history = stream.toMessageResponse()
+            assertEquals(10, end.metaInfo.inputTokensCount)
+            assertEquals(5, end.metaInfo.outputTokensCount)
+            assertEquals(15, history.metaInfo.totalTokensCount)
+            assertEquals(3, history.parts.size)
+            assertEquals("ready", assertIs<MessagePart.Text>(history.parts[0]).text)
+            val progress = assertIs<MessagePart.HostedExecution.Progress>(history.parts[1])
+            val error = assertIs<MessagePart.HostedExecution.Error>(history.parts[2])
+            assertEquals(progress.executionId, error.executionId)
+            assertEquals("incomplete", error.code)
+            assertEquals(Json.parseToJsonElement(unfinished), Json.parseToJsonElement(assertNotNull(error.replay).payload))
+
+            val continuation = initial.copy(
+                messages = initial.messages + history + Message.User("Continue", RequestMetaInfo.Empty)
+            )
+            assertFailsWith<IllegalArgumentException> { client.execute(continuation, model) }
+            assertEquals(1, transport.requests.size)
         }
     }
 
@@ -121,6 +166,25 @@ class OpenAIHostedShellTest {
             assertEquals(request.executionId, progress.executionId)
             assertEquals(request.executionId, error.executionId)
             assertEquals("incomplete", error.code)
+
+            val continuation = initial.copy(
+                messages = initial.messages + history + Message.User("Continue", RequestMetaInfo.Empty)
+            )
+            assertFailsWith<IllegalArgumentException> { client.execute(continuation, model) }
+            assertEquals(1, transport.requests.size)
+        }
+    }
+
+    @Test
+    fun testSynchronousIncompleteShellCallIsNotAReplayableRequest() = runTest {
+        val unfinished = call(status = "incomplete", commands = """["print"]""")
+        val transport = Transport(listOf(Reply.json(response(unfinished, status = "incomplete"))))
+        transport.client.use { client ->
+            val initial = prompt(OpenAIHostedShellConfig())
+            val history = client.execute(initial, model)
+            val error = assertIs<MessagePart.HostedExecution.Error>(history.parts.single())
+            assertEquals("incomplete", error.code)
+            assertEquals("execution:call_fixture", error.executionId)
 
             val continuation = initial.copy(
                 messages = initial.messages + history + Message.User("Continue", RequestMetaInfo.Empty)
@@ -189,8 +253,8 @@ class OpenAIHostedShellTest {
             val next = direct.requests.last()
             assertTrue(next["tools"]?.jsonArray.orEmpty().isEmpty())
             val input = next.getValue("input").jsonArray
-            assertEquals(Json.parseToJsonElement(requested), input[1])
-            assertEquals(Json.parseToJsonElement(returned), input[2])
+            assertEquals(Json.parseToJsonElement(call(includeCreatedBy = false)), input[1])
+            assertEquals(Json.parseToJsonElement(output(includeCreatedBy = false)), input[2])
         }
     }
 
@@ -250,6 +314,26 @@ class OpenAIHostedShellTest {
     }
 
     @Test
+    fun testChatRejectsNativeShellHistoryBeforeDispatch() = runTest {
+        val transport = Transport(listOf(Reply.json(response(call(), output()))))
+        transport.client.use { client ->
+            val initial = prompt(OpenAIHostedShellConfig())
+            val shellTurn = client.execute(initial, model)
+            for (params in listOf(OpenAIChatParams(), LLMParams())) {
+                val followUp = initial.copy(
+                    messages = initial.messages + shellTurn + Message.User("Continue", RequestMetaInfo.Empty),
+                    params = params,
+                )
+                val chatModel = OpenAIModels.Chat.GPT5_4
+                assertFailsWith<IllegalArgumentException> { client.execute(followUp, chatModel) }
+                assertFailsWith<IllegalArgumentException> { client.executeStreaming(followUp, chatModel).toList() }
+                assertFailsWith<IllegalArgumentException> { client.executeMultipleChoices(followUp, chatModel) }
+            }
+            assertEquals(1, transport.requests.size)
+        }
+    }
+
+    @Test
     fun testUnsupportedModelsAndConflictingToolsDoNotSendARequest() = runTest {
         val transport = Transport(emptyList())
         transport.client.use { client ->
@@ -287,6 +371,7 @@ class OpenAIHostedShellTest {
         val expected = mapOf(
             "gpt-5.2" to OpenAIModels.Chat.GPT5_2,
             "gpt-5.2-2025-12-11" to OpenAIModels.Chat.GPT5_2,
+            "gpt-5.4" to OpenAIModels.Chat.GPT5_4,
             "gpt-5.4-2026-03-05" to OpenAIModels.Chat.GPT5_4,
             "gpt-5.4-mini-2026-03-17" to OpenAIModels.Chat.GPT5_4Mini,
             "gpt-5.4-nano-2026-03-17" to OpenAIModels.Chat.GPT5_4Nano,
@@ -295,9 +380,10 @@ class OpenAIHostedShellTest {
         val unknown = "gpt-5.2-unlisted-snapshot"
         val ids = expected.keys + unknown
         val listing = ids.joinToString { """{"id":"$it","object":"model","created":1,"owned_by":"openai"}""" }
+        val efforts = listOf(ReasoningEffort.HIGH, ReasoningEffort.NONE)
         val transport = Transport(
             listOf(Reply("""{"object":"list","data":[$listing]}""", path = "/v1/models")) +
-                expected.map { Reply.json(response(ANSWER)) },
+                List(expected.size * efforts.size) { Reply.json(response(ANSWER)) },
         )
         transport.client.use { client ->
             val discovered = client.models().associateBy { it.id }
@@ -307,17 +393,26 @@ class OpenAIHostedShellTest {
                 assertEquals(canonical.capabilities, selected.capabilities)
                 assertEquals(canonical.contextLength, selected.contextLength)
                 assertEquals(canonical.maxOutputTokens, selected.maxOutputTokens)
-                client.execute(prompt(OpenAIHostedShellConfig()), selected)
-                val request = transport.requests.last()
-                assertEquals(id, request.getValue("model").jsonPrimitive.content)
-                assertEquals("container_auto", request.shellEnvironment().getValue("type").jsonPrimitive.content)
+                val config = OpenAIHostedShellConfig()
+                for (effort in efforts) {
+                    val params = OpenAIResponsesParams(
+                        temperature = 0.7,
+                        reasoning = ReasoningConfig(effort = effort),
+                    ).asStateless().withHostedShell(config)
+                    client.execute(prompt(config).copy(params = params), selected)
+                    val request = transport.requests.last()
+                    assertEquals(id, request.getValue("model").jsonPrimitive.content)
+                    assertEquals(effort.name.lowercase(), request.getValue("reasoning").jsonObject.getValue("effort").jsonPrimitive.content)
+                    assertEquals(if (effort == ReasoningEffort.NONE) 0.7 else null, request["temperature"]?.jsonPrimitive?.double)
+                    assertEquals("container_auto", request.shellEnvironment().getValue("type").jsonPrimitive.content)
+                }
             }
             val unlisted = discovered.getValue(unknown)
             assertEquals(null, unlisted.capabilities)
             assertFailsWith<OpenAIResponsesConfigurationException> {
                 client.execute(prompt(OpenAIHostedShellConfig()), unlisted)
             }
-            assertEquals(expected.size, transport.requests.size)
+            assertEquals(expected.size * efforts.size, transport.requests.size)
         }
     }
 
@@ -421,14 +516,20 @@ class OpenAIHostedShellTest {
         fun call(
             status: String = "completed",
             commands: String = """["printf shell-receipt","printf stderr-receipt >&2"]""",
-        ) =
-            """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":$commands,"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"},"caller":{"type":"program","caller_id":"call_parent"},"created_by":"actor_call"}"""
+            includeCreatedBy: Boolean = true,
+        ): String {
+            val creator = if (includeCreatedBy) ""","created_by":"actor_call"""" else ""
+            return """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":$commands,"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"},"caller":{"type":"program","caller_id":"call_parent"}$creator}"""
+        }
 
-        fun output(outcome: String = """{"type":"exit","exit_code":7}""") =
-            """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"completed","max_output_length":64,"output":[{"stdout":"shell-receipt","stderr":"stderr-receipt","outcome":$outcome,"created_by":"actor_entry"}],"caller":{"type":"direct"},"created_by":"actor_output"}"""
+        fun output(outcome: String = """{"type":"exit","exit_code":7}""", includeCreatedBy: Boolean = true): String {
+            val creator = if (includeCreatedBy) ""","created_by":"actor_output"""" else ""
+            val entryCreator = if (includeCreatedBy) ""","created_by":"actor_entry"""" else ""
+            return """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"completed","max_output_length":64,"output":[{"stdout":"shell-receipt","stderr":"stderr-receipt","outcome":$outcome$entryCreator}],"caller":{"type":"direct"}$creator}"""
+        }
 
-        fun response(vararg items: String, status: String = "completed") =
-            """{"id":"resp_fixture","object":"response","model":"${model.id}","created_at":0,"status":"$status","parallel_tool_calls":false,"output":[${items.joinToString(",")}],"text":{"format":{"type":"text"}}}"""
+        fun response(vararg items: String, status: String = "completed", usage: String = "null") =
+            """{"id":"resp_fixture","object":"response","model":"${model.id}","created_at":0,"status":"$status","parallel_tool_calls":false,"output":[${items.joinToString(",")}],"text":{"format":{"type":"text"}},"usage":$usage}"""
 
         fun itemEvent(state: String, index: Int, sequence: Int, item: String) =
             """{"type":"response.output_item.$state","output_index":$index,"sequence_number":$sequence,"item":$item}"""

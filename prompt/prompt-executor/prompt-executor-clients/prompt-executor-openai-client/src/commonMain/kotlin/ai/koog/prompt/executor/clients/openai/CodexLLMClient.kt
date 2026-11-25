@@ -10,7 +10,6 @@ import ai.koog.prompt.executor.clients.LLMClient
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.Message
-import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import kotlinx.coroutines.CancellationException
@@ -99,10 +98,7 @@ public class CodexLLMClient(
         val params = prompt.params.toOpenAIResponsesParams()
         require(params.codeInterpreter == null) { "Codex does not support hosted Code Interpreter" }
         require(params.hostedShell == null) { "Codex does not support OpenAI-hosted shell" }
-        val hasNativeReplay = prompt.messages.any { message ->
-            message.parts.any { part -> part is MessagePart.HostedExecution && part.nativeReplay() != null }
-        }
-        require(!hasNativeReplay) { "Hosted shell replay requires the direct OpenAI Responses API" }
+        prompt.requireNoNativeShellReplay()
         require(params.numberOfChoices == null || params.numberOfChoices == 1) { "Codex supports one choice per request" }
         emitAll(
             delegate.executeStreaming(prompt.copy(params = params.asStateless()), model, tools).catch { failure ->

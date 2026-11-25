@@ -1,5 +1,6 @@
 package ai.koog.prompt.executor.clients.openai
 
+import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.ItemPolymorphicSerializer
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInputStatus
@@ -23,12 +24,21 @@ internal class OpenAIHostedShellExecution(
             containerId = call.hostedContainerId(),
         )
 
-    fun request(call: Item.ShellCall): MessagePart.HostedExecution.Request {
-        require(call.callId.isNotBlank() && call.action.commands.isNotEmpty()) {
-            "OpenAI shell call requires an ID and commands"
-        }
+    fun call(call: Item.ShellCall): MessagePart.HostedExecution {
+        require(call.callId.isNotBlank()) { "OpenAI shell call requires an ID" }
         val containerId = call.hostedContainerId()
         containerIds[call.callId] = containerId
+        if (call.isUnfinished) {
+            return MessagePart.HostedExecution.Error(
+                message = "Shell call: incomplete",
+                code = "incomplete",
+                executionId = call.callId.executionId(),
+                containerId = containerId,
+                providerItemId = call.id,
+                replay = call.asHostedReplay(),
+            )
+        }
+        require(call.action.commands.isNotEmpty()) { "OpenAI shell call requires commands" }
         return MessagePart.HostedExecution.Request(
             code = call.action.commands.joinToString("\n"),
             language = "bash",
@@ -96,7 +106,14 @@ internal fun MessagePart.HostedExecution.nativeReplay(): MessagePart.HostedExecu
     is MessagePart.HostedExecution.Progress, is MessagePart.HostedExecution.CumulativeOutput -> null
 }
 
-/** Validates the native shell item types, identities and pairing before writing them into a request. */
+internal fun Prompt.requireNoNativeShellReplay() {
+    val hasNativeReplay = messages.any { message ->
+        message.parts.any { part -> part is MessagePart.HostedExecution && part.nativeReplay() != null }
+    }
+    require(!hasNativeReplay) { "Hosted shell replay requires the direct OpenAI Responses API" }
+}
+
+/** Validates native shell history and projects it onto the Responses input schema. */
 internal class OpenAIHostedShellReplay(private val json: Json) {
     private val pendingCalls = mutableMapOf<String, MessagePart.HostedExecution.Request>()
     private val seenCalls = mutableSetOf<String>()
@@ -104,8 +121,9 @@ internal class OpenAIHostedShellReplay(private val json: Json) {
     fun item(part: MessagePart.HostedExecution, replay: MessagePart.HostedExecutionReplay): Item {
         require(replay.provider == ProviderApi.OPENAI_RESPONSES) { "Hosted shell replay belongs to a different provider" }
         val item = json.decodeFromString(ItemPolymorphicSerializer, replay.payload)
-        when (item) {
+        return when (item) {
             is Item.ShellCall -> {
+                require(!item.isUnfinished) { "OpenAI shell replay requires finished calls" }
                 require(part is MessagePart.HostedExecution.Request && part.matches(item.callId, item.id)) {
                     "OpenAI shell replay call ID does not match the execution request"
                 }
@@ -118,6 +136,14 @@ internal class OpenAIHostedShellReplay(private val json: Json) {
                 }
                 require(seenCalls.add(item.callId)) { "Duplicate OpenAI shell call in replay" }
                 pendingCalls[item.callId] = part
+                Item.ShellCall(
+                    action = item.action,
+                    callId = item.callId,
+                    id = item.id,
+                    environment = item.environment,
+                    status = item.status,
+                    caller = item.caller,
+                )
             }
             is Item.ShellCallOutput -> {
                 require(item.status != OpenAIInputStatus.IN_PROGRESS) {
@@ -131,10 +157,23 @@ internal class OpenAIHostedShellReplay(private val json: Json) {
                 require(request != null && request.containerId == part.containerId) {
                     "OpenAI shell replay output is missing its matching request"
                 }
+                Item.ShellCallOutput(
+                    callId = item.callId,
+                    output = item.output.map { entry ->
+                        Item.ShellCallOutput.Output(
+                            stdout = entry.stdout,
+                            stderr = entry.stderr,
+                            outcome = entry.outcome,
+                        )
+                    },
+                    id = item.id,
+                    maxOutputLength = item.maxOutputLength,
+                    status = item.status,
+                    caller = item.caller,
+                )
             }
             else -> throw IllegalArgumentException("Unexpected item in OpenAI hosted shell replay")
         }
-        return item
     }
 
     fun requireResolved() {
@@ -144,5 +183,8 @@ internal class OpenAIHostedShellReplay(private val json: Json) {
     private fun MessagePart.HostedExecution.matches(callId: String, itemId: String?): Boolean =
         callId.isNotBlank() && executionId == callId.executionId() && providerItemId == itemId
 }
+
+private val Item.ShellCall.isUnfinished: Boolean
+    get() = status == OpenAIInputStatus.IN_PROGRESS || status == OpenAIInputStatus.INCOMPLETE
 
 private fun String.executionId(): String = "execution:$this"
