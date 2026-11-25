@@ -58,6 +58,14 @@ public open class LLMParams(
     }
 
     /**
+     * Whether a response may be read from or written to a local response cache.
+     *
+     * Override this for requests that depend on mutable external state or have side effects.
+     */
+    public open val allowsResponseCaching: Boolean
+        get() = true
+
+    /**
      * Combines the parameters of the current `LLMParams` instance with the provided default `LLMParams`
      * to produce a new instance. Fields that are null in the current instance are replaced by the
      * corresponding fields from the default instance.

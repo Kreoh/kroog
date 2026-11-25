@@ -26,6 +26,7 @@ kotlin {
 
         jvmTest {
             dependencies {
+                implementation(project(":prompt:prompt-executor:prompt-executor-clients:prompt-executor-openai-client"))
                 implementation(kotlin("test-junit5"))
                 implementation(libs.junit.jupiter.params)
                 implementation(libs.kotlinx.coroutines.test)

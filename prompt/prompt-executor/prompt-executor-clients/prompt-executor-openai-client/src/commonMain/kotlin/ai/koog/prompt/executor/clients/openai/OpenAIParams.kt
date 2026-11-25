@@ -468,7 +468,14 @@ public class OpenAIResponsesParams(
     public var hostedShell: OpenAIHostedShellConfig? = null
         private set
 
-    /** Returns a copy configured for OpenAI-hosted shell execution, or clears the tool when passed null. */
+    override val allowsResponseCaching: Boolean
+        get() = hostedShell == null
+
+    /**
+     * Returns a copy configured for OpenAI-hosted shell execution, or clears the tool when passed null.
+     *
+     * Requests with hosted shell enabled bypass the local response cache because the workspace can change.
+     */
     public fun withHostedShell(config: OpenAIHostedShellConfig?): OpenAIResponsesParams =
         copy().also { it.hostedShell = config?.copy(fileIds = config.fileIds.toList()) }
 
