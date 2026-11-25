@@ -153,7 +153,8 @@ public class ContextualPromptExecutor(
             effectiveModel = resolvedModel.effectiveModel
 
             logger.debug { "Starting LLM streaming call (event id: $eventId)" }
-            effectivePrompt = context.pipeline.onLLMStreamingStarting(
+            val historyBeforeInterceptors = context.llm.prompt
+            val requestPrompt = context.pipeline.onLLMStreamingStarting(
                 eventId = eventId,
                 executionInfo = context.executionInfo,
                 context = context,
@@ -162,6 +163,11 @@ public class ContextualPromptExecutor(
                 model = effectiveModel,
                 tools = tools
             )
+            check(context.llm.prompt === historyBeforeInterceptors) {
+                "Conversation history changed during streaming-start handlers. " +
+                    "Use LLMStreamingStartingContext.prompt to replace the streaming request prompt."
+            }
+            effectivePrompt = requestPrompt
 
             logger.debug { "Executing LLM streaming call (event id: $eventId, prompt: $effectivePrompt, tools: [${tools.joinToString { it.name }}])" }
             emitAll(executor.executeStreaming(effectivePrompt, resolvedModel, tools))
