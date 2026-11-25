@@ -38,7 +38,7 @@ public interface LLMStreamingEventContext : AgentLifecycleEventContext {
  * Represents the context for handling a before-stream event.
  * This context is provided when streaming is about to begin.
  *
- * Replacing `context.llm.prompt` during a streaming-start handler fails the request before dispatch.
+ * The agent context exposes read-only conversation history. Attempts to write to it fail before dispatch.
  * Use [prompt] to edit the request within the handler.
  *
  * @property prompt The prompt for this request. Handlers can replace it without updating the agent's conversation history.

@@ -105,8 +105,37 @@ public abstract class AIAgentLLMContextCommon internal constructor(
      */
     @get:JvmName("prompt")
     public var prompt: Prompt = initialPrompt
+        set(value) {
+            checkPromptWritable()
+            field = value
+        }
 
     private val rwLock: RWLock = RWLock()
+    private var promptIsReadOnly = false
+
+    private fun checkPromptWritable() {
+        check(!promptIsReadOnly) {
+            "Conversation history is read-only in streaming-start handlers. " +
+                "Use LLMStreamingStartingContext.prompt to replace the streaming request prompt."
+        }
+    }
+
+    @OptIn(DetachedPromptExecutorAPI::class, InternalAgentsApi::class)
+    internal fun copyWithReadOnlyPrompt(promptExecutor: PromptExecutor): AIAgentLLMContext =
+        // The streaming request may already hold this context's session lock.
+        AIAgentLLMContext(
+            tools = tools,
+            toolRegistry = toolRegistry,
+            prompt = prompt,
+            model = model,
+            responseProcessor = responseProcessor,
+            promptExecutor = promptExecutor,
+            environment = environment,
+            config = config,
+            clock = clock,
+        ).also { snapshot: AIAgentLLMContextCommon ->
+            snapshot.promptIsReadOnly = true
+        }
 
     /**
      * Atomically replaces [prompt] with the result of applying [block] to the current prompt while holding the
@@ -121,8 +150,11 @@ public abstract class AIAgentLLMContextCommon internal constructor(
      *
      * @param block transformation to produce the next [Prompt].
      */
-    public open suspend fun withPrompt(block: Prompt.() -> Prompt): Unit = rwLock.withWriteLock {
-        this.prompt = prompt.block()
+    public open suspend fun withPrompt(block: Prompt.() -> Prompt) {
+        checkPromptWritable()
+        rwLock.withWriteLock {
+            this.prompt = prompt.block()
+        }
     }
 
     /**
@@ -175,8 +207,9 @@ public abstract class AIAgentLLMContextCommon internal constructor(
      *   will not be committed to the outer context.
      */
     @OptIn(ExperimentalStdlibApi::class, InternalAgentsApi::class, DetachedPromptExecutorAPI::class)
-    public open suspend fun <T> writeSession(block: suspend AIAgentLLMWriteSession.() -> T): T =
-        rwLock.withWriteLock {
+    public open suspend fun <T> writeSession(block: suspend AIAgentLLMWriteSession.() -> T): T {
+        checkPromptWritable()
+        return rwLock.withWriteLock {
             val session =
                 AIAgentLLMWriteSession(
                     environment,
@@ -200,6 +233,7 @@ public abstract class AIAgentLLMContextCommon internal constructor(
                 result
             }
         }
+    }
 
     /**
      * Executes a read session on the [AIAgentLLMContext]. Multiple read sessions may run concurrently, while

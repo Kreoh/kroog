@@ -1,6 +1,7 @@
 package ai.koog.agents.core.feature
 
 import ai.koog.agents.core.agent.context.AIAgentContext
+import ai.koog.agents.core.agent.context.DetachedPromptExecutorAPI
 import ai.koog.agents.core.agent.session.forNoToolsTurn
 import ai.koog.agents.core.annotation.InternalAgentsApi
 import ai.koog.agents.core.tools.ToolDescriptor
@@ -153,21 +154,15 @@ public class ContextualPromptExecutor(
             effectiveModel = resolvedModel.effectiveModel
 
             logger.debug { "Starting LLM streaming call (event id: $eventId)" }
-            val historyBeforeInterceptors = context.llm.prompt
-            val requestPrompt = context.pipeline.onLLMStreamingStarting(
+            effectivePrompt = context.pipeline.onLLMStreamingStarting(
                 eventId = eventId,
                 executionInfo = context.executionInfo,
-                context = context,
+                context = StreamingStartAgentContext(context),
                 runId = context.runId,
                 prompt = prompt,
                 model = effectiveModel,
                 tools = tools
             )
-            check(context.llm.prompt === historyBeforeInterceptors) {
-                "Conversation history changed during streaming-start handlers. " +
-                    "Use LLMStreamingStartingContext.prompt to replace the streaming request prompt."
-            }
-            effectivePrompt = requestPrompt
 
             logger.debug { "Executing LLM streaming call (event id: $eventId, prompt: $effectivePrompt, tools: [${tools.joinToString { it.name }}])" }
             emitAll(executor.executeStreaming(effectivePrompt, resolvedModel, tools))
@@ -307,5 +302,17 @@ public class ContextualPromptExecutor(
 
     override fun close() {
         executor.close()
+    }
+}
+
+@OptIn(DetachedPromptExecutorAPI::class, InternalAgentsApi::class)
+private class StreamingStartAgentContext(context: AIAgentContext) : AIAgentContext by context {
+    override val llm = context.llm.let { llm ->
+        val executor = llm.promptExecutor
+        llm.copyWithReadOnlyPrompt((executor as? ContextualPromptExecutor)?.withContext(this) ?: executor)
+    }
+
+    override val parentContext: AIAgentContext? by lazy {
+        context.parentContext?.let(::StreamingStartAgentContext)
     }
 }
