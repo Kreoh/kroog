@@ -13,11 +13,11 @@ Questions about usage and general inquiries are better suited for the [#koog-age
 
 ### General guidelines
 
-Submit pull requests [here](https://github.com/JetBrains/koog/pulls).
+Submit pull requests [here](https://github.com/Kreoh/kroog/pulls).
 However, please keep in mind that maintainers will have to support the resulting code of the project,
 so do familiarize yourself with the following guidelines:
 
-* All development (both new features and bug fixes) is performed in the `develop` branch. Base your PRs against it.
+* All development (both new features and bug fixes) is integrated into the `master` branch. Base your PRs against it.
 * If you make any code changes:
     * Follow the [Kotlin Coding Conventions](https://kotlinlang.org/docs/reference/coding-conventions.html).
     * [Build the project](#building) to make sure it all works and passes the tests.
@@ -31,7 +31,7 @@ so do familiarize yourself with the following guidelines:
 
 ### Conventional PRs
 
-This project uses the "Squash & Merge" strategy, which turns each PR into a single commit when merged into `develop`.
+This project uses the "Squash & Merge" strategy, which turns each PR into a single commit when merged into `master`.
 Because of this, we follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for PR titles and descriptions.
 
 **For breaking changes**, append `!` after the type/scope: `refactor(agents)!: remove deprecated methods from Tool`
@@ -45,27 +45,14 @@ Because of this, we follow [Conventional Commits](https://www.conventionalcommit
 - `test` — Adding or updating tests
 - `build` — Build system or dependency changes
 - `ci` — CI/CD configuration changes
-- `example` — Changes to examples
+- `example`: Changes to examples
+- `chore`: Maintenance
+- `perf`: Performance improvements
+- `revert`: Revert a previous change
 
-#### Supported scopes (optional)
+#### Scopes (optional)
 
-You don't have to specify a scope for PRs that affect multiple scopes, but it's recommended to set scope(s) when possible
-for greater clarity. Currently, scopes are based on the top-level modules of the project. This might change in the future.
-The following scopes are supported:
-
-- `a2a`
-- `agents`
-- `embeddings`
-- `http-client`
-- `integration-tests`
-- `koog-agents`
-- `koog-ktor`
-- `spring-boot`
-- `prompt`
-- `rag`
-- `test-utils`
-- `utils`
-- `serialization`
+Use a concise scope naming the affected component, such as `openai`, `prompt` or `ci`. Omit the scope when the change spans several components.
 
 #### Description
 
@@ -186,20 +173,11 @@ If you intentionally add, remove, or modify a public API in a stable module:
 
 ### Prerequisites
 
-Koog is a Kotlin Multiplatform framework, and you need a bunch of tools to build it:
-
-- JDK 17+ (21 is recommended)
-- [Node.js](https://nodejs.org/en/download) installed, as it is required to build Kotlin/JS targets.
-- [Android SDK](https://developer.android.com/tools) installed, as it is required for Android target.
-- On macOS, you would need [Xcode / Command Line Tools](https://developer.apple.com/xcode/resources/), these are needed to build Native targets. 
+Kroog builds and publishes JVM artefacts. Use JDK 21 and the Gradle wrapper. No Node.js, Android SDK or Xcode installation is required for the supported JVM build.
 
 ### How to build
 
-This project is built with Gradle.
-
-* Run `./gradlew build` to build. It also runs all the tests.
-* Run `./gradlew <module>:check` to test the module you are looking and to speed
-  things up during development.
+Run `bash .github/scripts/check-jvm.sh` to build and test the JVM publication inventory. For focused work, use module-qualified `jvmTest` and `jvmJar` tasks for multiplatform modules, or `test` and `jar` for JVM modules. Add `--init-script gradle/kroog-ci.init.gradle` to use the CI test engine and worker limits. Do not run root `build`, root `assemble`, or aggregate legacy ABI tasks. See [TESTING.md](TESTING.md) for the JVM CI and compatibility commands.
 
 You can import this project into IDEA, but you have to delegate build actions
 to Gradle (in Preferences -> Build, Execution, Deployment -> Build Tools -> Gradle -> Build and run).

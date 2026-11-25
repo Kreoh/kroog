@@ -1,0 +1,14 @@
+gradle.projectsEvaluated {
+    if (gradle.parent != null) return
+    def root = gradle.rootProject
+    def changedFiles = root.file('build/ci/lint-files').getText('UTF-8')
+        .split('\u0000').findAll { it }.collect { root.file(it).canonicalFile }.toSet()
+    root.allprojects {
+        def lint = extensions.findByName('ktlint')
+        if (lint != null) {
+            lint.filter {
+                exclude { entry -> !changedFiles.contains(entry.file.canonicalFile) }
+            }
+        }
+    }
+}

@@ -1,0 +1,72 @@
+import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.attributes.Usage
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.process.CommandLineArgumentProvider
+
+gradle.projectsEvaluated {
+    if (gradle.parent != null) {
+        return
+    }
+    def root = gradle.rootProject
+    def baseline = root.findProperty('kroogAbiBaseline')
+    if (!(baseline ==~ /\d+\.\d+\.\d+-kroog\.\d+/)) {
+        throw new GradleException('Set -PkroogAbiBaseline to a published Kroog release version')
+    }
+
+    def inventory = root.file('gradle/kroog-jvm-publications.txt').readLines('UTF-8').collectEntries { line ->
+        if (!(line ==~ /(?:jvm|maven) (?::[a-z0-9][a-z0-9-]*)+/)) {
+            throw new GradleException("Invalid JVM publication: ${line}")
+        }
+        def (kind, path) = line.split(' ')
+        [(path): kind]
+    }
+    def paths = root.findProperty('kroogAbiProjects')?.split(',')?.toList() ?: inventory.keySet()
+    def publications = paths.collect { path ->
+        if (!inventory.containsKey(path)) {
+            throw new GradleException("Project is outside the JVM publication inventory: ${path}")
+        }
+        def project = root.project(path)
+        if (project.ext.isBeta == true) {
+            root.logger.lifecycle("Skipping beta JVM ABI: ${path}")
+            return null
+        }
+        project.extensions.getByType(PublishingExtension).publications
+            .named(inventory[path], MavenPublication).get()
+    }.findAll { it != null }
+    if (publications.isEmpty()) {
+        throw new GradleException('No stable JVM publications selected for ABI validation')
+    }
+
+    def artifacts = publications.collectEntries { publication ->
+        def jars = publication.artifacts.findAll { it.extension == 'jar' && !it.classifier }
+        if (jars.size() != 1) {
+            throw new GradleException("Expected one JVM JAR for ${publication.artifactId}")
+        }
+        def coordinate = "${publication.groupId}:${publication.artifactId}:${baseline}".toString()
+        [(coordinate): jars.first()]
+    }
+
+    def kotlinVersion = root.extensions.getByType(VersionCatalogsExtension)
+        .named('libs').findVersion('kotlin').get().requiredVersion
+    def abiToolsClasspath = root.configurations.detachedConfiguration(
+        root.dependencies.create("org.jetbrains.kotlin:abi-tools:${kotlinVersion}")
+    )
+    abiToolsClasspath.attributes.attribute(Usage.USAGE_ATTRIBUTE, root.objects.named(Usage, Usage.JAVA_RUNTIME))
+
+    root.tasks.register('checkKroogJvmAbi', JavaExec) {
+        group = 'verification'
+        description = 'Check stable JVM publications against a previous Kroog release.'
+        dependsOn artifacts.values().collect { it.buildDependencies }
+        // Gradle embeds an older Kotlin runtime than the ABI reader requires.
+        classpath = abiToolsClasspath
+        mainClass = root.file('.github/scripts/KroogJvmAbiCheck.java').absolutePath
+        argumentProviders.add({
+            artifacts.collectMany { coordinate, artifact ->
+                def previous = root.configurations.detachedConfiguration(root.dependencies.create("${coordinate}@jar"))
+                previous.transitive = false
+                [coordinate, previous.singleFile.absolutePath, artifact.file.absolutePath]
+            }
+        } as CommandLineArgumentProvider)
+    }
+}

@@ -1,0 +1,33 @@
+name: OpenAI hosted execution live checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-execution-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.repository == 'Kreoh/kroog' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: corretto
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Run paid OpenAI execution checks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPEN_AI_API_TEST_KEY: ${{ secrets.OPEN_AI_API_TEST_KEY }}
+          KROOG_HOSTED_EXECUTION_LIVE: '1'
+        run: >-
+          ./gradlew :integration-tests:jvmIntegrationTest --rerun
+          --tests 'ai.koog.integration.tests.client.HostedExecutionLiveIntegrationTest*'
+          --max-workers=2 --no-daemon -Pkotlin.compiler.execution.strategy=in-process

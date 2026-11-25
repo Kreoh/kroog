@@ -2,7 +2,7 @@ name: 'Conventional PRs'
 
 on:
   pull_request:
-    branches: [ "develop" ]
+    branches: [ "master" ]
     types:
       - opened
       - reopened
@@ -31,21 +31,9 @@ jobs:
             refactor
             test
             example
-          # top-level modules for now, might be refined later
-          scopes: |
-            a2a
-            agents
-            embeddings
-            http-client
-            integration-tests
-            koog-agents
-            koog-ktor
-            spring-boot
-            prompt
-            rag
-            test-utils
-            utils
-            serialization
+            chore
+            perf
+            revert
           # ignore dependabot
           ignoreLabels: |
             dependencies
