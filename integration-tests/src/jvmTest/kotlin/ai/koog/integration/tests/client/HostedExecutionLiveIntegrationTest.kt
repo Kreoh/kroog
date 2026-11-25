@@ -69,9 +69,10 @@ class HostedExecutionLiveIntegrationTest {
                         .onEach { frame ->
                             when (frame) {
                                 is StreamFrame.HostedExecutionUpdate -> frame.update.containerId?.let(ownedIds::add)
-                                is StreamFrame.TextComplete -> frame.generatedFileCitations
-                                    .filter { it.filename?.substringAfterLast('/') == name }
-                                    .mapNotNullTo(ownedIds) { it.containerId }
+                                is StreamFrame.TextComplete ->
+                                    frame.generatedFileCitations
+                                        .filter { it.filename?.substringAfterLast('/') == name }
+                                        .mapNotNullTo(ownedIds) { it.containerId }
                                 else -> Unit
                             }
                         }
@@ -257,11 +258,13 @@ class HostedExecutionLiveIntegrationTest {
         }
 
         fun writeReceipt(path: String): String = when (this) {
-            Shell -> "od -An -N16 -tx1 /dev/urandom | tr -d ' \\n' > '$path' && " +
-                "printf 'KROOG_SHA256=%s\\n' \"\$(sha256sum '$path' | cut -d' ' -f1)\""
-            Python -> "from pathlib import Path\nimport hashlib, secrets\n" +
-                "path = Path('$path')\npath.write_text(secrets.token_hex(16))\n" +
-                "print('KROOG_SHA256=' + hashlib.sha256(path.read_bytes()).hexdigest())"
+            Shell ->
+                "od -An -N16 -tx1 /dev/urandom | tr -d ' \\n' > '$path' && " +
+                    "printf 'KROOG_SHA256=%s\\n' \"\$(sha256sum '$path' | cut -d' ' -f1)\""
+            Python ->
+                "from pathlib import Path\nimport hashlib, secrets\n" +
+                    "path = Path('$path')\npath.write_text(secrets.token_hex(16))\n" +
+                    "print('KROOG_SHA256=' + hashlib.sha256(path.read_bytes()).hexdigest())"
         }
 
         fun readReceipt(path: String): String = when (this) {

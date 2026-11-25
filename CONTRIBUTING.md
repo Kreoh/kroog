@@ -148,26 +148,13 @@ The documentation is published on https://docs.koog.ai/, and its sources are loc
 
 ## Public API Compatibility
 
-This project uses Kotlin's built-in ABI validation to prevent accidental breaking changes to the public API.
-Every stable (non-beta) module has committed `.api` dump files that describe its public binary interface.
-CI checks these dumps on every PR via `./gradlew checkLegacyAbi` (part of the `compilation` job).
+CI checks each stable JVM publication for binary compatibility with its published baseline. Run the same check when changing a public API, using the baseline version from [the JVM workflow](.github/workflows/checks.yml).
 
-### How it works
+```sh
+./gradlew --init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=1.3.0-kroog.8 :checkKroogJvmAbi
+```
 
-* The Gradle task `checkLegacyAbi` compares the current compiled public API against the committed `.api` dump files in each module's `api/` directory.
-* If the public API has changed without updating the dumps, the task fails and CI blocks the merge.
-* Beta modules (`isBeta = true` in `build.gradle.kts`) are excluded from ABI validation.
-* APIs annotated as internal (e.g. `@InternalAgentsApi`, `@InternalAgentToolsApi`) are excluded from the check.
-
-### When you change a public API
-
-If you intentionally add, remove, or modify a public API in a stable module:
-
-1. Make your code changes.
-2. Run `./gradlew updateLegacyAbi` to regenerate the `.api` dump files.
-3. Review the diff in the `api/` directories to confirm only your intended changes are reflected.
-4. Commit the updated `.api` files alongside your code changes.
-5. CI will pass because the dumps now match the actual API.
+A failure identifies an incompatibility with a published JAR. Preserve the existing binary API for callers and third-party implementations when revising the change. Beta modules are exempt. See [TESTING.md](TESTING.md) for the JVM validation commands.
 
 ## Building
 

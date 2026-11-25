@@ -479,6 +479,7 @@ public expect abstract class AIAgentPipeline(agentConfig: AIAgentConfig, clock: 
      * @param prompt The prompt being sent to the language model;
      * @param model The language model being used for streaming;
      * @param tools The list of available tool descriptors for this streaming session.
+     * @return The prompt after any request-local changes made by the handlers.
      */
     @InternalAgentsApi
     public override suspend fun onLLMStreamingStarting(
@@ -489,7 +490,7 @@ public expect abstract class AIAgentPipeline(agentConfig: AIAgentConfig, clock: 
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    )
+    ): Prompt
 
     /**
      * Invoked when a stream frame is received during the streaming process.
@@ -760,6 +761,7 @@ public expect abstract class AIAgentPipeline(agentConfig: AIAgentConfig, clock: 
      *
      * This method allows features to hook into the streaming pipeline before streaming starts,
      * enabling preprocessing, validation, or logging of streaming requests.
+     * Assigning to [LLMStreamingStartingContext.prompt] changes the prompt passed to later handlers and the model.
      *
      * @param feature The feature associated with this handler.
      * @param handle The handler that processes before-stream events

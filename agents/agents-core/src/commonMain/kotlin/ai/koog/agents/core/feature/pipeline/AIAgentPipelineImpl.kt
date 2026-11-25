@@ -445,11 +445,13 @@ public class AIAgentPipelineImpl(
         prompt: Prompt,
         model: LLModel,
         tools: List<ToolDescriptor>,
-    ) {
+    ): Prompt {
+        val startingContext = LLMStreamingStartingContext(eventId, executionInfo, context, runId, prompt, model, tools)
         invokeRegisteredHandlersForEvent(
             eventType = AgentLifecycleEventType.LLMStreamingStarting,
-            context = LLMStreamingStartingContext(eventId, executionInfo, context, runId, prompt, model, tools)
+            context = startingContext
         )
+        return startingContext.prompt
     }
 
     @InternalAgentsApi

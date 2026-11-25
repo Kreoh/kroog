@@ -3,9 +3,14 @@ package ai.koog.agents.longtermmemory.feature
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.agent.config.AIAgentConfig
 import ai.koog.agents.core.agent.entity.ToolSelectionStrategy
+import ai.koog.agents.core.agent.entity.createStorageKey
+import ai.koog.agents.core.dsl.builder.node
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestStreaming
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestWithoutTools
+import ai.koog.agents.core.feature.AIAgentGraphFeature
+import ai.koog.agents.core.feature.config.FeatureConfig
+import ai.koog.agents.core.feature.pipeline.AIAgentGraphPipeline
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.longtermmemory.ingestion.extraction.MessagePassingDocumentExtractor
@@ -28,6 +33,9 @@ import ai.koog.rag.base.storage.search.KeywordSearchRequest
 import ai.koog.rag.base.storage.search.SearchRequest
 import ai.koog.rag.base.storage.search.SearchResult
 import ai.koog.rag.base.storage.search.SimilaritySearchRequest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
@@ -37,6 +45,7 @@ import org.junit.jupiter.api.Timeout
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -62,12 +71,18 @@ class LongTermMemoryRetrievalTest {
     private val streamingStrategy =
         strategy<String, String>("retrieval-streaming-test", toolSelectionStrategy = ToolSelectionStrategy.NONE) {
             val llmNode by nodeLLMRequestStreaming(name = "llm-node")
+            val checkHistory by node<Flow<StreamFrame>, String> { stream ->
+                val response = stream.toList().filterIsInstance<StreamFrame.TextDelta>().joinToString("") { it.text }
+                val history = llm.readSession { prompt.messages }
+                assertEquals(3, history.size)
+                assertEquals(defaultAgentConfig.prompt.messages.single(), history.first())
+                assertIs<Message.User>(history[1])
+                assertEquals(response, assertIs<Message.Assistant>(history.last()).textContent())
+                response
+            }
             edge(nodeStart forwardTo llmNode)
-            edge(
-                llmNode forwardTo nodeFinish transformed { flow ->
-                    flow.toList().filterIsInstance<StreamFrame.TextDelta>().joinToString("") { it.text }
-                }
-            )
+            edge(llmNode forwardTo checkHistory)
+            edge(checkHistory forwardTo nodeFinish)
         }
 
     /**
@@ -80,14 +95,16 @@ class LongTermMemoryRetrievalTest {
             model: LLModel,
             tools: List<ToolDescriptor>
         ): Message.Assistant {
-            val allContent = prompt.messages.joinToString("\n") { msg -> msg.parts.filterIsInstance<MessagePart.Text>().joinToString("\n") { it.text } }
+            val allContent = prompt.messages.joinToString("\n") { it.textContent() }
             return Message.Assistant(onPrompt(allContent), ResponseMetaInfo.Empty)
         }
 
         override fun executeStreaming(prompt: Prompt, model: LLModel, tools: List<ToolDescriptor>): Flow<StreamFrame> =
             flow {
-                val allContent = prompt.messages.joinToString("\n") { msg -> msg.parts.filterIsInstance<MessagePart.Text>().joinToString("\n") { it.text } }
-                emit(StreamFrame.TextDelta(onPrompt(allContent)))
+                val allContent = prompt.messages.joinToString("\n") { it.textContent() }
+                val response = onPrompt(allContent)
+                emit(StreamFrame.TextDelta(response))
+                emit(StreamFrame.TextComplete(response))
                 emit(StreamFrame.End("stop"))
             }
 
@@ -157,9 +174,24 @@ class LongTermMemoryRetrievalTest {
         )
 
         var augmented = false
+        var sentPromptContent: String? = null
         val executor = promptCapturingExecutor { content ->
+            sentPromptContent = content
             augmented = content.contains("Kotlin was developed by JetBrains") && content.contains("Relevant information")
             if (augmented) "AUGMENTED" else "NOT_AUGMENTED"
+        }
+
+        var observedPromptContent: String? = null
+        val promptObserver = object : AIAgentGraphFeature<FeatureConfig, Unit> {
+            override val key = createStorageKey<Unit>("streaming-prompt-observer")
+
+            override fun createInitialConfig(agentConfig: AIAgentConfig): FeatureConfig = object : FeatureConfig() {}
+
+            override fun install(config: FeatureConfig, pipeline: AIAgentGraphPipeline) {
+                pipeline.interceptLLMStreamingStarting(this) { context ->
+                    observedPromptContent = context.prompt.messages.joinToString("\n") { it.textContent() }
+                }
+            }
         }
 
         val agent = AIAgent(
@@ -174,12 +206,69 @@ class LongTermMemoryRetrievalTest {
                     searchStrategy = SearchStrategy { _ -> KeywordSearchRequest(queryText = "Kotlin") }
                 }
             }
+            install(promptObserver)
         }
 
         val result = agent.run("Tell me about Kotlin")
 
         assertTrue(augmented, "Streaming prompt should be augmented with storage context")
+        assertEquals(sentPromptContent, observedPromptContent)
         assertEquals("AUGMENTED", result)
+    }
+
+    @Test
+    fun testConcurrentReadStreamsKeepRetrievedContextLocal() = runTest {
+        val firstSearchStarted = CompletableDeferred<Unit>()
+        val finishFirstSearch = CompletableDeferred<Unit>()
+        val storedContext = "Kotlin was developed by JetBrains"
+        val storage = object : InMemoryRecordStorage() {
+            override suspend fun search(request: SearchRequest, namespace: String?): List<SearchResult<TextDocument>> {
+                if (firstSearchStarted.complete(Unit)) {
+                    finishFirstSearch.await()
+                    return emptyList()
+                }
+                return super.search(request, namespace)
+            }
+        }
+        storage.add(listOf(MemoryRecord(content = storedContext)), defaultNamespace)
+
+        val concurrentReadStrategy = strategy<String, String>("concurrent-reads") {
+            val readStreams by node<String, String> { input ->
+                llm.writeSession { appendPrompt { user(input) } }
+                val originalPrompt = llm.readSession { prompt }
+                coroutineScope {
+                    val first = async { llm.readSession { requestLLMStreaming().toList() } }
+                    firstSearchStarted.await()
+                    val second = llm.readSession { requestLLMStreaming().toList() }
+                    finishFirstSearch.complete(Unit)
+
+                    val firstRequest = first.await().filterIsInstance<StreamFrame.TextDelta>().single().text
+                    val secondRequest = second.filterIsInstance<StreamFrame.TextDelta>().single().text
+                    assertEquals(originalPrompt.messages.joinToString("\n") { it.textContent() }, firstRequest)
+                    assertTrue(storedContext in secondRequest)
+                }
+                assertEquals(originalPrompt, llm.readSession { prompt })
+                input
+            }
+            edge(nodeStart forwardTo readStreams)
+            edge(readStreams forwardTo nodeFinish)
+        }
+
+        val agent = AIAgent(
+            promptExecutor = promptCapturingExecutor { it },
+            strategy = concurrentReadStrategy,
+            agentConfig = defaultAgentConfig,
+            toolRegistry = ToolRegistry.EMPTY
+        ) {
+            install(LongTermMemory.Feature) {
+                retrieval {
+                    this.storage = storage
+                    searchStrategy = SearchStrategy { KeywordSearchRequest(queryText = "Kotlin") }
+                }
+            }
+        }
+
+        agent.run("Tell me about Kotlin")
     }
 
     // ==========================================

@@ -3,8 +3,8 @@ package ai.koog.prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
-import ai.koog.prompt.provider.ProviderApi
 import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.provider.ProviderApi
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.StreamFrameMergeIdentity
 import ai.koog.prompt.streaming.buildStreamFrameFlow
@@ -33,12 +33,16 @@ internal class HostedExecutionPromptTest {
             payload = "{\"type\":\"shell_call\",\"call_id\":\"call-1\"}",
         )
         val request = MessagePart.HostedExecution.Request(
-            code = "printf hello", language = "bash", executionId = "execution:call-1", replay = replay,
+            code = "printf hello",
+            language = "bash",
+            executionId = "execution:call-1",
+            replay = replay,
         )
         val result = MessagePart.HostedExecution.Result(output = "hello", executionId = "execution:call-1", replay = replay)
         val error = MessagePart.HostedExecution.Error(message = "failed", executionId = "execution:call-1", replay = replay)
         val response = Message.Assistant(
-            parts = listOf(request, result, error), metaInfo = ResponseMetaInfo.Empty,
+            parts = listOf(request, result, error),
+            metaInfo = ResponseMetaInfo.Empty,
         )
         assertEquals(response, json.decodeFromString(Message.serializer(), json.encodeToString(Message.serializer(), response)))
         assertEquals(response, response.toStreamFrames().toMessageResponse())

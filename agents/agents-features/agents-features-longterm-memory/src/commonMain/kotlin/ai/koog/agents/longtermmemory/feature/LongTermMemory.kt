@@ -414,10 +414,8 @@ public class LongTermMemory(
 
             // Augment prompt before streaming LLM call
             pipeline.interceptLLMStreamingStarting(this) { ctx ->
-                val augmentedPrompt = getAugmentedPromptOrNull(ctx.prompt, retrieval)
-                if (augmentedPrompt != null) {
-                    // The streaming graph node already holds the non-reentrant write lock.
-                    ctx.context.llm.prompt = augmentedPrompt
+                getAugmentedPromptOrNull(ctx.prompt, retrieval)?.let { augmentedPrompt ->
+                    ctx.prompt = augmentedPrompt
                 }
             }
         }

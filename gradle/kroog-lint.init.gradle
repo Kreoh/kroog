@@ -1,13 +1,25 @@
+import java.security.MessageDigest
+
 gradle.projectsEvaluated {
     if (gradle.parent != null) return
     def root = gradle.rootProject
-    def changedFiles = root.file('build/ci/lint-files').getText('UTF-8')
-        .split('\u0000').findAll { it }.collect { root.file(it).canonicalFile }.toSet()
+    def manifest = root.file('build/ci/lint-files')
+    def paths = manifest.getText('UTF-8').split('\u0000').findAll { it }.unique().sort()
+    def changedFiles = paths.collect { root.file(it).canonicalFile }.toSet()
+    def selection = MessageDigest.getInstance('SHA-256').digest(paths.join('\u0000').getBytes('UTF-8')).encodeHex()
     root.allprojects {
         def lint = extensions.findByName('ktlint')
         if (lint != null) {
             lint.filter {
-                exclude { entry -> !changedFiles.contains(entry.file.canonicalFile) }
+                exclude { entry -> !entry.directory && !changedFiles.contains(entry.file.canonicalFile) }
+            }
+            // ktlint-gradle reprocesses paths from previous errors and format snapshots even when its source filter changes.
+            tasks.matching { it.name.startsWith('runKtlint') }.configureEach { task ->
+                def state = layout.buildDirectory.dir("intermediates/ktLint/changed/${selection}/${task.name}")
+                task.'discoveredErrors$ktlint_gradle'.set(state.map { it.file('errors.bin') })
+                if (task.name.startsWith('runKtlintFormat')) {
+                    task.'previousRunSnapshot$ktlint_gradle'.set(state.map { it.file('format.bin') })
+                }
             }
         }
     }

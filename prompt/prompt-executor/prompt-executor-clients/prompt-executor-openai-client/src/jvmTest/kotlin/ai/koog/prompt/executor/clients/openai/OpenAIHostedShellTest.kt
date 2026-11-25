@@ -3,9 +3,14 @@ package ai.koog.prompt.executor.clients.openai
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParityTest.ScriptedResponsesTransport
+import ai.koog.prompt.message.CLIENT_MANAGED_EXECUTION_TOOL_NAME
+import ai.koog.prompt.message.ExecutionOrigin
+import ai.koog.prompt.message.ManagedExecutionSessionReference
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
+import ai.koog.prompt.message.ResponseMetaInfo
+import ai.koog.prompt.provider.ProviderApi
 import ai.koog.prompt.streaming.StreamFrame
 import ai.koog.prompt.streaming.toMessageResponse
 import io.ktor.client.HttpClient
@@ -130,6 +135,89 @@ class OpenAIHostedShellTest {
     }
 
     @Test
+    fun testShellReplayWithTheToolDisabledRequiresDirectResponses() = runTest {
+        val requested = call()
+        val returned = output()
+        val direct = Transport(listOf(Reply.json(response(requested, returned)), Reply.json(response(ANSWER))))
+        val codex = ScriptedResponsesTransport()
+        direct.client.use { client ->
+            val initial = prompt(OpenAIHostedShellConfig())
+            val execution = client.execute(initial, model)
+            val followUp = initial.copy(
+                messages = initial.messages + execution + Message.User("Continue", RequestMetaInfo.Empty),
+                params = OpenAIResponsesParams().asStateless(),
+            )
+            CodexLLMClient(CodexCredentialSource { CodexCredentials("fixture-token", "fixture-account") }, codex).use {
+                assertFailsWith<IllegalArgumentException> { it.execute(followUp, model) }
+            }
+            assertTrue(codex.requests.isEmpty())
+
+            val answer = client.execute(followUp, model)
+            assertEquals("ready", assertIs<MessagePart.Text>(answer.parts.single()).text)
+            val next = direct.requests.last()
+            assertTrue(next["tools"]?.jsonArray.orEmpty().isEmpty())
+            val input = next.getValue("input").jsonArray
+            assertEquals(Json.parseToJsonElement(requested), input[1])
+            assertEquals(Json.parseToJsonElement(returned), input[2])
+        }
+    }
+
+    @Test
+    fun testClientManagedExecutionCannotReplayNativeShellItems() = runTest {
+        val transport = Transport(listOf(Reply.json(response(ANSWER))))
+        val session = ManagedExecutionSessionReference.VertexAgentEngine(
+            "project-1",
+            "us-central1",
+            "reasoningEngines/engine-1",
+            "sandbox-1",
+        )
+        val toolName = CLIENT_MANAGED_EXECUTION_TOOL_NAME
+        val toolCallId = "managed_call"
+        val request = MessagePart.HostedExecution.Request(
+            code = "printf shell-receipt",
+            executionId = "execution:call_fixture",
+            containerId = "cntr_fixture",
+            origin = ExecutionOrigin.CLIENT_MANAGED,
+            managedSession = session,
+            toolCallId = toolCallId,
+            replay = replayWithoutItemId(call()),
+        )
+        val result = MessagePart.HostedExecution.Result(
+            output = "shell-receipt",
+            executionId = request.executionId,
+            containerId = request.containerId,
+            origin = ExecutionOrigin.CLIENT_MANAGED,
+            managedSession = session,
+            toolCallId = toolCallId,
+            replay = replayWithoutItemId(output()),
+        )
+        val ordinaryCall = MessagePart.Tool.Call(toolCallId, toolName, "{}")
+        val ordinaryResult = Message.User(
+            MessagePart.Tool.Result(toolCallId, toolName, "shell-receipt"),
+            RequestMetaInfo.Empty,
+        )
+        val transcript = Message.Assistant(listOf(ordinaryCall, request, result), ResponseMetaInfo.Empty)
+        val followUp = Prompt(
+            id = "client-managed-execution",
+            messages = listOf(transcript, ordinaryResult, Message.User("Continue", RequestMetaInfo.Empty)),
+            params = OpenAIResponsesParams().asStateless(),
+        )
+        transport.client.use { client ->
+            assertFailsWith<IllegalArgumentException> { client.execute(followUp, model) }
+            assertTrue(transport.requests.isEmpty())
+
+            val cleanTranscript = transcript.copy(
+                parts = listOf(ordinaryCall, request.copy(replay = null), result.copy(replay = null)),
+            )
+            client.execute(followUp.copy(messages = listOf(cleanTranscript) + followUp.messages.drop(1)), model)
+            val inputTypes = transport.requests.single().getValue("input").jsonArray.map {
+                it.jsonObject.getValue("type").jsonPrimitive.content
+            }
+            assertEquals(listOf("function_call", "function_call_output", "message"), inputTypes)
+        }
+    }
+
+    @Test
     fun testUnsupportedModelsAndConflictingToolsDoNotSendARequest() = runTest {
         val transport = Transport(emptyList())
         transport.client.use { client ->
@@ -142,6 +230,44 @@ class OpenAIHostedShellTest {
                 client.execute(prompt(OpenAIHostedShellConfig()).copy(params = conflict), model)
             }
             assertTrue(transport.requests.isEmpty())
+        }
+    }
+
+    @Test
+    fun testExplicitToolArrayWithHostedShellFailsBeforeDispatch() = runTest {
+        val transport = Transport(listOf(Reply.json(response(ANSWER))))
+        transport.client.use { client ->
+            val tools = Json.parseToJsonElement("""[{"type":"web_search"}]""")
+            val params = OpenAIResponsesParams(additionalProperties = mapOf("tools" to tools))
+            val request = prompt(OpenAIHostedShellConfig())
+            client.execute(request.copy(params = params), model)
+            assertEquals(tools, transport.requests.single()["tools"])
+
+            val conflict = request.copy(params = params.withHostedShell(OpenAIHostedShellConfig()))
+            assertFailsWith<IllegalArgumentException> { client.execute(conflict, model) }
+            assertFailsWith<IllegalArgumentException> { client.executeStreaming(conflict, model).toList() }
+            assertEquals(1, transport.requests.size)
+        }
+    }
+
+    @Test
+    fun testHostedShellRequestsUseTheSelectedModelIdentifier() = runTest {
+        val models = listOf(
+            OpenAIModels.Chat.GPT5_2,
+            OpenAIModels.Chat.GPT5_2.copy(id = "gpt-5.2-2025-12-11"),
+            OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05"),
+            OpenAIModels.Chat.GPT5_4Mini.copy(id = "gpt-5.4-mini-2026-03-17"),
+            OpenAIModels.Chat.GPT5_4Nano.copy(id = "gpt-5.4-nano-2026-03-17"),
+            OpenAIModels.Chat.GPT5_5.copy(id = "gpt-5.5-2026-04-23"),
+        )
+        val transport = Transport(models.map { Reply.json(response(ANSWER)) })
+        transport.client.use { client ->
+            for (selected in models) {
+                client.execute(prompt(OpenAIHostedShellConfig()), selected)
+                val request = transport.requests.last()
+                assertEquals(selected.id, request.getValue("model").jsonPrimitive.content)
+                assertEquals("container_auto", request.shellEnvironment().getValue("type").jsonPrimitive.content)
+            }
         }
     }
 
@@ -189,6 +315,12 @@ class OpenAIHostedShellTest {
         params = OpenAIResponsesParams(maxToolCalls = 3).asStateless().withHostedShell(config),
     ) { user("Run the command and report its output.") }
 
+    private fun replayWithoutItemId(payload: String): MessagePart.HostedExecutionReplay =
+        MessagePart.HostedExecutionReplay(
+            ProviderApi.OPENAI_RESPONSES,
+            JsonObject(Json.parseToJsonElement(payload).jsonObject - "id").toString(),
+        )
+
     private fun JsonObject.shellEnvironment(): JsonObject {
         val tool = getValue("tools").jsonArray.single().jsonObject
         assertEquals("shell", tool.getValue("type").jsonPrimitive.content)
@@ -231,10 +363,10 @@ class OpenAIHostedShellTest {
         const val ANSWER_WITH_FILE = """{"type":"message","id":"msg_fixture","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ready","annotations":[{"type":"container_file_citation","container_id":"cntr_fixture","file_id":"cfile_receipt","filename":"receipt.txt","start_index":0,"end_index":5}]}]}"""
 
         fun call(status: String = "completed") =
-            """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":["printf shell-receipt","printf stderr-receipt >&2"],"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"}}"""
+            """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":["printf shell-receipt","printf stderr-receipt >&2"],"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"},"caller":{"type":"program","caller_id":"call_parent"},"created_by":"actor_call"}"""
 
         fun output(outcome: String = """{"type":"exit","exit_code":7}""") =
-            """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"completed","max_output_length":64,"output":[{"stdout":"shell-receipt","stderr":"stderr-receipt","outcome":$outcome}]}"""
+            """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"completed","max_output_length":64,"output":[{"stdout":"shell-receipt","stderr":"stderr-receipt","outcome":$outcome,"created_by":"actor_entry"}],"caller":{"type":"direct"},"created_by":"actor_output"}"""
 
         fun response(vararg items: String) =
             """{"id":"resp_fixture","object":"response","model":"${model.id}","created_at":0,"status":"completed","parallel_tool_calls":false,"output":[${items.joinToString(",")}],"text":{"format":{"type":"text"}}}"""

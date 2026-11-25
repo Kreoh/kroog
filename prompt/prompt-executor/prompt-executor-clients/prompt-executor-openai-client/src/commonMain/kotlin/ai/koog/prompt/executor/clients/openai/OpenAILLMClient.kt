@@ -88,7 +88,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
@@ -1550,6 +1549,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                 is MessagePart.HostedExecution -> {
                                     val replay = part.nativeReplay()
                                     if (replay != null) {
+                                        require(!part.isClientManagedExecutionPresentation()) {
+                                            "Client-managed execution presentation cannot carry native hosted shell replay"
+                                        }
                                         requireHostedShellCapability(model)
                                         add(shellReplay.item(part, replay))
                                     } else if (
@@ -2035,6 +2037,9 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             if (params.hostedShell != null) {
                 requireHostedShellCapability(model)
                 require(params.codeInterpreter == null) { "Choose either hosted shell or Code Interpreter" }
+                require(params.additionalProperties?.containsKey("tools") != true) {
+                    "withHostedShell cannot be combined with an explicit tools array in additionalProperties"
+                }
             }
             model.requireCapability(
                 LLMCapability.OpenAIEndpoint.Responses,
@@ -2065,7 +2070,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             throw OpenAIResponsesConfigurationException("Hosted shell requires direct OpenAI Responses")
         }
         if (ProviderCapabilityMatrix.acceptHostedShell(ProviderApi.OPENAI_RESPONSES, model.id)
-            !is HostedExecutionAcceptance.NativeInline
+                !is HostedExecutionAcceptance.NativeInline
         ) {
             throw OpenAIResponsesConfigurationException("Hosted shell is unavailable for OpenAI model ${model.id}")
         }
@@ -2143,7 +2148,8 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                 "Configuration updates require the OpenAI Responses API"
             }
         }
-        val preserveMarkers = params is OpenAIResponsesParams && settings.responsesDialect != OpenAIResponsesDialect.Compatible &&
+        val preserveMarkers = params is OpenAIResponsesParams &&
+            settings.responsesDialect != OpenAIResponsesDialect.Compatible &&
             model.supports(LLMCapability.OpenAIExplicitPromptCaching)
         return action(prompt.forOpenAIToolReplay(preserveMarkers), params)
     }

@@ -23,10 +23,13 @@ public enum class ProviderApi {
     AZURE_EMBEDDINGS,
     OPENAI_REALTIME,
     AZURE_REALTIME,
+
     /** Text embedding through Bedrock Runtime InvokeModel. */
     BEDROCK_EMBEDDINGS,
+
     /** Direct Claude Messages API. */
     ANTHROPIC_MESSAGES,
+
     /** Gemini Developer API GenerateContent. */
     GEMINI_GENERATE_CONTENT,
 }
@@ -50,6 +53,7 @@ public enum class HostedExecutionUnsupportedReason {
     CAPABILITY_REQUIRES_EXPLICIT_COMPATIBLE_ENDPOINT_DECLARATION,
     CODEX_EXECUTION_IS_OUT_OF_SCOPE,
     MODEL_API_IS_NOT_AN_EXECUTION_API,
+
     /** The client does not implement hosted execution on this route. */
     CLIENT_INTEGRATION_UNAVAILABLE,
 }

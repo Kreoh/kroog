@@ -1,8 +1,11 @@
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.Usage
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.process.CommandLineArgumentProvider
 
 gradle.projectsEvaluated {
     if (gradle.parent != null) {
@@ -31,42 +34,88 @@ gradle.projectsEvaluated {
             root.logger.lifecycle("Skipping beta JVM ABI: ${path}")
             return null
         }
-        project.extensions.getByType(PublishingExtension).publications
-            .named(inventory[path], MavenPublication).get()
+        def kind = inventory[path]
+        def publication = project.extensions.getByType(PublishingExtension).publications.named(kind, MavenPublication).get()
+        def runtimeClasspath = project.configurations.named(kind == 'jvm' ? 'jvmRuntimeClasspath' : 'runtimeClasspath')
+        [publication: publication, runtimeClasspath: runtimeClasspath]
     }.findAll { it != null }
     if (publications.isEmpty()) {
         throw new GradleException('No stable JVM publications selected for ABI validation')
     }
 
-    def artifacts = publications.collectEntries { publication ->
+    def artifacts = publications.collectEntries { entry ->
+        def publication = entry.publication
         def jars = publication.artifacts.findAll { it.extension == 'jar' && !it.classifier }
         if (jars.size() != 1) {
             throw new GradleException("Expected one JVM JAR for ${publication.artifactId}")
         }
         def coordinate = "${publication.groupId}:${publication.artifactId}:${baseline}".toString()
-        [(coordinate): jars.first()]
+        def previousJar = root.configurations.detachedConfiguration(root.dependencies.create("${coordinate}@jar"))
+        def previousClasspath = root.configurations.detachedConfiguration(root.dependencies.create(coordinate))
+        previousClasspath.attributes.attribute(Usage.USAGE_ATTRIBUTE, root.objects.named(Usage, Usage.JAVA_RUNTIME))
+        previousClasspath.attributes.attribute(Category.CATEGORY_ATTRIBUTE, root.objects.named(Category, Category.LIBRARY))
+        previousClasspath.attributes.attribute(
+            LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, root.objects.named(LibraryElements, LibraryElements.JAR)
+        )
+        [(coordinate): [
+            groupId: publication.groupId,
+            currentJar: jars.first(),
+            currentClasspath: entry.runtimeClasspath,
+            previousJar: previousJar,
+            previousClasspath: previousClasspath
+        ]]
     }
 
     def kotlinVersion = root.extensions.getByType(VersionCatalogsExtension)
         .named('libs').findVersion('kotlin').get().requiredVersion
     def abiToolsClasspath = root.configurations.detachedConfiguration(
-        root.dependencies.create("org.jetbrains.kotlin:abi-tools:${kotlinVersion}")
+        root.dependencies.create("org.jetbrains.kotlin:abi-tools:${kotlinVersion}"),
+        root.dependencies.create('com.github.siom79.japicmp:japicmp:0.27.0:jar-with-dependencies@jar')
     )
     abiToolsClasspath.attributes.attribute(Usage.USAGE_ATTRIBUTE, root.objects.named(Usage, Usage.JAVA_RUNTIME))
+
+    def checkerTest = root.tasks.register('testKroogJvmAbiCheck', Exec) {
+        group = 'verification'
+        description = 'Exercise the JVM compatibility checker with compiled fixture JARs.'
+        doFirst {
+            commandLine 'bash', root.file('.github/scripts/test-jvm-abi.sh'),
+                System.getProperty('java.home'), abiToolsClasspath.asPath
+        }
+    }
 
     root.tasks.register('checkKroogJvmAbi', JavaExec) {
         group = 'verification'
         description = 'Check stable JVM publications against a previous Kroog release.'
-        dependsOn artifacts.values().collect { it.buildDependencies }
+        dependsOn checkerTest
+        dependsOn artifacts.values().collectMany { [it.currentJar.buildDependencies, it.currentClasspath.get().buildDependencies] }
         // Gradle embeds an older Kotlin runtime than the ABI reader requires.
         classpath = abiToolsClasspath
         mainClass = root.file('.github/scripts/KroogJvmAbiCheck.java').absolutePath
-        argumentProviders.add({
-            artifacts.collectMany { coordinate, artifact ->
-                def previous = root.configurations.detachedConfiguration(root.dependencies.create("${coordinate}@jar"))
-                previous.transitive = false
-                [coordinate, previous.singleFile.absolutePath, artifact.file.absolutePath]
+        doFirst {
+            def comparisons = new File(temporaryDir, 'comparisons.tsv')
+            def rows = artifacts.collect { coordinate, artifact ->
+                def currentClasspath = artifact.currentClasspath.get()
+                def apiDependencies = [artifact.previousClasspath, currentClasspath].collectMany { configuration ->
+                    configuration.incoming.artifacts.artifacts.findResults { dependency ->
+                        def component = dependency.id.componentIdentifier
+                        if (component instanceof ProjectComponentIdentifier ||
+                            component instanceof ModuleComponentIdentifier && component.group == artifact.groupId) {
+                            return dependency.file.absolutePath
+                        }
+                        null
+                    }
+                }.unique().join(File.pathSeparator)
+                [
+                    coordinate,
+                    artifact.previousJar.singleFile.absolutePath,
+                    artifact.currentJar.file.absolutePath,
+                    artifact.previousClasspath.asPath,
+                    currentClasspath.asPath,
+                    apiDependencies
+                ].join('\t')
             }
-        } as CommandLineArgumentProvider)
+            comparisons.setText(rows.join('\n'), 'UTF-8')
+            args comparisons.absolutePath
+        }
     }
 }

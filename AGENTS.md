@@ -292,9 +292,7 @@ export OPEN_ROUTER_API_TEST_KEY=your_key_here
 
 ### Branch Strategy
 
-- **develop**: All development (features and bug fixes)
-- **main**: Released versions only
-- Base all PRs against `develop` branch
+- Base development PRs for features and bug fixes on `master`, the branch checked by JVM CI.
 - Use descriptive branch names: `feature/agent-memory`, `fix/tool-registry-bug`
 
 ### Code Quality

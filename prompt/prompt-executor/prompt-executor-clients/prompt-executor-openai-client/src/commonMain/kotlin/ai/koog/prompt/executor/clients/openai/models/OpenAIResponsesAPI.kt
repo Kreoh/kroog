@@ -621,6 +621,8 @@ internal sealed interface Item {
         val id: String? = null,
         val environment: OpenAIShellCallEnvironment? = null,
         val status: OpenAIInputStatus,
+        val caller: OpenAIShellCallCaller? = null,
+        val createdBy: String? = null,
     ) : Item {
         val type: String = "shell_call"
 
@@ -639,6 +641,8 @@ internal sealed interface Item {
         val id: String? = null,
         val maxOutputLength: Int? = null,
         val status: OpenAIInputStatus? = null,
+        val caller: OpenAIShellCallCaller? = null,
+        val createdBy: String? = null,
     ) : Item {
         val type: String = "shell_call_output"
 
@@ -647,6 +651,7 @@ internal sealed interface Item {
             val stdout: String,
             val stderr: String,
             val outcome: Outcome,
+            val createdBy: String? = null,
         )
 
         @Serializable
@@ -1249,6 +1254,18 @@ internal sealed interface OpenAIShellCallEnvironment {
     @Serializable
     @SerialName("container_reference")
     data class Reference(val containerId: String) : OpenAIShellCallEnvironment
+}
+
+@Serializable
+@JsonClassDiscriminator("type")
+internal sealed interface OpenAIShellCallCaller {
+    @Serializable
+    @SerialName("direct")
+    data object Direct : OpenAIShellCallCaller
+
+    @Serializable
+    @SerialName("program")
+    data class Program(val callerId: String) : OpenAIShellCallCaller
 }
 
 @Serializable

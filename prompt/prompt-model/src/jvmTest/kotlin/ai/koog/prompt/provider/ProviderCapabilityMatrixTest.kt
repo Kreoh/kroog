@@ -6,6 +6,7 @@ import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -166,6 +167,27 @@ class ProviderCapabilityMatrixTest {
             HostedExecutionAcceptance.NativeInline("code_interpreter"),
             ProviderCapabilityMatrix.acceptHostedExecution(api, "gpt-6-luna"),
         )
+    }
+
+    @Test
+    fun testVerifiedSnapshotsInheritTheShellModelProfile() {
+        val api = ProviderApi.OPENAI_RESPONSES
+        val snapshots = mapOf(
+            "gpt-5.2" to "gpt-5.2-2025-12-11",
+            "gpt-5.4" to "gpt-5.4-2026-03-05",
+            "gpt-5.4-mini" to "gpt-5.4-mini-2026-03-17",
+            "gpt-5.4-nano" to "gpt-5.4-nano-2026-03-17",
+            "gpt-5.5" to "gpt-5.5-2026-04-23",
+        )
+        for ((id, snapshot) in snapshots) {
+            val profile = assertNotNull(ModelCatalogue.find(id, api))
+            assertEquals(profile, ModelCatalogue.find(snapshot, api))
+            for (identifier in listOf(id, snapshot)) {
+                assertEquals(HostedExecutionAcceptance.NativeInline("shell"), ProviderCapabilityMatrix.acceptHostedShell(api, identifier))
+                assertFalse(ModelCatalogue.supportsHostedShell(identifier, ProviderApi.CODEX_RESPONSES))
+            }
+        }
+        assertFalse(ModelCatalogue.supportsHostedShell("gpt-5.4-mini-2026-03-18", api))
     }
 
     @Test
