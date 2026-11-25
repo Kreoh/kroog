@@ -97,6 +97,7 @@ public class CodexLLMClient(
         require(prompt.params !is OpenAIChatParams) { "Codex requires Responses parameters" }
         val params = prompt.params.toOpenAIResponsesParams()
         require(params.codeInterpreter == null) { "Codex does not support hosted Code Interpreter" }
+        require(params.hostedShell == null) { "Codex does not support OpenAI-hosted shell" }
         require(params.numberOfChoices == null || params.numberOfChoices == 1) { "Codex supports one choice per request" }
         emitAll(
             delegate.executeStreaming(prompt.copy(params = params.asStateless()), model, tools).catch { failure ->

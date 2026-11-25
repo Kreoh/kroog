@@ -368,6 +368,31 @@ public data class OpenAICodeInterpreterConfig @JvmOverloads constructor(
 }
 
 /**
+ * Configures an isolated OpenAI-hosted shell. The provider manages command execution and enforces its
+ * own runtime limits. Automatic containers disable outbound network access; existing containers retain
+ * their configured network policy.
+ *
+ * @property fileIds Files made available when provisioning an automatic container. When [containerId]
+ * is set, these IDs are used only for recovery from a stale container.
+ * @property containerId Optional ID of an existing container to reuse. The caller must authorise the
+ * container for the current user and workspace before referencing it.
+ */
+public data class OpenAIHostedShellConfig @JvmOverloads constructor(
+    public val fileIds: List<String> = emptyList(),
+    public val containerId: String? = null,
+) {
+    init {
+        require(fileIds.size <= 50 && fileIds.all { it.isNotBlank() && it == it.trim() }) {
+            "Hosted shell accepts at most 50 non-blank provider file IDs"
+        }
+        require(fileIds.distinct().size == fileIds.size) { "Hosted shell file IDs must not contain duplicates" }
+        require(containerId == null || (containerId.isNotBlank() && containerId == containerId.trim())) {
+            "Hosted shell requires a non-blank provider container ID"
+        }
+    }
+}
+
+/**
  * OpenAI **Responses API** parameters layered on top of [LLMParams].
  *
  * Use these options to generate text or JSON, call built-in tools (e.g., web/file search)
@@ -439,6 +464,14 @@ public class OpenAIResponsesParams(
     additionalProperties
 ),
     OpenAIParams {
+    /** Shell execution in an OpenAI-managed container. Set it with [withHostedShell]. */
+    public var hostedShell: OpenAIHostedShellConfig? = null
+        private set
+
+    /** Returns a copy configured for OpenAI-hosted shell execution, or clears the tool when passed null. */
+    public fun withHostedShell(config: OpenAIHostedShellConfig?): OpenAIResponsesParams =
+        copy().also { it.hostedShell = config?.copy(fileIds = config.fileIds.toList()) }
+
     /** Raw identity retained inside Kroog and replaced with a digest in the wire request. */
     public var promptCacheIdentity: OpenAIPromptCacheIdentity? = null
         private set
@@ -688,6 +721,7 @@ public class OpenAIResponsesParams(
     ).also {
         it.promptCacheIdentity = this.promptCacheIdentity
         it.containerRecovery = this.containerRecovery
+        it.hostedShell = this.hostedShell
     }
 
     /**
@@ -721,6 +755,7 @@ public class OpenAIResponsesParams(
         ).also {
             it.promptCacheIdentity = promptCacheIdentity
             it.containerRecovery = containerRecovery
+            it.hostedShell = hostedShell
         }
 
     /** Returns a copy carrying raw identity for Kroog's request-time cache-key digest. */
@@ -752,6 +787,7 @@ public class OpenAIResponsesParams(
         ).also {
             it.promptCacheIdentity = identity
             it.containerRecovery = containerRecovery
+            it.hostedShell = hostedShell
         }
 
     /** Returns an ASK-compatible stateless copy that never permits provider-side response storage. */
@@ -782,6 +818,7 @@ public class OpenAIResponsesParams(
     ).also {
         it.promptCacheIdentity = promptCacheIdentity
         it.containerRecovery = containerRecovery
+        it.hostedShell = hostedShell
     }
 
     override fun equals(other: Any?): Boolean = when {
@@ -810,6 +847,7 @@ public class OpenAIResponsesParams(
                 topLogprobs == other.topLogprobs &&
                 topP == other.topP &&
                 codeInterpreter == other.codeInterpreter &&
+                hostedShell == other.hostedShell &&
                 stateless == other.stateless &&
                 promptCacheIdentity == other.promptCacheIdentity &&
                 containerRecovery == other.containerRecovery
@@ -823,6 +861,7 @@ public class OpenAIResponsesParams(
         truncation, promptCacheKey, safetyIdentifier,
         serviceTier, store, logprobs, topLogprobs, topP,
         codeInterpreter,
+        hostedShell,
         stateless,
         promptCacheIdentity,
         containerRecovery,
@@ -854,6 +893,7 @@ public class OpenAIResponsesParams(
         append(", topLogprobs=$topLogprobs")
         append(", topP=$topP")
         append(", codeInterpreter=$codeInterpreter")
+        append(", hostedShell=${hostedShell?.let { "<set>" }}")
         append(", stateless=$stateless")
         append(", promptCacheIdentity=${promptCacheIdentity?.let { "<set>" }}")
         append(")")

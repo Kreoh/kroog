@@ -1,5 +1,6 @@
 package ai.koog.prompt.provider
 
+import ai.koog.prompt.models.ModelCatalogue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -150,6 +151,62 @@ class ProviderCapabilityMatrixTest {
                 ProviderApi.OPENAI_RESPONSES,
                 "unknown-model",
             ),
+        )
+    }
+
+    @Test
+    fun testHostedShellSelectionKeepsCodeInterpreterAvailable() {
+        val api = ProviderApi.OPENAI_RESPONSES
+        assertTrue(ModelCatalogue.supportsHostedShell("gpt-6-luna", api))
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("shell"),
+            ProviderCapabilityMatrix.acceptHostedShell(api, "gpt-6-luna"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(api, "gpt-6-luna"),
+        )
+    }
+
+    @Test
+    fun testHostedShellRequiresAnImplementedRouteAndVerifiedModel() {
+        val openAi = ProviderApi.OPENAI_RESPONSES
+        assertFalse(ModelCatalogue.supportsHostedShell("gpt-4.1", openAi))
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_DOES_NOT_SUPPORT_HOSTED_EXECUTION
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "gpt-4.1"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.MODEL_PROVIDER_MISMATCH
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "claude-4.6-sonnet"),
+        )
+        assertEquals(
+            HostedExecutionAcceptance.Unsupported(
+                HostedExecutionAcceptanceUnsupportedReason.UNKNOWN_MODEL
+            ),
+            ProviderCapabilityMatrix.acceptHostedShell(openAi, "unknown-model"),
+        )
+        for (api in listOf(
+            ProviderApi.AZURE_RESPONSES,
+            ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
+            ProviderApi.CODEX_RESPONSES,
+        )) {
+            assertFalse(ModelCatalogue.supportsHostedShell("gpt-5.5", api))
+            assertEquals(
+                HostedExecutionAcceptance.Unsupported(
+                    reason = HostedExecutionAcceptanceUnsupportedReason.PROVIDER_API_UNSUPPORTED,
+                    capabilityReason = HostedExecutionUnsupportedReason.CLIENT_INTEGRATION_UNAVAILABLE,
+                ),
+                ProviderCapabilityMatrix.acceptHostedShell(api, "gpt-5.5"),
+            )
+        }
+        assertEquals(
+            HostedExecutionAcceptance.NativeInline("code_interpreter"),
+            ProviderCapabilityMatrix.acceptHostedExecution(ProviderApi.AZURE_RESPONSES, "gpt-5.5"),
         )
     }
 

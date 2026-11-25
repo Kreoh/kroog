@@ -517,6 +517,24 @@ public object ModelCatalogue {
         }
     }
 
+    // Verified in the Responses tool tables at https://developers.openai.com/api/docs/models/<model-id>.
+    private val openAiHostedShellModels = setOf(
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5.5",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-6-astra",
+        "gpt-6-sol",
+        "gpt-6-luna",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
+    )
+
     init {
         val issues = validate(entries)
         require(issues.isEmpty()) {
@@ -562,6 +580,18 @@ public object ModelCatalogue {
 
             else -> model
         }
+    }
+
+    /**
+     * Whether the canonical model or an explicit alias has verified hosted shell support through [api].
+     *
+     * Kroog currently exposes the hosted shell through direct OpenAI Responses only. This capability is
+     * independent of the model's Code Interpreter support.
+     */
+    public fun supportsHostedShell(idOrAlias: String, api: ProviderApi): Boolean {
+        if (api != ProviderApi.OPENAI_RESPONSES) return false
+        val model = find(idOrAlias, api) ?: return false
+        return model.id in openAiHostedShellModels
     }
 
     /** Validate catalogue invariants without performing provider I/O. */

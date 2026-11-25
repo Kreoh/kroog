@@ -1355,6 +1355,7 @@ class OpenAIResponsesParityTest {
                 attempt.forEach { next ->
                     when (next) {
                         is Throwable -> throw next
+                        is String -> if (dataFilter(next)) processStreamingChunk(decodeStreamingResponse(next))?.let { emit(it) }
                         else -> processStreamingChunk(next as R)?.let { emit(it) }
                     }
                 }

@@ -1,5 +1,6 @@
 package ai.koog.prompt.message
 
+import ai.koog.prompt.provider.ProviderApi
 import ai.koog.utils.time.KoogClock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -486,6 +487,18 @@ public sealed interface MessagePart {
     }
 
     /**
+     * Provider-owned execution item retained for lossless conversation replay.
+     *
+     * Only the matching provider client may decode [payload], using its typed wire schema and validating
+     * the execution identities. This is historical data, never an instruction or an API parameter override.
+     */
+    @Serializable
+    public data class HostedExecutionReplay(
+        public val provider: ProviderApi,
+        public val payload: String,
+    )
+
+    /**
      * Provider-neutral hosted execution lifecycle content.
      *
      * [executionId] is the framework's execution key. [providerItemId] is the provider's replay identity. A provider
@@ -502,7 +515,7 @@ public sealed interface MessagePart {
 
         /** A request to execute [code] in provider-managed infrastructure. */
         @Serializable
-        public data class Request @JvmOverloads constructor(
+        public data class Request(
             public val code: String,
             public val language: String = "python",
             override val executionId: String? = null,
@@ -513,7 +526,44 @@ public sealed interface MessagePart {
             override val managedSession: ManagedExecutionSessionReference? = null,
             override val toolCallId: String? = null,
             public val managedSequence: Long? = null,
+            /** Lossless provider item; excluded from user-facing execution output. */
+            public val replay: HostedExecutionReplay? = null,
         ) : HostedExecution {
+            /** Creates an execution request without provider replay data. */
+            @JvmOverloads
+            public constructor(
+                code: String,
+                language: String = "python",
+                executionId: String? = null,
+                containerId: String? = null,
+                providerItemId: String? = null,
+                cacheControl: CacheControl? = null,
+                origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+                managedSession: ManagedExecutionSessionReference? = null,
+                toolCallId: String? = null,
+                managedSequence: Long? = null,
+            ) : this(
+                code, language, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, replay = null,
+            )
+
+            /** Copies the request while retaining its provider replay data. */
+            public fun copy(
+                code: String = this.code,
+                language: String = this.language,
+                executionId: String? = this.executionId,
+                containerId: String? = this.containerId,
+                providerItemId: String? = this.providerItemId,
+                cacheControl: CacheControl? = this.cacheControl,
+                origin: ExecutionOrigin = this.origin,
+                managedSession: ManagedExecutionSessionReference? = this.managedSession,
+                toolCallId: String? = this.toolCallId,
+                managedSequence: Long? = this.managedSequence,
+            ): Request = Request(
+                code, language, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, replay,
+            )
+
             /** Preserves the original JVM copy descriptor. */
             @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
             public fun copy(
@@ -525,7 +575,7 @@ public sealed interface MessagePart {
                 cacheControl: CacheControl?,
             ): Request = Request(
                 code, language, executionId, containerId, providerItemId, cacheControl,
-                origin, managedSession, toolCallId, managedSequence,
+                origin, managedSession, toolCallId, managedSequence, replay,
             )
         }
 
@@ -594,7 +644,7 @@ public sealed interface MessagePart {
 
         /** A successful terminal execution result. */
         @Serializable
-        public data class Result @JvmOverloads constructor(
+        public data class Result(
             public val output: String? = null,
             public val exitCode: Int? = null,
             public val generatedFiles: List<GeneratedFile> = emptyList(),
@@ -609,7 +659,53 @@ public sealed interface MessagePart {
             public val executionTimeSeconds: Double? = null,
             public val taskId: String? = null,
             public val taskStatus: String? = null,
+            /** Lossless provider item; excluded from user-facing execution output. */
+            public val replay: HostedExecutionReplay? = null,
         ) : HostedExecution {
+            /** Creates an execution result without provider replay data. */
+            @JvmOverloads
+            public constructor(
+                output: String? = null,
+                exitCode: Int? = null,
+                generatedFiles: List<GeneratedFile> = emptyList(),
+                executionId: String? = null,
+                containerId: String? = null,
+                providerItemId: String? = null,
+                cacheControl: CacheControl? = null,
+                origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+                managedSession: ManagedExecutionSessionReference? = null,
+                toolCallId: String? = null,
+                managedSequence: Long? = null,
+                executionTimeSeconds: Double? = null,
+                taskId: String? = null,
+                taskStatus: String? = null,
+            ) : this(
+                output, exitCode, generatedFiles, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, executionTimeSeconds, taskId, taskStatus,
+                replay = null,
+            )
+
+            /** Copies the result while retaining its provider replay data. */
+            public fun copy(
+                output: String? = this.output,
+                exitCode: Int? = this.exitCode,
+                generatedFiles: List<GeneratedFile> = this.generatedFiles,
+                executionId: String? = this.executionId,
+                containerId: String? = this.containerId,
+                providerItemId: String? = this.providerItemId,
+                cacheControl: CacheControl? = this.cacheControl,
+                origin: ExecutionOrigin = this.origin,
+                managedSession: ManagedExecutionSessionReference? = this.managedSession,
+                toolCallId: String? = this.toolCallId,
+                managedSequence: Long? = this.managedSequence,
+                executionTimeSeconds: Double? = this.executionTimeSeconds,
+                taskId: String? = this.taskId,
+                taskStatus: String? = this.taskStatus,
+            ): Result = Result(
+                output, exitCode, generatedFiles, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, executionTimeSeconds, taskId, taskStatus, replay,
+            )
+
             /** Preserves the original JVM copy descriptor. */
             @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
             public fun copy(
@@ -622,13 +718,13 @@ public sealed interface MessagePart {
                 cacheControl: CacheControl?,
             ): Result = Result(
                 output, exitCode, generatedFiles, executionId, containerId, providerItemId, cacheControl,
-                origin, managedSession, toolCallId, managedSequence, executionTimeSeconds, taskId, taskStatus,
+                origin, managedSession, toolCallId, managedSequence, executionTimeSeconds, taskId, taskStatus, replay,
             )
         }
 
         /** A terminal hosted execution error. */
         @Serializable
-        public data class Error @JvmOverloads constructor(
+        public data class Error(
             public val message: String,
             public val code: String? = null,
             override val executionId: String? = null,
@@ -640,7 +736,46 @@ public sealed interface MessagePart {
             override val toolCallId: String? = null,
             public val managedSequence: Long? = null,
             public val managedErrorKind: String? = null,
+            /** Lossless provider item; excluded from user-facing execution output. */
+            public val replay: HostedExecutionReplay? = null,
         ) : HostedExecution {
+            /** Creates an execution error without provider replay data. */
+            @JvmOverloads
+            public constructor(
+                message: String,
+                code: String? = null,
+                executionId: String? = null,
+                containerId: String? = null,
+                providerItemId: String? = null,
+                cacheControl: CacheControl? = null,
+                origin: ExecutionOrigin = ExecutionOrigin.NATIVE_PROVIDER_HOSTED,
+                managedSession: ManagedExecutionSessionReference? = null,
+                toolCallId: String? = null,
+                managedSequence: Long? = null,
+                managedErrorKind: String? = null,
+            ) : this(
+                message, code, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, managedErrorKind, replay = null,
+            )
+
+            /** Copies the error while retaining its provider replay data. */
+            public fun copy(
+                message: String = this.message,
+                code: String? = this.code,
+                executionId: String? = this.executionId,
+                containerId: String? = this.containerId,
+                providerItemId: String? = this.providerItemId,
+                cacheControl: CacheControl? = this.cacheControl,
+                origin: ExecutionOrigin = this.origin,
+                managedSession: ManagedExecutionSessionReference? = this.managedSession,
+                toolCallId: String? = this.toolCallId,
+                managedSequence: Long? = this.managedSequence,
+                managedErrorKind: String? = this.managedErrorKind,
+            ): Error = Error(
+                message, code, executionId, containerId, providerItemId, cacheControl,
+                origin, managedSession, toolCallId, managedSequence, managedErrorKind, replay,
+            )
+
             /** Preserves the original JVM copy descriptor. */
             @Deprecated("Binary compatibility copy", level = DeprecationLevel.HIDDEN)
             public fun copy(
@@ -652,7 +787,7 @@ public sealed interface MessagePart {
                 cacheControl: CacheControl?,
             ): Error = Error(
                 message, code, executionId, containerId, providerItemId, cacheControl,
-                origin, managedSession, toolCallId, managedSequence, managedErrorKind,
+                origin, managedSession, toolCallId, managedSequence, managedErrorKind, replay,
             )
         }
     }

@@ -199,6 +199,17 @@ The expired-container case requires an expired container ID in `KROOG_REPLAY_EXP
 
 Case names and their source and destination capability checks are in `ReplayHistories.kt`. Standard output records the case and actual route for each attempt.
 
+### OpenAI hosted shell live checks
+
+Run the opt-in hosted shell checks with a direct OpenAI API key in `OPENAI_API_KEY` or `OPEN_AI_API_TEST_KEY`. These tests call paid endpoints and create temporary provider containers. They verify automatic container creation, streamed shell output, file persistence, native history replay, a follow-up with execution disabled, file download integrity and container deletion. The Python Code Interpreter case provides a baseline using the same model.
+
+```shell
+KROOG_HOSTED_EXECUTION_LIVE=1 ./gradlew :integration-tests:jvmIntegrationTest --rerun \
+  --tests 'ai.koog.integration.tests.client.HostedExecutionLiveIntegrationTest*'
+```
+
+Timing output separates explicit container provisioning, the first streamed result, the complete cold response, a warm non-streamed response and file download. One sample per path is a functionality check, not a latency guarantee. Timeouts guard against hangs; elapsed time is not a correctness assertion. Missing credentials fail an explicitly enabled run. Tests delete observed test-owned containers in cleanup and report when provider failure prevents confirming deletion.
+
 ### Required API tokens for integration tests
 
 Integration tests that interact with LLM services require API tokens to be set as environment variables:

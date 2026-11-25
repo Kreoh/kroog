@@ -614,6 +614,54 @@ internal sealed interface Item {
         }
     }
 
+    @Serializable
+    class ShellCall(
+        val action: Action,
+        val callId: String,
+        val id: String? = null,
+        val environment: OpenAIShellCallEnvironment? = null,
+        val status: OpenAIInputStatus,
+    ) : Item {
+        val type: String = "shell_call"
+
+        @Serializable
+        class Action(
+            val commands: List<String>,
+            val timeoutMs: Int? = null,
+            val maxOutputLength: Int? = null,
+        )
+    }
+
+    @Serializable
+    class ShellCallOutput(
+        val callId: String,
+        val output: List<Output>,
+        val id: String? = null,
+        val maxOutputLength: Int? = null,
+        val status: OpenAIInputStatus? = null,
+    ) : Item {
+        val type: String = "shell_call_output"
+
+        @Serializable
+        class Output(
+            val stdout: String,
+            val stderr: String,
+            val outcome: Outcome,
+        )
+
+        @Serializable
+        @JsonClassDiscriminator("type")
+        sealed interface Outcome {
+            @Serializable
+            @SerialName("exit")
+            class Exit(val exitCode: Int) : Outcome
+
+            @Serializable
+            @SerialName("timeout")
+            data object Timeout : Outcome
+        }
+    }
+
     /**
      * A tool call to run a command on the local shell.
      * @property action Execute a shell command on the server.
@@ -1171,6 +1219,40 @@ internal sealed interface OpenAICodeInterpreterContainer {
 
 @Serializable
 @JsonClassDiscriminator("type")
+internal sealed interface OpenAIHostedShellEnvironment {
+    @Serializable
+    @SerialName("container_auto")
+    data class Auto(val fileIds: List<String>? = null) : OpenAIHostedShellEnvironment {
+        val networkPolicy: OpenAIShellNetworkPolicy = OpenAIShellNetworkPolicy.Disabled
+    }
+
+    @Serializable
+    @SerialName("container_reference")
+    data class Reference(val containerId: String) : OpenAIHostedShellEnvironment
+}
+
+@Serializable
+@JsonClassDiscriminator("type")
+internal sealed interface OpenAIShellNetworkPolicy {
+    @Serializable
+    @SerialName("disabled")
+    data object Disabled : OpenAIShellNetworkPolicy
+}
+
+@Serializable
+@JsonClassDiscriminator("type")
+internal sealed interface OpenAIShellCallEnvironment {
+    @Serializable
+    @SerialName("local")
+    data object Local : OpenAIShellCallEnvironment
+
+    @Serializable
+    @SerialName("container_reference")
+    data class Reference(val containerId: String) : OpenAIShellCallEnvironment
+}
+
+@Serializable
+@JsonClassDiscriminator("type")
 internal sealed interface OpenAIResponsesTool {
     /**
      * Defines a function in your own code the model can choose to call
@@ -1277,6 +1359,10 @@ internal sealed interface OpenAIResponsesTool {
     @Serializable
     @SerialName("code_interpreter")
     class CodeInterpreter(val container: OpenAICodeInterpreterContainer) : OpenAIResponsesTool
+
+    @Serializable
+    @SerialName("shell")
+    class HostedShell(val environment: OpenAIHostedShellEnvironment) : OpenAIResponsesTool
 
     /**
      * A tool that generates images using a model like `gpt-image-1`.
@@ -2274,6 +2360,56 @@ internal sealed interface OpenAIStreamEvent {
         val sequenceNumber: Int,
     ) : OpenAIStreamEvent
 
+    @Serializable
+    @SerialName("response.shell_call_command.added")
+    class ResponseShellCallCommandAdded(
+        val command: String,
+        val commandIndex: Int,
+        val outputIndex: Int,
+        val sequenceNumber: Int,
+    ) : OpenAIStreamEvent
+
+    @Serializable
+    @SerialName("response.shell_call_command.delta")
+    class ResponseShellCallCommandDelta(
+        val delta: String,
+        val commandIndex: Int,
+        val outputIndex: Int,
+        val sequenceNumber: Int,
+    ) : OpenAIStreamEvent
+
+    @Serializable
+    @SerialName("response.shell_call_command.done")
+    class ResponseShellCallCommandDone(
+        val command: String,
+        val commandIndex: Int,
+        val outputIndex: Int,
+        val sequenceNumber: Int,
+    ) : OpenAIStreamEvent
+
+    @Serializable
+    @SerialName("response.shell_call_output_content.delta")
+    class ResponseShellCallOutputContentDelta(
+        val delta: Delta,
+        val itemId: String,
+        val commandIndex: Int,
+        val outputIndex: Int,
+        val sequenceNumber: Int,
+    ) : OpenAIStreamEvent {
+        @Serializable
+        class Delta(val stdout: String? = null, val stderr: String? = null)
+    }
+
+    @Serializable
+    @SerialName("response.shell_call_output_content.done")
+    class ResponseShellCallOutputContentDone(
+        val output: List<Item.ShellCallOutput.Output>,
+        val itemId: String,
+        val commandIndex: Int,
+        val outputIndex: Int,
+        val sequenceNumber: Int,
+    ) : OpenAIStreamEvent
+
     /**
      * Emitted when an error occurs.
      * @property code The error code.
@@ -2371,6 +2507,8 @@ internal object ItemPolymorphicSerializer : JsonContentPolymorphicSerializer<Ite
                     "reasoning" -> Item.Reasoning.serializer()
                     "image_generation_call" -> Item.ImageGenerationCall.serializer()
                     "code_interpreter_call" -> Item.CodeInterpreterToolCall.serializer()
+                    "shell_call" -> Item.ShellCall.serializer()
+                    "shell_call_output" -> Item.ShellCallOutput.serializer()
                     "local_shell_call" -> Item.LocalShellCall.serializer()
                     "local_shell_call_output" -> Item.LocalShellCallOutput.serializer()
                     "mcp_list_tools" -> Item.McpListTools.serializer()
