@@ -61,6 +61,8 @@ import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.message.ResponseMetaInfo
 import ai.koog.prompt.message.isClientManagedExecutionPresentation
 import ai.koog.prompt.message.validateClientManagedExecutionPresentation
+import ai.koog.prompt.models.ModelCatalogue
+import ai.koog.prompt.models.ModelPublisher
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.provider.HostedExecutionAcceptance
 import ai.koog.prompt.provider.ProviderApi
@@ -732,8 +734,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         val codeContainerByItemId = mutableMapOf<String, String>()
         val shell = OpenAIHostedShellExecution(json, params.hostedShell)
         val completedShellItems = mutableSetOf<Int>()
+        val pendingShellProgress = mutableMapOf<String, MessagePart.HostedExecution.Progress>()
         val citationsByItemId = mutableMapOf<String, MutableList<MessagePart.GeneratedFileCitation>>()
         var providerEventSeen = false
+
+        fun MutableList<StreamFrame>.addShellRequest(item: Item.ShellCall, index: Int) {
+            add(StreamFrame.HostedExecutionUpdate(shell.request(item), index))
+            pendingShellProgress.remove(item.callId)?.let { progress ->
+                add(StreamFrame.HostedExecutionUpdate(progress, index))
+            }
+        }
 
         return httpClient.sse(
             path = settings.responsesAPIPath,
@@ -771,12 +781,10 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                                     toolCallsByItemId[itemId] = item
                                     drained += orderedFrames.resolve(itemId, item)
                                 }
-                                is Item.ShellCall -> add(
-                                    StreamFrame.HostedExecutionUpdate(
-                                        shell.started(item, event.sequenceNumber),
-                                        event.outputIndex,
-                                    )
-                                )
+                                is Item.ShellCall -> {
+                                    // The final item holds the full commands. Introduce the call before showing progress.
+                                    pendingShellProgress[item.callId] = shell.started(item, event.sequenceNumber)
+                                }
                                 is Item.CodeInterpreterToolCall -> {
                                     codeContainerByItemId[item.id] = item.containerId
                                     add(
@@ -923,7 +931,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
                                 is Item.ShellCall -> {
                                     if (completedShellItems.add(event.outputIndex)) {
-                                        add(StreamFrame.HostedExecutionUpdate(shell.request(item), event.outputIndex))
+                                        addShellRequest(item, event.outputIndex)
                                     }
                                 }
 
@@ -996,7 +1004,7 @@ public open class OpenAILLMClient @JvmOverloads constructor(
                             terminalResponse.output.forEachIndexed { index, item ->
                                 if (index !in completedShellItems) {
                                     when (item) {
-                                        is Item.ShellCall -> add(StreamFrame.HostedExecutionUpdate(shell.request(item), index))
+                                        is Item.ShellCall -> addShellRequest(item, index)
                                         is Item.ShellCallOutput -> add(StreamFrame.HostedExecutionUpdate(shell.result(item), index))
                                         else -> Unit
                                     }
@@ -1252,7 +1260,12 @@ public open class OpenAILLMClient @JvmOverloads constructor(
 
         val modelsById = OpenAIModels.modelsById()
 
-        return models.data.map { modelsById[it.id] ?: LLModel(provider = llmProvider(), id = it.id) }
+        return models.data.map { (id) ->
+            modelsById[id] ?: ModelCatalogue.find(id)
+                ?.takeIf { it.publisher == ModelPublisher.OPENAI }
+                ?.let { modelsById[it.id]?.copy(id = id) }
+                ?: LLModel(provider = llmProvider(), id = id)
+        }
     }
 
     private fun convertModerationResult(result: OpenAIModerationResult): ModerationResult {

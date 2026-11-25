@@ -18,6 +18,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
@@ -42,7 +43,7 @@ class OpenAIHostedShellTest {
         val requested = call()
         val returned = output()
         val frames = listOf(
-            itemEvent("added", 0, 1, call(status = "in_progress")),
+            itemEvent("added", 0, 1, call(status = "in_progress", commands = "[]")),
             """{"type":"response.shell_call_command.added","sequence_number":2,"output_index":0,"command_index":0,"command":""}""",
             """{"type":"response.shell_call_command.delta","sequence_number":3,"output_index":0,"command_index":0,"delta":"printf "}""",
             """{"type":"response.shell_call_command.done","sequence_number":4,"output_index":0,"command_index":0,"command":"printf shell-receipt"}""",
@@ -60,14 +61,15 @@ class OpenAIHostedShellTest {
             val stream = execution.toList()
             val updates = stream.filterIsInstance<StreamFrame.HostedExecutionUpdate>().map { it.update }
             assertEquals(updates, execution.toList().filterIsInstance<StreamFrame.HostedExecutionUpdate>().map { it.update })
-            val progress = assertIs<MessagePart.HostedExecution.Progress>(updates[0])
-            val request = assertIs<MessagePart.HostedExecution.Request>(updates[1])
-            val result = assertIs<MessagePart.HostedExecution.Result>(updates[2])
             assertEquals(3, updates.size)
+            val request = assertIs<MessagePart.HostedExecution.Request>(updates[0])
+            val progress = assertIs<MessagePart.HostedExecution.Progress>(updates[1])
+            val result = assertIs<MessagePart.HostedExecution.Result>(updates[2])
             assertEquals("printf shell-receipt\nprintf stderr-receipt >&2", request.code)
             assertEquals("bash", request.language)
             assertEquals("shell-receipt\nstderr-receipt", result.output)
             assertEquals(7, result.exitCode)
+            assertEquals(1, progress.sequence)
             assertEquals(request.executionId, progress.executionId)
             assertEquals(request.executionId, result.executionId)
             assertEquals("cntr_fixture", result.containerId)
@@ -95,6 +97,36 @@ class OpenAIHostedShellTest {
             val input = next.getValue("input").jsonArray
             assertEquals(Json.parseToJsonElement(requested), input[0])
             assertEquals(Json.parseToJsonElement(returned), input[1])
+        }
+    }
+
+    @Test
+    fun testIncompleteStreamReportsUnfinishedShellOutputAsAnErrorAndRejectsReplay() = runTest {
+        val unfinished = """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"in_progress","output":[]}"""
+        val terminal = response(call(), unfinished, status = "incomplete")
+        val events = listOf(
+            itemEvent("added", 0, 1, call(status = "in_progress", commands = "[]")),
+            """{"type":"response.incomplete","sequence_number":2,"response":$terminal}""",
+        )
+        val transport = ScriptedResponsesTransport(streamAttempts = ArrayDeque(listOf(events)))
+        OpenAILLMClient(OpenAIClientSettings(), transport).use { client ->
+            val initial = prompt(OpenAIHostedShellConfig())
+            val stream = client.executeStreaming(initial, model).toList()
+            assertIs<StreamFrame.End>(stream.last())
+            val history = stream.toMessageResponse()
+            assertEquals(3, history.parts.size)
+            val request = assertIs<MessagePart.HostedExecution.Request>(history.parts[0])
+            val progress = assertIs<MessagePart.HostedExecution.Progress>(history.parts[1])
+            val error = assertIs<MessagePart.HostedExecution.Error>(history.parts[2])
+            assertEquals(request.executionId, progress.executionId)
+            assertEquals(request.executionId, error.executionId)
+            assertEquals("incomplete", error.code)
+
+            val continuation = initial.copy(
+                messages = initial.messages + history + Message.User("Continue", RequestMetaInfo.Empty)
+            )
+            assertFailsWith<IllegalArgumentException> { client.execute(continuation, model) }
+            assertEquals(1, transport.requests.size)
         }
     }
 
@@ -251,23 +283,41 @@ class OpenAIHostedShellTest {
     }
 
     @Test
-    fun testHostedShellRequestsUseTheSelectedModelIdentifier() = runTest {
-        val models = listOf(
-            OpenAIModels.Chat.GPT5_2,
-            OpenAIModels.Chat.GPT5_2.copy(id = "gpt-5.2-2025-12-11"),
-            OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05"),
-            OpenAIModels.Chat.GPT5_4Mini.copy(id = "gpt-5.4-mini-2026-03-17"),
-            OpenAIModels.Chat.GPT5_4Nano.copy(id = "gpt-5.4-nano-2026-03-17"),
-            OpenAIModels.Chat.GPT5_5.copy(id = "gpt-5.5-2026-04-23"),
+    fun testDiscoveredHostedShellSnapshotsKeepTheirLimitsAndWireIdentifiers() = runTest {
+        val expected = mapOf(
+            "gpt-5.2" to OpenAIModels.Chat.GPT5_2,
+            "gpt-5.2-2025-12-11" to OpenAIModels.Chat.GPT5_2,
+            "gpt-5.4-2026-03-05" to OpenAIModels.Chat.GPT5_4,
+            "gpt-5.4-mini-2026-03-17" to OpenAIModels.Chat.GPT5_4Mini,
+            "gpt-5.4-nano-2026-03-17" to OpenAIModels.Chat.GPT5_4Nano,
+            "gpt-5.5-2026-04-23" to OpenAIModels.Chat.GPT5_5,
         )
-        val transport = Transport(models.map { Reply.json(response(ANSWER)) })
+        val unknown = "gpt-5.2-unlisted-snapshot"
+        val ids = expected.keys + unknown
+        val listing = ids.joinToString { """{"id":"$it","object":"model","created":1,"owned_by":"openai"}""" }
+        val transport = Transport(
+            listOf(Reply("""{"object":"list","data":[$listing]}""", path = "/v1/models")) +
+                expected.map { Reply.json(response(ANSWER)) },
+        )
         transport.client.use { client ->
-            for (selected in models) {
+            val discovered = client.models().associateBy { it.id }
+            assertEquals(ids, discovered.keys)
+            for ((id, canonical) in expected) {
+                val selected = discovered.getValue(id)
+                assertEquals(canonical.capabilities, selected.capabilities)
+                assertEquals(canonical.contextLength, selected.contextLength)
+                assertEquals(canonical.maxOutputTokens, selected.maxOutputTokens)
                 client.execute(prompt(OpenAIHostedShellConfig()), selected)
                 val request = transport.requests.last()
-                assertEquals(selected.id, request.getValue("model").jsonPrimitive.content)
+                assertEquals(id, request.getValue("model").jsonPrimitive.content)
                 assertEquals("container_auto", request.shellEnvironment().getValue("type").jsonPrimitive.content)
             }
+            val unlisted = discovered.getValue(unknown)
+            assertEquals(null, unlisted.capabilities)
+            assertFailsWith<OpenAIResponsesConfigurationException> {
+                client.execute(prompt(OpenAIHostedShellConfig()), unlisted)
+            }
+            assertEquals(expected.size, transport.requests.size)
         }
     }
 
@@ -330,6 +380,7 @@ class OpenAIHostedShellTest {
     private class Reply(
         val body: String,
         val status: HttpStatusCode = HttpStatusCode.OK,
+        val path: String = "/v1/responses",
     ) {
         companion object {
             fun json(body: String, status: HttpStatusCode = HttpStatusCode.OK) =
@@ -341,9 +392,14 @@ class OpenAIHostedShellTest {
         private val remaining = ArrayDeque(replies)
         val requests = mutableListOf<JsonObject>()
         private val engine = MockEngine { request ->
-            assertEquals("/v1/responses", request.url.encodedPath)
-            requests.add(Json.parseToJsonElement((request.body as TextContent).text).jsonObject)
             val reply = remaining.removeFirst()
+            assertEquals(reply.path, request.url.encodedPath)
+            if (reply.path == "/v1/models") {
+                assertEquals(HttpMethod.Get, request.method)
+            } else {
+                assertEquals(HttpMethod.Post, request.method)
+                requests.add(Json.parseToJsonElement((request.body as TextContent).text).jsonObject)
+            }
             respond(
                 content = reply.body,
                 status = reply.status,
@@ -362,14 +418,17 @@ class OpenAIHostedShellTest {
         const val ANSWER = """{"type":"message","id":"msg_fixture","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ready","annotations":[]}]}"""
         const val ANSWER_WITH_FILE = """{"type":"message","id":"msg_fixture","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ready","annotations":[{"type":"container_file_citation","container_id":"cntr_fixture","file_id":"cfile_receipt","filename":"receipt.txt","start_index":0,"end_index":5}]}]}"""
 
-        fun call(status: String = "completed") =
-            """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":["printf shell-receipt","printf stderr-receipt >&2"],"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"},"caller":{"type":"program","caller_id":"call_parent"},"created_by":"actor_call"}"""
+        fun call(
+            status: String = "completed",
+            commands: String = """["printf shell-receipt","printf stderr-receipt >&2"]""",
+        ) =
+            """{"type":"shell_call","id":"shell_tool_item","call_id":"call_fixture","status":"$status","action":{"commands":$commands,"timeout_ms":1000,"max_output_length":64},"environment":{"type":"container_reference","container_id":"cntr_fixture"},"caller":{"type":"program","caller_id":"call_parent"},"created_by":"actor_call"}"""
 
         fun output(outcome: String = """{"type":"exit","exit_code":7}""") =
             """{"type":"shell_call_output","id":"shell_output_item","call_id":"call_fixture","status":"completed","max_output_length":64,"output":[{"stdout":"shell-receipt","stderr":"stderr-receipt","outcome":$outcome,"created_by":"actor_entry"}],"caller":{"type":"direct"},"created_by":"actor_output"}"""
 
-        fun response(vararg items: String) =
-            """{"id":"resp_fixture","object":"response","model":"${model.id}","created_at":0,"status":"completed","parallel_tool_calls":false,"output":[${items.joinToString(",")}],"text":{"format":{"type":"text"}}}"""
+        fun response(vararg items: String, status: String = "completed") =
+            """{"id":"resp_fixture","object":"response","model":"${model.id}","created_at":0,"status":"$status","parallel_tool_calls":false,"output":[${items.joinToString(",")}],"text":{"format":{"type":"text"}}}"""
 
         fun itemEvent(state: String, index: Int, sequence: Int, item: String) =
             """{"type":"response.output_item.$state","output_index":$index,"sequence_number":$sequence,"item":$item}"""

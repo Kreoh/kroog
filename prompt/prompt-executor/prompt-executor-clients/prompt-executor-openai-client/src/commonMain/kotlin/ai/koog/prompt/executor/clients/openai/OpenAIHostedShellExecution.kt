@@ -45,6 +45,7 @@ internal class OpenAIHostedShellExecution(
         val output = item.output.flatMap { entry -> listOf(entry.stdout, entry.stderr) }
             .filter(String::isNotEmpty).joinToString("\n").takeIf(String::isNotEmpty)
         val failure = when {
+            item.status == OpenAIInputStatus.IN_PROGRESS -> "incomplete"
             item.output.any { it.outcome == Item.ShellCallOutput.Outcome.Timeout } -> "timeout"
             item.status == OpenAIInputStatus.INCOMPLETE -> "incomplete"
             else -> null
@@ -119,6 +120,9 @@ internal class OpenAIHostedShellReplay(private val json: Json) {
                 pendingCalls[item.callId] = part
             }
             is Item.ShellCallOutput -> {
+                require(item.status != OpenAIInputStatus.IN_PROGRESS) {
+                    "OpenAI shell replay requires finished output items"
+                }
                 require(
                     (part is MessagePart.HostedExecution.Result || part is MessagePart.HostedExecution.Error) &&
                         part.matches(item.callId, item.id)
