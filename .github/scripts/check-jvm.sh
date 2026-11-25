@@ -12,6 +12,6 @@ while read -r kind project extra; do
   esac
 done < gradle/kroog-jvm-publications.txt
 [[ ${#tasks[@]} -gt 0 ]]
-tasks+=(":integration-tests:jvmTest")
+tasks+=(":integration-tests:jvmTest" ":skills-api-consumer-test:compileKotlin")
 ./gradlew "${tasks[@]}" --init-script gradle/kroog-ci.init.gradle --max-workers=2 --no-daemon \
   -Pkotlin.compiler.execution.strategy=in-process "$@"
