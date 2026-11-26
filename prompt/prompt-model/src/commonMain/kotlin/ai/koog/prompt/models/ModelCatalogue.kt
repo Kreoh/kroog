@@ -222,6 +222,16 @@ public object ModelCatalogue {
             input = 922_000,
             providerApis = openAiAzureCodex,
         ),
+        // https://developers.openai.com/api/docs/models/gpt-5.5-pro
+        // Input limit: https://github.com/anomalyco/models.dev/blob/dev/providers/openai/models/gpt-5.5-pro.toml
+        openAiReasoning(
+            id = "gpt-5.5-pro",
+            aliases = setOf("gpt-5.5-pro-2026-04-23"),
+            efforts = extendedReasoning - setOf("none", "low"),
+            temperature = TemperatureSupport(1.0, 1.0, omittedProviderApis = setOf(ProviderApi.OPENAI_RESPONSES)),
+            input = 922_000,
+            providerApis = setOf(ProviderApi.OPENAI_RESPONSES),
+        ).copy(supportedMimeTypes = multimodalMimeTypes),
         openAiReasoning(
             id = "gpt-5.6-sol",
             efforts = frontierReasoning,
@@ -544,6 +554,7 @@ public object ModelCatalogue {
         "gpt-5.4-mini",
         "gpt-5.4-nano",
         "gpt-5.5",
+        "gpt-5.5-pro",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",

@@ -170,6 +170,8 @@ and retain the catalogue capability list. Canonical model IDs are recognised ind
 reconstructing an alias from serialised metadata loses its family identity because GPT-5.5 and GPT-5.6 share
 capability values and token limits.
 
+For direct OpenAI Chat Completions and Responses, GPT-5.2 and GPT-5.4 accept temperature, `top_p` and output log probabilities with reasoning effort `NONE`. Kroog omits those settings at higher efforts. GPT-5.5 defaults to `MEDIUM`, so set `NONE` to send a temperature. These rules also apply to the registered dated snapshots. See the [OpenAI parameter compatibility guide](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.4) and [GPT-5.5 model reference](https://developers.openai.com/api/docs/models/gpt-5.5).
+
 ### API Endpoints Support
 
 The client now supports both OpenAI API endpoints:
@@ -352,6 +354,8 @@ Setup uses the unified multipart [call endpoint](https://developers.openai.com/a
 ### Hosted shell execution
 
 Use `OpenAIResponsesParams().withHostedShell(OpenAIHostedShellConfig())` to enable shell execution in an OpenAI-managed container. This implementation supports direct OpenAI Responses only. `ModelCatalogue.supportsHostedShell(modelId, ProviderApi.OPENAI_RESPONSES)` and `ProviderCapabilityMatrix.acceptHostedShell` expose the verified model support independently of the existing Code Interpreter capability. Unsupported models and routes fail before the request is sent. Local shell execution is not enabled by this option.
+
+Use `execute` for hosted shell requests with GPT-5.5 Pro, including the `gpt-5.5-pro-2026-04-23` snapshot. OpenAI supports non-streaming Responses requests for this model. See the [GPT-5.5 Pro model page](https://developers.openai.com/api/docs/models/gpt-5.5-pro).
 
 ```kotlin
 val params = OpenAIResponsesParams(maxToolCalls = 2).withHostedShell(

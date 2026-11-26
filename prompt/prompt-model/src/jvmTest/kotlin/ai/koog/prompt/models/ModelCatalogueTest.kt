@@ -34,8 +34,44 @@ class ModelCatalogueTest {
     @Test
     fun testCatalogueContainsEveryExpectedSemanticId() {
         assertEquals(expectedIds, ModelCatalogue.entries.map { it.id }.toSet())
-        assertEquals(57, ModelCatalogue.entries.size)
+        assertEquals(58, ModelCatalogue.entries.size)
         assertTrue(ModelCatalogue.validate(ModelCatalogue.entries).isEmpty())
+    }
+
+    @Test
+    fun testGpt55ProProfileAndSnapshotAreAvailableForDirectResponses() {
+        val api = ProviderApi.OPENAI_RESPONSES
+        val profile = assertNotNull(ModelCatalogue.find("gpt-5.5-pro", api))
+        assertEquals(profile, ModelCatalogue.find("gpt-5.5-pro-2026-04-23", api))
+        assertEquals(ModelPublisher.OPENAI, profile.publisher)
+        assertEquals(ModelKind.TEXT, profile.kind)
+        assertEquals(922_000, profile.maxInputTokens)
+        assertEquals(128_000, profile.maxOutputTokens)
+        assertEquals(
+            ReasoningSupport.Supported(
+                ReasoningMode.CATEGORICAL,
+                mapOf("medium" to 0.5, "high" to 0.9, "xhigh" to 1.0),
+            ),
+            profile.reasoning,
+        )
+        assertEquals(TemperatureSupport(1.0, 1.0, omittedProviderApis = setOf(api)), profile.temperature)
+        assertEquals(
+            setOf("text/plain", "image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"),
+            profile.supportedMimeTypes,
+        )
+        assertTrue(profile.structuredOutput)
+        assertTrue(profile.hostedExecution)
+        assertEquals(setOf(api), profile.providerApis)
+        assertEquals(ModelProviderApiCompatibility.Supported, profile.compatibility(api))
+        val unverifiedApis = listOf(
+            ProviderApi.AZURE_RESPONSES,
+            ProviderApi.CODEX_RESPONSES,
+            ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
+        )
+        for (unverifiedApi in unverifiedApis) {
+            assertEquals(ModelProviderApiCompatibility.Undeclared, profile.compatibility(unverifiedApi))
+            assertEquals(null, ModelCatalogue.find(profile.id, unverifiedApi))
+        }
     }
 
     @Test
@@ -46,8 +82,13 @@ class ModelCatalogueTest {
         assertEquals(922_000, astra.maxInputTokens)
         assertEquals(128_000, astra.maxOutputTokens)
         assertEquals(
-            setOf(ProviderApi.OPENAI_RESPONSES, ProviderApi.BEDROCK_CONVERSE,
-                ProviderApi.OPENAI_COMPATIBLE_RESPONSES, ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS, ProviderApi.CODEX_RESPONSES),
+            setOf(
+                ProviderApi.OPENAI_RESPONSES,
+                ProviderApi.BEDROCK_CONVERSE,
+                ProviderApi.OPENAI_COMPATIBLE_RESPONSES,
+                ProviderApi.OPENAI_COMPATIBLE_CHAT_COMPLETIONS,
+                ProviderApi.CODEX_RESPONSES
+            ),
             astra.providerApis,
         )
         assertEquals(
@@ -357,6 +398,7 @@ class ModelCatalogueTest {
             "gpt-5.4-mini",
             "gpt-5.4-nano",
             "gpt-5.5",
+            "gpt-5.5-pro",
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",

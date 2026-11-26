@@ -42,6 +42,51 @@ import kotlin.time.Instant
 class OpenAIChatCompletionLLMClientTest {
 
     @Test
+    fun testDiscoveredSnapshotFiltersChatSamplingAtHighEffort() = runTest {
+        val snapshot = "gpt-5.4-2026-03-05"
+        val engine = MockEngine { request ->
+            val body = when (request.url.encodedPath) {
+                "/v1/models" -> """{"object":"list","data":[{"id":"$snapshot","object":"model","created":1,"owned_by":"openai"}]}"""
+                "/v1/chat/completions" -> plainResponseBody
+                else -> error("Unexpected path ${request.url.encodedPath}")
+            }
+            respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        OpenAILLMClient(apiKey = key, httpClientFactory = KtorKoogHttpClient.Factory(HttpClient(engine))).use { client ->
+            val model = client.models().single()
+            val typed = OpenAIChatParams(
+                reasoningEffort = ReasoningEffort.HIGH,
+                temperature = 0.7,
+                logprobs = true,
+                topLogprobs = 3,
+            )
+            val raw = OpenAIChatParams(
+                additionalProperties = mapOf(
+                    "reasoning_effort" to JsonPrimitive("high"),
+                    "top_p" to JsonPrimitive(0.8),
+                ),
+            )
+            for (params in listOf(typed, raw, typed.copy(reasoningEffort = ReasoningEffort.NONE))) {
+                client.execute(Prompt.build("snapshot-chat", params) { user("Hello") }, model)
+            }
+        }
+
+        val (typedHigh, rawHigh, explicitNone) = engine.requestHistory.drop(1).map { request ->
+            assertEquals("/v1/chat/completions", request.url.encodedPath)
+            Json.parseToJsonElement((request.body as TextContent).text).jsonObject
+        }
+        for (request in listOf(typedHigh, rawHigh)) {
+            assertEquals(JsonPrimitive(snapshot), request["model"])
+            assertEquals(JsonPrimitive("high"), request["reasoning_effort"])
+            assertTrue(setOf("temperature", "top_p", "top_logprobs", "logprobs").none { it in request })
+        }
+        assertEquals(JsonPrimitive("none"), explicitNone["reasoning_effort"])
+        assertEquals(JsonPrimitive(0.7), explicitNone["temperature"])
+        assertEquals(JsonPrimitive(3), explicitNone["top_logprobs"])
+        assertEquals(JsonPrimitive(true), explicitNone["logprobs"])
+    }
+
+    @Test
     fun testEmptyToolsAreOmittedAndNamedToolSelectionIsPreserved() = runTest {
         val lookup = ToolDescriptor("lookup", "Look up the answer")
         val model = OpenAIModels.Chat.GPT4o.copy(id = "deepseek/deepseek-v4.1-flash-1017")

@@ -5,6 +5,7 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIResponsesParityTest.ScriptedResponsesTransport
 import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
+import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.message.CLIENT_MANAGED_EXECUTION_TOOL_NAME
 import ai.koog.prompt.message.ExecutionOrigin
 import ai.koog.prompt.message.ManagedExecutionSessionReference
@@ -37,6 +38,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -413,6 +415,31 @@ class OpenAIHostedShellTest {
                 client.execute(prompt(OpenAIHostedShellConfig()), unlisted)
             }
             assertEquals(expected.size * efforts.size, transport.requests.size)
+        }
+    }
+
+    @Test
+    fun testGpt55ProAndItsDiscoveredSnapshotUseHostedShellThroughResponses() = runTest {
+        val canonical = OpenAIModels.Chat.GPT5_5Pro
+        val snapshotId = "gpt-5.5-pro-2026-04-23"
+        val modelEntry = """{"id":"$snapshotId","object":"model","created":1,"owned_by":"openai"}"""
+        val listing = """{"object":"list","data":[$modelEntry]}"""
+        val shellReply = Reply.json(response(call(), output()))
+        val transport = Transport(listOf(Reply(listing, path = "/v1/models"), shellReply, shellReply))
+        transport.client.use { client ->
+            val snapshot = client.models().single()
+            assertEquals(canonical.copy(id = snapshotId), snapshot)
+            assertTrue(snapshot.supports(LLMCapability.OpenAIEndpoint.Responses))
+            assertFalse(snapshot.supports(LLMCapability.OpenAIEndpoint.Completions))
+
+            for (selected in listOf(canonical, snapshot)) {
+                val result = client.execute(prompt(OpenAIHostedShellConfig()), selected)
+                val output = result.parts.filterIsInstance<MessagePart.HostedExecution.Result>().single()
+                assertEquals("cntr_fixture", output.containerId)
+                val request = transport.requests.last()
+                assertEquals(selected.id, request.getValue("model").jsonPrimitive.content)
+                assertEquals("container_auto", request.shellEnvironment().getValue("type").jsonPrimitive.content)
+            }
         }
     }
 

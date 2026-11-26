@@ -19,6 +19,8 @@ It is Kreoh's fork of [Koog](https://github.com/JetBrains/koog), based on Koog 1
 
 Kroog also provides prompt cache policies, separate cache-read and cache-write token counts, batch embeddings and reusable skills with immutable reference files. See the [skills guide](skills/README.md) for loading skills and configuring trusted filesystem sources.
 
+Revision 9 adds shell execution in OpenAI-managed containers through direct OpenAI Responses, with streamed results and replay of completed shell calls. See the [hosted shell guide](prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/Module.md#hosted-shell-execution) and [revision 9 release notes](CHANGELOG.md#kroog-130-kroog9).
+
 Revision 8 preserves reusable prompt prefixes across OpenAI Responses turns and supports explicit cache lifetimes and breakpoints on tool results. See the [revision 8 release notes](CHANGELOG.md#kroog-130-kroog8).
 
 Revision 7 adds five models, exposes streaming token budgets in the catalogue and upgrades the SQL modules to Exposed 1.6.0. See the [release notes and SQL migration instructions](CHANGELOG.md#kroog-130-kroog7).
@@ -119,15 +121,16 @@ Kroog supports OpenAI, Anthropic, Google, Amazon Bedrock, Azure OpenAI, DeepSeek
 | Model family | Integration |
 | --- | --- |
 | OpenAI GPT-6 Astra, Sol and Luna; GPT-6.1 Sol and Terra, GPT-6.2 Astra and Sol | OpenAI Responses. GPT-6.1 Terra and both GPT-6.2 models also support Azure Responses. Selected models additionally use Bedrock and compatible APIs |
+| OpenAI GPT-5.2, GPT-5.4, GPT-5.4 mini and nano, GPT-5.5 and GPT-5.5 Pro | Direct OpenAI Responses supports hosted shell on these models and their registered snapshots. GPT-5.5 Pro supports non-streaming requests |
 | OpenAI Codex models | Codex Responses with an explicitly selected account |
 | Anthropic Claude Opus 5.5, Sonnet 5.5 and Fable 5.2 | Anthropic Messages, Vertex AI and Bedrock |
 | Google Gemini 3.8 Flash and Gemini 4 Argon, Carbon and Hydrogen | Google client with Vertex AI support |
 | DeepSeek | DeepSeek client and compatible APIs |
 | Other hosted and local models | OpenRouter, Ollama and provider-specific clients |
 
-The model table reflects the revision 8 provider definitions and catalogue as of 18 November 2026. The incorporated upstream baseline remains Koog 1.3.0; see the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
+The model table reflects the revision 9 provider definitions and catalogue as of 25 November 2026. The incorporated upstream baseline remains Koog 1.3.0. See the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
 
-Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
+Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. Check shell support with `ModelCatalogue.supportsHostedShell(id, api)`. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
 
 Use `ProviderApi.ANTHROPIC_MESSAGES` for direct Fable 5.2 requests. For Carbon and Hydrogen, use `VERTEX_GEMINI_GENERATE_CONTENT`. Direct Gemini GenerateContent support for these two models is pending verification. Call `forStreaming()` on the route profile for streaming token budgets and schema support.
 

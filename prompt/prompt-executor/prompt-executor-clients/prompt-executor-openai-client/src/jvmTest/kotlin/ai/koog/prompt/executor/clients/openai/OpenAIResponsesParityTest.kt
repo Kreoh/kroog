@@ -7,6 +7,7 @@ import ai.koog.prompt.Prompt
 import ai.koog.prompt.executor.clients.ImageInputException
 import ai.koog.prompt.executor.clients.LLMClientException
 import ai.koog.prompt.executor.clients.openai.azure.AzureOpenAIClientSettings
+import ai.koog.prompt.executor.clients.openai.base.models.ReasoningEffort
 import ai.koog.prompt.executor.clients.openai.models.Item
 import ai.koog.prompt.executor.clients.openai.models.OpenAIAnnotations
 import ai.koog.prompt.executor.clients.openai.models.OpenAIInclude
@@ -15,6 +16,7 @@ import ai.koog.prompt.executor.clients.openai.models.OpenAIResponsesAPIResponse
 import ai.koog.prompt.executor.clients.openai.models.OpenAIStreamEvent
 import ai.koog.prompt.executor.clients.openai.models.OpenAITextConfig
 import ai.koog.prompt.executor.clients.openai.models.OutputContent
+import ai.koog.prompt.executor.clients.openai.models.ReasoningConfig
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import ai.koog.prompt.message.Message
@@ -34,6 +36,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -73,6 +77,88 @@ internal fun expectedParallelLookupResults(firstCallFailed: Boolean): List<Pair<
     }
 
 class OpenAIResponsesParityTest {
+    @Test
+    fun testSnapshotSamplingUsesModelSpecificDefaultEffort() = runTest {
+        val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(List(3) { response() }))
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val gpt54 = OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05")
+        val gpt55 = OpenAIModels.Chat.GPT5_5.copy(id = "gpt-5.5-2026-04-23")
+        val defaults = OpenAIResponsesParams(temperature = 0.7)
+        val none = OpenAIResponsesParams(temperature = 0.7, reasoning = ReasoningConfig(effort = ReasoningEffort.NONE))
+
+        client.execute(Prompt.build("gpt-5.4-default", defaults) { user("Hello") }, gpt54)
+        client.execute(Prompt.build("gpt-5.5-default", defaults) { user("Hello") }, gpt55)
+        client.execute(Prompt.build("gpt-5.5-none", none) { user("Hello") }, gpt55)
+
+        val (default54, default55, explicitNone) = transport.requests.map { Json.parseToJsonElement(it).jsonObject }
+        assertEquals(0.7, default54.getValue("temperature").jsonPrimitive.double)
+        assertTrue("temperature" !in default55)
+        assertTrue("reasoning" !in default54)
+        assertTrue("reasoning" !in default55)
+        assertEquals(0.7, explicitNone.getValue("temperature").jsonPrimitive.double)
+    }
+
+    @Test
+    fun testProSnapshotOmitsTemperatureWithDefaultEffort() = runTest {
+        val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(listOf(response())))
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        val model = OpenAIModels.Chat.GPT5_5Pro.copy(id = "gpt-5.5-pro-2026-04-23")
+        val params = OpenAIResponsesParams(additionalProperties = mapOf("temperature" to JsonPrimitive(0.7)))
+
+        client.execute(Prompt.build("pro-snapshot-default", params) { user("Hello") }, model)
+
+        val request = Json.parseToJsonElement(transport.requests.single()).jsonObject
+        assertEquals(model.id, request.getValue("model").jsonPrimitive.content)
+        assertTrue("temperature" !in request)
+        assertTrue("reasoning" !in request)
+    }
+
+    @Test
+    fun testSnapshotResponsesFiltersTypedAndAdditionalSamplingFields() = runTest {
+        val models = listOf(
+            OpenAIModels.Chat.GPT5_4.copy(id = "gpt-5.4-2026-03-05"),
+            OpenAIModels.Chat.GPT5_2.copy(id = "gpt-5.2-2025-12-11"),
+        )
+        val typed = OpenAIResponsesParams(
+            topP = 0.8,
+            topLogprobs = 3,
+            logprobs = true,
+            include = listOf(OpenAIInclude.OUTPUT_TEXT_LOGPROBS, OpenAIInclude.REASONING_ENCRYPTED_CONTENT),
+            reasoning = ReasoningConfig(effort = ReasoningEffort.HIGH),
+        )
+        val raw = OpenAIResponsesParams(
+            additionalProperties = Json.parseToJsonElement(
+                """{"reasoning":{"effort":"high"},"temperature":0.7,"top_p":0.8,"top_logprobs":3,"logprobs":true,
+                    "include":["message.output_text.logprobs","reasoning.encrypted_content"]}"""
+            ).jsonObject,
+        )
+        val none = typed.copy(reasoning = ReasoningConfig(effort = ReasoningEffort.NONE))
+        val params = listOf(typed, raw, none)
+        val transport = ScriptedResponsesTransport(postResponses = ArrayDeque(List(models.size * params.size) { response() }))
+        val client = OpenAILLMClient(OpenAIClientSettings(), transport)
+        for (model in models) {
+            for (settings in params) {
+                client.execute(Prompt.build("snapshot-sampling", settings) { user("Hello") }, model)
+            }
+        }
+
+        for ((index, requests) in transport.requests.chunked(params.size).withIndex()) {
+            val (typedHigh, rawHigh, explicitNone) = requests.map { Json.parseToJsonElement(it).jsonObject }
+            for (request in listOf(typedHigh, rawHigh)) {
+                assertEquals(models[index].id, request.getValue("model").jsonPrimitive.content)
+                assertEquals("high", request.getValue("reasoning").jsonObject.getValue("effort").jsonPrimitive.content)
+                assertTrue(setOf("temperature", "top_p", "top_logprobs", "logprobs").none { it in request })
+                assertEquals(listOf("reasoning.encrypted_content"), request.getValue("include").jsonArray.map { it.jsonPrimitive.content })
+            }
+            assertEquals(JsonPrimitive(0.8), explicitNone["top_p"])
+            assertEquals(JsonPrimitive(3), explicitNone["top_logprobs"])
+            assertEquals(
+                listOf("message.output_text.logprobs", "reasoning.encrypted_content"),
+                explicitNone.getValue("include").jsonArray.map { it.jsonPrimitive.content },
+            )
+        }
+    }
+
     @Test
     fun testProviderFailuresPreserveDetailsAndDrainPartialOutput() = runTest {
         val error = OpenAIResponsesAPIResponse.ResponseError("server_error", "Provider could not finish")

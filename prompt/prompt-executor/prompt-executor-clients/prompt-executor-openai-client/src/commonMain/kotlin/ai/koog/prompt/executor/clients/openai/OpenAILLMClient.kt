@@ -90,7 +90,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
@@ -531,41 +530,47 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         responses: Boolean,
     ): String {
         val gpt6 = model.isGpt6()
-        val temperatureEfforts = if (responses && !gpt6) model.responsesTemperatureEfforts() else null
-        if (!gpt6 && temperatureEfforts == null) return json.encodeToString(serializer, value)
+        val responsesApi = if (responses) responsesSamplingApi() else null
+        val profile = when {
+            gpt6 -> null
+            responsesApi != null -> ModelCatalogue.find(model.id, responsesApi)
+            !responses && settings.responsesDialect == OpenAIResponsesDialect.OpenAI -> ModelCatalogue.find(model.id)
+            else -> null
+        }?.takeIf { it.publisher == ModelPublisher.OPENAI }
+        val temperatureEfforts = profile?.temperature?.allowedReasoningEfforts
+        val omitTemperature = responsesApi in profile?.temperature?.omittedProviderApis.orEmpty()
+        if (!gpt6 && !omitTemperature && temperatureEfforts == null) return json.encodeToString(serializer, value)
 
         val request = json.encodeToJsonElement(serializer, value).jsonObject
-        val compatible = if (temperatureEfforts != null) {
-            val reasoning = request["reasoning"] as? JsonObject
-            val effort = (reasoning?.get("effort") as? JsonPrimitive)?.contentOrNull
-            if (effort != null && effort !in temperatureEfforts && "temperature" in request) {
-                JsonObject(request - "temperature")
-            } else {
-                request
-            }
-        } else {
-            normaliseGpt6Request(request, model, responses)
+        val semanticId = profile?.id
+        val effort = request.reasoningEffort(responses) ?: defaultSamplingEfforts[semanticId]
+        val restrictSampling = effort != null && temperatureEfforts != null && effort !in temperatureEfforts
+        val compatible = when {
+            gpt6 -> normaliseGpt6Request(request, model, responses, effort)
+            restrictSampling && semanticId in conditionalSamplingModels -> request.withoutSamplingParameters(responses)
+            omitTemperature || restrictSampling -> JsonObject(request - "temperature")
+            else -> request
         }
         return json.encodeToString(JsonObject.serializer(), compatible)
     }
 
-    private fun LLModel.responsesTemperatureEfforts(): Set<String>? {
-        val api = when (settings.responsesDialect) {
-            OpenAIResponsesDialect.OpenAI -> ProviderApi.OPENAI_RESPONSES
-            OpenAIResponsesDialect.Azure -> ProviderApi.AZURE_RESPONSES
-            OpenAIResponsesDialect.Compatible -> return null
-        }
-        return ModelCatalogue.find(id, api)
-            ?.takeIf { it.publisher == ModelPublisher.OPENAI }
-            ?.temperature?.allowedReasoningEfforts
+    private fun responsesSamplingApi(): ProviderApi? = when (settings.responsesDialect) {
+        OpenAIResponsesDialect.OpenAI -> ProviderApi.OPENAI_RESPONSES
+        OpenAIResponsesDialect.Azure -> ProviderApi.AZURE_RESPONSES
+        OpenAIResponsesDialect.Compatible -> null
     }
 
-    private fun normaliseGpt6Request(request: JsonObject, model: LLModel, responses: Boolean): JsonObject {
-        val effort = if (responses) {
-            request["reasoning"]?.jsonObject?.get("effort")?.jsonPrimitive?.contentOrNull
-        } else {
-            request["reasoning_effort"]?.jsonPrimitive?.contentOrNull
-        }
+    private fun JsonObject.reasoningEffort(responses: Boolean): String? {
+        val effort = if (responses) (get("reasoning") as? JsonObject)?.get("effort") else get("reasoning_effort")
+        return (effort as? JsonPrimitive)?.contentOrNull
+    }
+
+    private fun normaliseGpt6Request(
+        request: JsonObject,
+        model: LLModel,
+        responses: Boolean,
+        effort: String?,
+    ): JsonObject {
         require(
             effort == null ||
                 effort in setOf("low", "medium", "high", "xhigh", "max") ||
@@ -590,13 +595,16 @@ public open class OpenAILLMClient @JvmOverloads constructor(
             ) { "GPT-6 tool calling with reasoning requires Responses. Use OpenAIResponsesParams. GPT-6 Sol and Luna also allow Chat with effort none." }
         }
         if (!model.isGpt6ReasoningOnly() && effort == "none") return request
-        val compatible = request.toMutableMap()
-        setOf("temperature", "top_p", "top_logprobs", "logprobs").forEach { compatible.remove(it) }
+        return request.withoutSamplingParameters(responses)
+    }
+
+    private fun JsonObject.withoutSamplingParameters(responses: Boolean): JsonObject {
+        val compatible = toMutableMap()
+        compatible.keys.removeAll(samplingParameters)
         if (responses) {
-            request["include"]?.jsonArray?.let { includes ->
-                compatible["include"] = buildJsonArray {
-                    includes.filterNot { it.jsonPrimitive.content == "message.output_text.logprobs" }.forEach { add(it) }
-                }
+            (get("include") as? JsonArray)?.let { includes ->
+                compatible["include"] =
+                    JsonArray(includes.filterNot { (it as? JsonPrimitive)?.contentOrNull == "message.output_text.logprobs" })
             }
         }
         return JsonObject(compatible)
@@ -624,6 +632,19 @@ public open class OpenAILLMClient @JvmOverloads constructor(
     private companion object {
         private const val OPENAI_CLIENT_NAME = "OpenAILLMClient"
         private const val OPENAI_PROMPT_CACHE_KEY_PROPERTY = "prompt_cache_key"
+        private val samplingParameters = setOf("temperature", "top_p", "top_logprobs", "logprobs")
+
+        // https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.4
+        private val conditionalSamplingModels = setOf("gpt-5.2", "gpt-5.4")
+
+        // The model pages document defaults for the canonical models and their snapshots.
+        private val defaultSamplingEfforts = mapOf(
+            "gpt-5.2" to "none",
+            "gpt-5.4" to "none",
+            "gpt-5.4-mini" to "none",
+            "gpt-5.4-nano" to "none",
+            "gpt-5.5" to "medium",
+        )
         private val staticLogger = KotlinLogging.logger { }
         private val defaultOpenAIJson = kotlinx.serialization.json.Json {
             ignoreUnknownKeys = true

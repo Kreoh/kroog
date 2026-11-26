@@ -919,9 +919,7 @@ public object OpenAIModels : LLModelDefinitions {
 
         /**
          * GPT-5.5 pro uses more compute to think harder and provide consistently better answers.
-         * OpenAI's model page text says GPT-5.5 pro is for Responses API requests, while the endpoint table
-         * on the same page also lists chat completions. Koog follows the textual model description and
-         * treats GPT-5.5 pro as Responses-only.
+         * Supports non-streaming Responses requests with medium, high (default) and xhigh reasoning.
          *
          * 1,050,000 context window
          * 128,000 max output tokens

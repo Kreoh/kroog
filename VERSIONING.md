@@ -19,7 +19,7 @@ on that upstream baseline.
    Record additional features, fixes and any compatibility changes.
 
 The current source incorporates Koog `1.3.0`, so its configured preparation version is
-`1.3.0-kroog.8`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
+`1.3.0-kroog.9`. Keeping `1.1.1` as the base after incorporating Koog `1.3.0`
 is incorrect. A mismatch between the incorporated upstream version and the
 configured Kroog base blocks release preparation.
 
@@ -35,7 +35,7 @@ The upstream semantic version supplies the base. Kroog's suffix is its fork
 release convention; it is a prerelease identifier under SemVer ordering.
 Do not describe a suffixed version as a plain SemVer final release.
 
-Revision 8 prepares the changes in the [release notes](CHANGELOG.md#kroog-130-kroog8). Revision 6 is published on Maven Central. Installation examples use the previously verified revision 2 consumer configuration.
+Revision 9 prepares the changes in the [release notes](CHANGELOG.md#kroog-130-kroog9). Revision 8 is published on Maven Central. Installation examples use the previously verified revision 2 consumer configuration.
 
 Tag the validated preparation commit before selecting **Squash and merge**. After the PR lands on `master`, dispatch the release workflow from `master` with the same annotated tag. See the [release procedure](PUBLISHING.md#release-preparation).
 
@@ -43,10 +43,10 @@ Tag the validated preparation commit before selecting **Squash and merge**. Afte
 
 | Publication | Current source version |
 | --- | --- |
-| Stable modules and annotated release tag | `1.3.0-kroog.8` |
-| Beta modules | `1.3.0-beta-kroog.8` |
-| Stable module snapshots | `1.3.0-kroog.8-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.8-SNAPSHOT` |
+| Stable modules and annotated release tag | `1.3.0-kroog.9` |
+| Beta modules | `1.3.0-beta-kroog.9` |
+| Stable module snapshots | `1.3.0-kroog.9-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.9-SNAPSHOT` |
 
 Beta versions are derived automatically. All modules share the same upstream
 base and Kroog revision. The stable umbrella is `koog-agents-jvm`; the beta

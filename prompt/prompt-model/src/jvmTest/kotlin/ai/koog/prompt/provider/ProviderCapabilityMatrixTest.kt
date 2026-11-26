@@ -178,6 +178,7 @@ class ProviderCapabilityMatrixTest {
             "gpt-5.4-mini" to "gpt-5.4-mini-2026-03-17",
             "gpt-5.4-nano" to "gpt-5.4-nano-2026-03-17",
             "gpt-5.5" to "gpt-5.5-2026-04-23",
+            "gpt-5.5-pro" to "gpt-5.5-pro-2026-04-23",
         )
         for ((id, snapshot) in snapshots) {
             val profile = assertNotNull(ModelCatalogue.find(id, api))
