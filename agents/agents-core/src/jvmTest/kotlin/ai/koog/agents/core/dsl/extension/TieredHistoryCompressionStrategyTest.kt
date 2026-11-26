@@ -40,8 +40,10 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -904,7 +906,16 @@ class TieredHistoryCompressionStrategyTest {
                 RecordingPromptExecutor {
                     requests += 1
                     if (requests > 1 && cancel) throw CancellationException("cancel")
-                    assistant(if (requests > 1) "" else "Summary", 10).copy(finishReason = "content_filtered")
+                    val response = assistant(if (requests > 1) "" else "Summary", 10)
+                    response.copy(
+                        metaInfo = response.metaInfo.copy(
+                            outputTokensCount = 0,
+                            metadata = buildJsonObject {
+                                put("responseStatus", "incomplete")
+                                put("incompleteReason", "content_filter")
+                            },
+                        ),
+                    )
                 }
             )
             val original = context.readSession { prompt }
@@ -916,7 +927,11 @@ class TieredHistoryCompressionStrategyTest {
                 val failure = assertFailsWith<IllegalStateException> {
                     context.writeSession { HistoryCompressionStrategy.Budgeted(3, 3000, characterTokenizer()).compress(this, emptyList()) }
                 }
-                assertTrue(failure.message.orEmpty().contains("finishReason=content_filtered"))
+                assertEquals(
+                    "History compression returned an empty text summary (finishReason=null, outputTokens=0, " +
+                        "responseStatus=incomplete, incompleteReason=content_filter)",
+                    failure.message,
+                )
             }
             assertEquals(original, context.readSession { prompt })
         }

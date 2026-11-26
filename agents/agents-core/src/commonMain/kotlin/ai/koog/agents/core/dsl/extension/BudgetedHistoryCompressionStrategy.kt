@@ -8,6 +8,7 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.message.RequestMetaInfo
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.tokenizer.PromptTokenizer
+import kotlinx.serialization.json.JsonPrimitive
 
 internal class BudgetedHistoryCompressionStrategy(
     private val preserveRecentTurns: Int,
@@ -52,8 +53,15 @@ internal class BudgetedHistoryCompressionStrategy(
                 val response = llmSession.requestLLMWithoutTools()
                 val text = response.textContent().removeHandoverFrame()
                 check(text.isNotBlank()) {
-                    "History compression returned an empty text summary " +
-                        "(finishReason=" + response.finishReason + ", outputTokens=" + response.metaInfo.outputTokensCount + ")"
+                    buildString {
+                        append("History compression returned an empty text summary (")
+                        append("finishReason=${response.finishReason}, outputTokens=${response.metaInfo.outputTokensCount}")
+                        val metadata = response.metaInfo.metadata
+                        for (key in listOf("responseStatus", "incompleteReason")) {
+                            (metadata?.get(key) as? JsonPrimitive)?.let { append(", $key=${it.content}") }
+                        }
+                        append(')')
+                    }
                 }
                 carry = Message.Assistant(content = HANDOVER_FRAME + text, metaInfo = response.metaInfo)
                 batch.clear()
