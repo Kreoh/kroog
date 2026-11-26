@@ -1,3 +1,13 @@
+# Kroog 1.3.0-kroog.9
+
+Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.9` and beta modules use `1.3.0-beta-kroog.9`.
+
+- Enable shell execution in OpenAI-managed containers with `OpenAIResponsesParams.withHostedShell` on supported direct OpenAI Responses models. Capture shell results during streaming, replay completed shell calls on follow-up turns and bypass the local response cache for requests with shell execution enabled. See the [hosted shell guide](prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/Module.md#hosted-shell-execution).
+- Look up direct Responses shell support with `ModelCatalogue.supportsHostedShell`. The catalogue recognises the dated snapshots of GPT-5.2, GPT-5.4, GPT-5.4 mini and nano, GPT-5.5 and GPT-5.5 Pro. GPT-5.5 Pro supports non-streaming Responses requests.
+- Apply sampling restrictions to both Responses and Chat Completions for recognised OpenAI snapshots. Requests use the model’s default reasoning effort when deciding which sampling fields to send.
+- Update streaming-start handlers that write to `context.llm.prompt` or open a write session. Assign the replacement request prompt to `LLMStreamingStartingContext.prompt`. The long-term memory feature uses this request-level hook for streaming retrieval.
+- Run pull request and `master` checks on the JVM, including binary compatibility checks against the published baseline and compilation of the standalone skills consumer. See the [JVM checks](TESTING.md#jvm-continuous-integration).
+
 # Kroog 1.3.0-kroog.8
 
 Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.8` and beta modules use `1.3.0-beta-kroog.8`.

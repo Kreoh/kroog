@@ -549,7 +549,7 @@ class OpenAILLMClientTest {
     }
 
     @Test
-    fun `GPT-5_6 deployment copy keeps wire id and model behaviour while older models remain unchanged`() {
+    fun testGpt56DeploymentKeepsWireIdAndClampsEffort() {
         val deployment = OpenAIModels.Chat.GPT5_6Terra.copy(id = "azure-terra-deployment")
         chatRequest(
             deployment,
@@ -559,15 +559,17 @@ class OpenAILLMClientTest {
             request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
             request.containsKey("temperature") shouldBe false
         }
+    }
 
-        chatRequest(
+    @Test
+    fun testGpt55ChatPreservesHighEffortAndOmitsTemperature() {
+        val request = chatRequest(
             OpenAIModels.Chat.GPT5_5,
             OpenAIChatParams(temperature = 0.4, reasoningEffort = ReasoningEffort.XHIGH),
-        ).let { request ->
-            request["model"]?.jsonPrimitive?.content shouldBe "gpt-5.5"
-            request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
-            request["temperature"]?.jsonPrimitive?.double shouldBe 0.4
-        }
+        )
+        request["model"]?.jsonPrimitive?.content shouldBe "gpt-5.5"
+        request["reasoning_effort"]?.jsonPrimitive?.content shouldBe "xhigh"
+        request.containsKey("temperature") shouldBe false
     }
 
     @Test
