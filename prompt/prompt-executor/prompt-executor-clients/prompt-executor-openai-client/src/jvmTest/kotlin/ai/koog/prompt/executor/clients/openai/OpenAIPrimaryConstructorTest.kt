@@ -92,6 +92,47 @@ class OpenAIPrimaryConstructorTest {
     }
 
     @Test
+    fun testIncompleteResponsesRetainStatusAndRecognisedReasonWithoutText() = runTest {
+        for ((reason, expected) in listOf("max_output_tokens" to "max_output_tokens", "unexpected detail" to "unknown")) {
+            val transport = CapturingKoogHttpClient(clientName = "CapturingResponsesClient") { responseType ->
+                when (responseType) {
+                    OpenAIResponsesAPIResponse::class -> OpenAIResponsesAPIResponse(
+                        created = 1716920005,
+                        id = "resp_reasoning_only",
+                        incompleteDetails = OpenAIResponsesAPIResponse.IncompleteDetails(reason),
+                        model = "gpt-4o",
+                        output = listOf(Item.Reasoning(id = "rs_1", summary = emptyList())),
+                        parallelToolCalls = false,
+                        status = OpenAIInputStatus.INCOMPLETE,
+                        text = OpenAITextConfig(),
+                        usage = OpenAIResponsesAPIResponse.Usage(inputTokens = 250, outputTokens = 0),
+                    )
+                    else -> error("Unexpected response type: $responseType")
+                }
+            }
+            val client = OpenAILLMClient(
+                settings = OpenAIClientSettings(baseUrl = "https://unused.test"),
+                httpClient = transport,
+            )
+
+            val response = client.execute(
+                prompt = Prompt(
+                    messages = listOf(Message.User("Summarise this conversation", RequestMetaInfo.Empty)),
+                    id = "reasoning-only",
+                    params = OpenAIResponsesParams(),
+                ),
+                model = OpenAIModels.Chat.GPT4o,
+            )
+
+            assertEquals("", response.textContent())
+            assertEquals(null, response.finishReason)
+            assertEquals(0, response.metaInfo.outputTokensCount)
+            assertEquals(JsonPrimitive("incomplete"), response.metaInfo.metadata?.get("responseStatus"))
+            assertEquals(JsonPrimitive(expected), response.metaInfo.metadata?.get("incompleteReason"))
+        }
+    }
+
+    @Test
     fun testMalformedManagedTranscriptFailsBeforeOpenAITransport() = runTest {
         val transport = CapturingKoogHttpClient(clientName = "UnusedOpenAIClient") {
             error("Transport must not be invoked")

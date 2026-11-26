@@ -90,6 +90,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.intOrNull
@@ -1769,7 +1770,17 @@ public open class OpenAILLMClient @JvmOverloads constructor(
         }
         require(response.output.isNotEmpty()) { "Empty output in response" }
 
-        val metaInfo = createResponsesMetaInfo(response.usage)
+        val responseStatus = response.status.name.lowercase()
+        val incompleteReason = when (val reason = response.incompleteDetails?.reason) {
+            null, "max_output_tokens", "max_messages", "content_filter", "steered" -> reason
+            else -> "unknown"
+        }
+        val metaInfo = createResponsesMetaInfo(response.usage).copy(
+            metadata = buildJsonObject {
+                put("responseStatus", responseStatus)
+                incompleteReason?.let { put("incompleteReason", it) }
+            },
+        )
 
         var finishReason: String? = null
 
