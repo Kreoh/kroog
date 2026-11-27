@@ -1,3 +1,10 @@
+# Kroog 1.3.0-kroog.10
+
+Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.10` and beta modules use `1.3.0-beta-kroog.10`.
+
+- Preserve response status and recognised incomplete reasons in OpenAI Responses metadata. When history compression receives an empty summary, include these details in the error. Unrecognised reasons appear as `unknown`.
+- Run Kotlin lint before the affected JVM tests in pull request and `master` checks. An opt-in pre-commit hook uses the same scripts on staged changes. The checks no longer compare JVM binaries with a published baseline. See the [JVM checks](TESTING.md#jvm-continuous-integration).
+
 # Kroog 1.3.0-kroog.9
 
 Based on Koog 1.3.0. Stable modules use `1.3.0-kroog.9` and beta modules use `1.3.0-beta-kroog.9`.

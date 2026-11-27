@@ -5,10 +5,7 @@ remain under `ai.koog` for compatibility with JetBrains Koog.
 
 The complete catalogue contains 69 Kotlin JVM publications and 18 pure-JVM
 Maven publications, 87 in total. `gradle/kroog-jvm-publications.txt` is the
-shared source of truth for snapshot and stable release workflows. The base
-stable version is `1.3.0-kroog.9`; modules which apply a beta version transform
-retain their module-specific version. Publication requires Ubuntu 24.04,
-Java 21, `--no-parallel` and `--no-daemon`.
+shared source of truth for snapshot and stable release workflows. The base stable version is `1.3.0-kroog.10`. Beta modules use the derived version below. Publication requires Ubuntu 24.04, Java 21, `--no-parallel` and `--no-daemon`.
 
 ## Kroog version numbering
 
@@ -39,20 +36,15 @@ examples on confirmed published coordinates until new artefacts are available
 from Central and dependency resolution has been verified.
 See `VERSIONING.md` for the policy and beta-module version forms.
 
-For the current release configured as `1.3.0-kroog.9`, the version forms are:
+| Purpose | Version or tag for `1.3.0-kroog.10` |
+| --- | --- |
+| Stable modules | `1.3.0-kroog.10` |
+| Beta modules, derived automatically | `1.3.0-beta-kroog.10` |
+| Stable module snapshots | `1.3.0-kroog.10-SNAPSHOT` |
+| Beta module snapshots | `1.3.0-beta-kroog.10-SNAPSHOT` |
+| Annotated release tag | `1.3.0-kroog.10` |
 
-| Purpose | Version or tag |
-|---------|----------------|
-| Stable modules | `1.3.0-kroog.9` |
-| Beta modules, derived automatically | `1.3.0-beta-kroog.9` |
-| Stable module snapshots | `1.3.0-kroog.9-SNAPSHOT` |
-| Beta module snapshots | `1.3.0-beta-kroog.9-SNAPSHOT` |
-| Annotated release tag | `1.3.0-kroog.9` |
-
-The release tag exactly matches the stable version, with no `v` prefix.
-Beta modules share that release tag; they do not need separate tags. These
-forms describe the configured release revision. Local preparation does not
-publish artefacts to Maven Central. See the [revision 9 release notes](CHANGELOG.md#kroog-130-kroog9). The preceding release tag is `1.3.0-kroog.8`. Installation examples use the previously verified revision 2 consumer configuration.
+The release tag exactly matches the stable version, with no `v` prefix. Beta modules share that release tag. The preceding release tag is `1.3.0-kroog.9`. Installation examples use the previously verified revision 2 consumer configuration. See the [revision 10 release notes](CHANGELOG.md#kroog-130-kroog10).
 
 ## Exact target closure
 
@@ -74,12 +66,7 @@ The snapshot workflow checks every required file and checksum. The release
 bundle requires exactly 87 coordinate entries and 1,392 files: four primary
 files per coordinate, each accompanied by a signature, MD5 and SHA-1 checksum.
 
-`com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local
-snapshot version is `1.3.0-beta-kroog.9-SNAPSHOT`, and its release version is
-`1.3.0-beta-kroog.9`. It remains excluded from the stable `koog-agents`
-umbrella and is included in the JVM publication of `koog-agents-additions`.
-Remote publication remains
-part of the normal release workflow.
+`com.kreoh.kroog:skills-jvm` is a standalone beta publication. Its local snapshot version is `1.3.0-beta-kroog.10-SNAPSHOT`, and its release version is `1.3.0-beta-kroog.10`. Of the two umbrella modules, only `koog-agents-additions` includes it. The release workflow handles remote publication.
 
 `prompt-executor-managed-execution-jvm` exports
 `aws.sdk.kotlin:bedrockagentcore-jvm:1.6.72` in its JVM POM. The Bedrock
