@@ -19,6 +19,8 @@ It is Kreoh's fork of [Koog](https://github.com/JetBrains/koog), based on Koog 1
 
 Kroog also provides prompt cache policies, separate cache-read and cache-write token counts, batch embeddings and reusable skills with immutable reference files. See the [skills guide](skills/README.md) for loading skills and configuring trusted filesystem sources.
 
+Revision 10 reports OpenAI Responses status and incomplete reasons when history compression receives an empty summary. See the [revision 10 release notes](CHANGELOG.md#kroog-130-kroog10).
+
 Revision 9 adds shell execution in OpenAI-managed containers through direct OpenAI Responses, with streamed results and replay of completed shell calls. See the [hosted shell guide](prompt/prompt-executor/prompt-executor-clients/prompt-executor-openai-client/Module.md#hosted-shell-execution) and [revision 9 release notes](CHANGELOG.md#kroog-130-kroog9).
 
 Revision 8 preserves reusable prompt prefixes across OpenAI Responses turns and supports explicit cache lifetimes and breakpoints on tool results. See the [revision 8 release notes](CHANGELOG.md#kroog-130-kroog8).
@@ -128,7 +130,7 @@ Kroog supports OpenAI, Anthropic, Google, Amazon Bedrock, Azure OpenAI, DeepSeek
 | DeepSeek | DeepSeek client and compatible APIs |
 | Other hosted and local models | OpenRouter, Ollama and provider-specific clients |
 
-The model table reflects the revision 9 provider definitions and catalogue as of 25 November 2026. The incorporated upstream baseline remains Koog 1.3.0. See the [pinned alignment audit](docs/upstream/koog-1.3.0-alignment.md).
+The model table applies to revision 10 and reflects the provider definitions and catalogue reviewed on 25 November 2026 for revision 9. See the [Koog 1.3.0 alignment audit](docs/upstream/koog-1.3.0-alignment.md).
 
 Use `ModelCatalogue.find(id, api)` to look up token limits, reasoning settings, sampling restrictions, supported MIME types, structured output and hosted execution for a specific model and API. Check shell support with `ModelCatalogue.supportsHostedShell(id, api)`. See the [model catalogue](prompt/prompt-model/src/commonMain/kotlin/ai/koog/prompt/models/ModelCatalogue.kt) for the complete list.
 
