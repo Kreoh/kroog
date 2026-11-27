@@ -40,12 +40,9 @@ koog/
 
 Kreoh currently builds, validates, publishes, and consumes Kroog for the JVM only. For Kreoh work:
 
-- Use module-specific JVM tasks and the JVM CI publication tasks.
+- Use affected JVM tests for ordinary changes. Use module-qualified JVM publication tasks when checking packaging changes or preparing release artefacts.
 - Never run the root `build` or `assemble` tasks.
-- Never run the aggregate `updateLegacyAbi` or `checkLegacyAbi` tasks. The current Kotlin Gradle plugin exposes no
-  JVM-only legacy ABI task for these multiplatform modules. Use `:checkKroogJvmAbi` with
-  `--init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=<published-version>` to compare stable JVM
-  publications with the published baseline. See `TESTING.md` for the current CI command.
+- Never run the aggregate `updateLegacyAbi` or `checkLegacyAbi` tasks for Kreoh work.
 - Never compile Android, JavaScript, Wasm, Native, or iOS targets.
 - Never regenerate or commit Android or KLIB ABI dumps unless the user explicitly requests cross-platform work.
 
@@ -297,8 +294,7 @@ export OPEN_ROUTER_API_TEST_KEY=your_key_here
 
 ### Code Quality
 
-- For Kreoh work, run the narrowest module-specific JVM tests, JVM ABI checks, and JVM CI publication tasks that cover
-  the change.
+- For Kreoh work, run the narrowest module-specific JVM tests that cover the change. The tagged release workflow builds the publication inventory.
 - Do not run root builds or compile non-JVM targets unless the user explicitly requests cross-platform work.
 - For explicitly requested upstream cross-platform work, run the applicable multiplatform tests and build checks.
 - Follow established patterns in existing code

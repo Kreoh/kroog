@@ -134,7 +134,9 @@ internal class BudgetedHistoryCompressionStrategy(
                 val retainedMemory = memory.filterNot { it in tail }
                 val savedPrefix = if (prefix.any { it.isUpdate() }) {
                     retainedMemory.filterNot { it in prefix } + prefix.filter { it.isUpdate() || it in retainedMemory }
-                } else retainedMemory
+                } else {
+                    retainedMemory
+                }
                 val result = system + savedPrefix + listOfNotNull(summary) + tail
                 val after = count(result)
                 if (after <= maxInputTokens) {

@@ -1,0 +1,122 @@
+import java.nio.file.Path
+import org.gradle.api.artifacts.ProjectDependency
+
+gradle.projectsEvaluated {
+    if (gradle.parent != null) return
+
+    def root = gradle.rootProject
+    def testTasks = [:]
+    root.subprojects.each { project ->
+        if (project.path == ':docs' || project.path.startsWith(':a2a:test-tck:')) return
+        def tasks = project.tasks.names
+        // Pure JVM modules can also register a jvmTest task; their tests run on the Java plugin's test task.
+        def multiplatform = project.pluginManager.hasPlugin('org.jetbrains.kotlin.multiplatform')
+        def task = !multiplatform && tasks.contains('test') ? 'test' : 'jvmTest'
+        if (tasks.contains(task)) testTasks[project.path] = task
+    }
+    testTasks[':skills-api-consumer-test'] = 'compileKotlin'
+    def conventions = gradle.includedBuilds.find { it.name == 'convention-plugin-ai' }
+
+    root.tasks.register('checkAllJvm') {
+        dependsOn(testTasks.collect { path, task -> "${path}:${task}".toString() })
+        if (conventions != null) dependsOn(conventions.task(':test'))
+    }
+    root.tasks.register('checkAffectedJvm') {
+        def manifest = root.file(root.providers.gradleProperty('kroogChangedFiles').get())
+        def directory = root.projectDir.toPath()
+        def changedPaths = manifest.getText('UTF-8').split('\u0000').findAll { it }.collect { name ->
+            def relative = Path.of(name).normalize()
+            if (relative.isAbsolute() || relative.startsWith('..')) {
+                throw new GradleException("Expected a repository-relative changed path: ${name}")
+            }
+            relative
+        }
+        def projectsByDirectory = root.subprojects.collectEntries { project ->
+            [(directory.relativize(project.projectDir.toPath())): project]
+        }.sort { entry -> -entry.key.nameCount }
+        def changedProduction = [] as Set
+        def affected = [] as Set
+        def sharedBuildFiles = ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts',
+                                'gradle.properties', 'gradlew', 'gradlew.bat']
+        def sharedBuildChanged = changedPaths.any { path ->
+            path.toString() in sharedBuildFiles || path.startsWith('gradle') ||
+                (path.startsWith('convention-plugin-ai') && !path.startsWith('convention-plugin-ai/src/test'))
+        }
+        def checkConventions = conventions != null &&
+            (sharedBuildChanged || changedPaths.any { it.startsWith('convention-plugin-ai/src/test') })
+
+        if (sharedBuildChanged) {
+            affected.addAll(testTasks.keySet())
+        } else {
+            changedPaths.each { path ->
+                if (path.startsWith('a2a/test-python-a2a-server')) {
+                    affected.add(':a2a:a2a-client')
+                    return
+                }
+                def owner = projectsByDirectory.find { projectDirectory, project ->
+                    path.startsWith(projectDirectory)
+                }
+                if (owner == null) return
+
+                def project = owner.value
+                def relative = owner.key.relativize(path)
+                if (relative.toString() in ['gradle.properties', project.buildFile.name]) {
+                    changedProduction.add(project.path)
+                } else if (relative.startsWith('src') && relative.nameCount > 2) {
+                    def sourceSet = relative.getName(1).toString()
+                    def compilations = project.pluginManager.hasPlugin('org.jetbrains.kotlin.multiplatform') ?
+                        project.extensions.getByName('kotlin').targets.findByName('jvm')?.compilations : null
+                    def mainSources = compilations == null ? ['main'] : compilations.getByName('main').allKotlinSourceSets*.name
+                    def testSources = compilations == null ? ['test'] : compilations.getByName('test').allKotlinSourceSets*.name
+                    if (sourceSet in mainSources) changedProduction.add(project.path)
+                    if (sourceSet in testSources) affected.add(project.path)
+                }
+            }
+        }
+
+        if (!changedProduction.empty) {
+            def productionClasspaths = ['compileClasspath', 'runtimeClasspath', 'jvmCompileClasspath', 'jvmRuntimeClasspath']
+            def testClasspaths = ['testCompileClasspath', 'testRuntimeClasspath', 'jvmTestCompileClasspath', 'jvmTestRuntimeClasspath']
+            def projectDependencies = { project, classpaths ->
+                // Read declared project dependencies without resolving external modules.
+                classpaths.collectMany { name ->
+                    def configuration = project.configurations.findByName(name)
+                    configuration?.allDependencies?.withType(ProjectDependency)?.collect { it.path } ?: []
+                }.toSet()
+            }
+
+            def consumers = [:].withDefault { [] as Set }
+            root.subprojects.each { project ->
+                projectDependencies(project, productionClasspaths).each { dependency ->
+                    consumers[dependency].add(project.path)
+                }
+            }
+            def queue = new ArrayDeque(changedProduction)
+            while (!queue.empty) {
+                consumers[queue.remove()].each { consumer ->
+                    if (changedProduction.add(consumer)) queue.add(consumer)
+                }
+            }
+            affected.addAll(changedProduction)
+
+            // Test dependencies select their own tests without extending the production dependency graph.
+            testTasks.keySet().each { path ->
+                if (projectDependencies(root.project(path), testClasspaths).any { it in changedProduction }) {
+                    affected.add(path)
+                }
+            }
+        }
+
+        def selected = testTasks.findAll { project, ignored -> project in affected }.collect { project, task ->
+            "${project}:${task}".toString()
+        }
+        if (checkConventions) {
+            dependsOn(conventions.task(':test'))
+            root.logger.lifecycle('Affected JVM task in included build: :convention-plugin-ai:test')
+        }
+        if (selected || !checkConventions) {
+            root.logger.lifecycle(selected ? "Affected JVM tasks:\n  ${selected.join('\n  ')}" : 'No affected JVM tasks.')
+        }
+        dependsOn(selected)
+    }
+}

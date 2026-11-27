@@ -146,16 +146,6 @@ When you're pairing with an AI assistant on this project:
 The documentation is published on https://docs.koog.ai/, and its sources are located in the
 [docs](https://github.com/JetBrains/koog/tree/develop/docs) directory.
 
-## Public API Compatibility
-
-CI checks each stable JVM publication for binary compatibility with its published baseline. Run the same check when changing a public API, using the baseline version from [the JVM workflow](.github/workflows/checks.yml).
-
-```sh
-./gradlew --init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=1.3.0-kroog.8 :checkKroogJvmAbi
-```
-
-A failure identifies an incompatibility with a published JAR. Preserve the existing binary API for callers and third-party implementations when revising the change. Beta modules are exempt. See [TESTING.md](TESTING.md) for the JVM validation commands.
-
 ## Building
 
 ### Prerequisites
@@ -164,7 +154,7 @@ Kroog builds and publishes JVM artefacts. Use JDK 21 and the Gradle wrapper. No 
 
 ### How to build
 
-Run `bash .github/scripts/check-jvm.sh` to build and test the JVM publication inventory. For focused work, use module-qualified `jvmTest` and `jvmJar` tasks for multiplatform modules, or `test` and `jar` for JVM modules. Add `--init-script gradle/kroog-ci.init.gradle` to use the CI test engine and worker limits. Do not run root `build`, root `assemble`, or aggregate legacy ABI tasks. See [TESTING.md](TESTING.md) for the JVM CI and compatibility commands.
+Run `bash .github/scripts/check-jvm.sh --base origin/master` to test the JVM modules affected by your changes. For a single module, use its qualified `jvmTest` task for a multiplatform project or `test` for a JVM project. Add `--init-script gradle/kroog-ci.init.gradle` to use the CI test engine and worker limits. The stable release workflow builds the Maven publications. See [TESTING.md](TESTING.md) for hook setup and the optional full-suite command.
 
 You can import this project into IDEA, but you have to delegate build actions
 to Gradle (in Preferences -> Build, Execution, Deployment -> Build Tools -> Gradle -> Build and run).

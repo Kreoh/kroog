@@ -27,8 +27,8 @@ import ai.koog.agents.features.opentelemetry.attribute.GenAIAttributes.Operation
 import ai.koog.agents.features.opentelemetry.attribute.GenAIAttributes.Response.FinishReasonType
 import ai.koog.agents.features.opentelemetry.feature.OpenTelemetry
 import ai.koog.agents.features.opentelemetry.feature.OpenTelemetryTestBase
-import ai.koog.agents.features.opentelemetry.mock.MockSpanExporter
 import ai.koog.agents.features.opentelemetry.mock.TestGetWeatherTool
+import ai.koog.agents.features.opentelemetry.mock.TestSpanProcessor
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.agents.utils.HiddenString
 import ai.koog.http.client.KoogHttpClientException
@@ -48,11 +48,8 @@ import ai.koog.serialization.kotlinx.KotlinxSerializer
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestPipeline
 import io.opentelemetry.kotlin.tracing.data.SpanData
-import io.opentelemetry.kotlin.tracing.export.simpleSpanProcessor
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -61,7 +58,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
 
 class OpenTelemetryInferenceSpanTest : OpenTelemetryTestBase() {
 
@@ -529,7 +525,7 @@ class OpenTelemetryInferenceSpanTest : OpenTelemetryTestBase() {
             }
         }
 
-        val spanExporter = MockSpanExporter()
+        val spanProcessor = TestSpanProcessor()
         val testData = OpenTelemetryTestData()
         val result = runCatching {
             AIAgent(
@@ -544,7 +540,7 @@ class OpenTelemetryInferenceSpanTest : OpenTelemetryTestBase() {
                 systemPrompt = OpenTelemetryTestAPI.Parameter.SYSTEM_PROMPT
             ) {
                 install(OpenTelemetry) {
-                    addSpanProcessor { simpleSpanProcessor(spanExporter) }
+                    addSpanProcessor { spanProcessor }
                 }
             }.run(OpenTelemetryTestAPI.Parameter.USER_PROMPT_PARIS)
         }
@@ -552,13 +548,7 @@ class OpenTelemetryInferenceSpanTest : OpenTelemetryTestBase() {
         assertNotNull(exception, "Unexpected successful result $result")
         assertFalse(exception is CancellationException, "Unexpected cancellation exception")
 
-        testData.collectedSpans = withTimeout(10.seconds) {
-            // Wait until the root create-agent span is exported (it ends last), so all child spans are
-            // present. `first()` would return the StateFlow's current value without waiting, racing the
-            // async export and intermittently leaving filterAgentInvokeSpans() empty (flaky on Windows CI).
-            spanExporter.isCollected.first { it }
-            spanExporter.collectedSpans
-        }
+        testData.collectedSpans = spanProcessor.collectedSpans
 
         // CHECKS
         // We are expecting to provide the root cause of LLMClientException
