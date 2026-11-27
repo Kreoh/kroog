@@ -7,7 +7,16 @@ gradle.projectsEvaluated {
     def paths = manifest.getText('UTF-8').split('\u0000').findAll { it }.unique().sort()
     def changedFiles = paths.collect { root.file(it).canonicalFile }.toSet()
     def selection = MessageDigest.getInstance('SHA-256').digest(paths.join('\u0000').getBytes('UTF-8')).encodeHex()
-    root.allprojects {
+    def projects = root.allprojects.findAll { project ->
+        def directory = project.projectDir.canonicalFile.toPath()
+        changedFiles.any { it.toPath().startsWith(directory) }
+    }
+    ['ktlintCheck', 'ktlintFormat'].each { taskName ->
+        root.tasks.register("${taskName}Changed") {
+            dependsOn projects.collect { it.tasks.named(taskName) }
+        }
+    }
+    root.configure(projects) {
         def lint = extensions.findByName('ktlint')
         if (lint != null) {
             lint.filter {

@@ -2,6 +2,7 @@
 gradle.projectsEvaluated {
     gradle.rootProject.allprojects {
         tasks.withType(Test).configureEach {
+            failFast = true
             maxParallelForks = 1
             jvmArgs '-XX:ActiveProcessorCount=2'
             if (name == 'test') {
@@ -13,5 +14,9 @@ gradle.projectsEvaluated {
                 }
             }
         }
+    }
+
+    gradle.rootProject.findProject(':a2a:a2a-client')?.tasks?.named('jvmTest') {
+        inputs.dir(gradle.rootProject.file('a2a/test-python-a2a-server')).withPathSensitivity(PathSensitivity.RELATIVE)
     }
 }

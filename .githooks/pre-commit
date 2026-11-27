@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${JAVA_HOME:-}" ]] && hook_java_home=$(git config --path --get kroog.javaHome); then
+    export JAVA_HOME="$hook_java_home"
+fi
+
+git_environment=$(git rev-parse --local-env-vars)
+git_variables=()
+while IFS= read -r variable; do
+    git_variables+=("$variable")
+done <<< "$git_environment"
+
+git_dir=$(git rev-parse --absolute-git-dir)
+index=$(git rev-parse --path-format=absolute --git-path index)
+untracked=$(git ls-files --others --exclude-standard --directory --no-empty-directory)
+if [[ "$index" != "$git_dir/index" || -n "$untracked" ]] || ! git diff --quiet --no-ext-diff --; then
+    # Keep local edits intact and give the checks their own Git index and worktree.
+    objects=$(git rev-parse --path-format=absolute --git-path objects)
+    object_format=$(git rev-parse --show-object-format)
+    base=$(git rev-parse --verify HEAD)
+
+    mkdir -p build
+    snapshot=$(mktemp -d "$PWD/build/pre-commit.XXXXXXXX")
+    trap 'rm -rf -- "$snapshot"' EXIT
+    (
+        unset "${git_variables[@]}"
+        git init --quiet --template= --object-format="$object_format" "$snapshot"
+    )
+    printf '%s\n' "$objects" > "$snapshot/.git/objects/info/alternates"
+    cp "$index" "$snapshot/.git/index"
+    GIT_INDEX_FILE="$snapshot/.git/index" git update-index --no-split-index --no-fsmonitor
+
+    unset "${git_variables[@]}"
+    cd "$snapshot"
+    git update-ref --no-deref HEAD "$base"
+    git checkout-index --all --ignore-skip-worktree-bits
+fi
+
+unset "${git_variables[@]}"
+bash .github/scripts/check-lint.sh HEAD
+bash .github/scripts/check-jvm.sh

@@ -163,11 +163,11 @@ dependency locks and dependency-verification checksums from that generation.
 1. Collect the intended changes on the release preparation branch and resolve any conflicts with `master` before tagging.
 2. Verify the incorporated Koog version against the alignment audit. If the upstream base changed, use the new base and reset the Kroog revision to `1`. Check existing tags and published coordinates, then commit the next unused version in `gradle.properties`, the version documentation and the release notes. Keep installation examples on verified published coordinates.
 3. Document user-visible features, fixes, compatibility changes and the incorporated upstream version. Complete the README release gate below and review the preparation commit.
-4. Complete the model catalogue release gate for each model change. Run the relevant JVM tests and ABI checks, investigate failures and record existing limitations. Validate all 87 publications from a clean archive of the exact preparation commit in a fresh output directory.
+4. Run the affected JVM tests on the exact preparation commit. For model changes, complete the model catalogue gate below, including verification through the affected staged artefacts.
 5. **Before merging into `master`, create the annotated version tag on the validated preparation commit.** Use a clean checkout, push the preparation branch and tag, and verify the tag object and its target on origin.
 6. Choose **Squash and merge** on the preparation PR into `master`. GitHub creates a new commit on `master`; the release tag continues to point to the validated preparation commit. Review any differences between the tagged source and the squash commit with `git diff "$version" <squash-commit>`. If a change must ship and is missing from the tag, prepare a new revision.
 7. After the PR is merged, open **Actions → Publish Maven release → Run workflow**. Select `master` and enter the existing annotated tag as `release_tag`.
-8. Inspect the signed bundle and Central Portal validation results. Approve
+8. The release workflow builds and validates all 87 signed publications, then uploads the bundle. Inspect the signed bundle and Central Portal validation results. Approve
    publication in Central Portal only after validation succeeds. Create the
    GitHub release against the same tag with the reviewed release notes, then
    update consumers once the artefacts are available from Central.

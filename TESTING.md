@@ -4,15 +4,19 @@ When making changes in the project, please make sure that the corresponding test
 
 ## JVM continuous integration
 
-Kroog targets the JVM. Pull requests to `master` and pushes to `master` run the JVM build and tests, JVM binary compatibility checks, and Kotlin lint for changed files. The `JVM checks result` job succeeds only when every required job succeeds; failed, cancelled or skipped jobs fail the summary.
+Pull requests to `master` and pushes to `master` lint changed Kotlin files first, then run the affected JVM tests on the same runner. Documentation-only changes outside build inputs skip Gradle. The required GitHub check is `JVM checks result`.
 
-Run `JAVA_HOME=/path/to/jdk-21 bash .github/scripts/check-jvm.sh` for the same build and test scope locally. The script uses `gradle/kroog-jvm-publications.txt` to cover every published JVM module, runs the offline integration-module tests and compiles the standalone skills API consumer. It retains Gradle caches, limits Gradle workers to two and caps each test task at one fork with two visible processors. For focused module runs, add `--init-script gradle/kroog-ci.init.gradle` to retain the same test engine and limits. It does not compile Android, JavaScript, Wasm or Native targets.
+Use JDK 21 and run `bash .github/scripts/check-jvm.sh` for working tree changes against `HEAD`. Pass `--base origin/master` to include changes committed on your branch. The selector uses Gradle’s JVM source sets, test tasks and project dependencies. A change to test code or test resources selects its own module. A production change also selects downstream modules whose JVM code or tests depend on it. The integration tests and skills API consumer compilation run when affected. Shared build inputs such as the version catalogue and convention plugin implementation affect the entire suite. Gradle compiles dependencies as required and runs independent tasks with up to four workers.
 
-The JVM ABI check uses the published baseline selected in `.github/workflows/checks.yml`. Run `./gradlew --init-script gradle/kroog-jvm-abi.init.gradle -PkroogAbiBaseline=1.3.0-kroog.8 :checkKroogJvmAbi` to compare public JVM APIs. Update the baseline deliberately after a release. Beta modules follow the existing exemption from ABI compatibility checks.
+CI uploads its Gradle profile and test reports when available. To exercise the test selector itself, run `bash .github/scripts/test-affected-jvm.sh`. Changes to the selector or its scripts run this regression automatically.
+
+To run the complete JVM test suite explicitly, use `bash .github/scripts/check-jvm.sh --full`.
 
 Maven release and snapshot publication remain manual workflows. The manual OpenAI hosted execution workflow runs paid tests only from `master` and requires `OPENAI_API_KEY` or `OPEN_AI_API_TEST_KEY` in repository secrets. Other credentialled provider checks can be run explicitly using the commands below. A2A protocol conformance runs separately for changes to its published protocol modules. Upstream example, documentation deployment and non-JVM workflows are not part of Kroog CI.
 
 Run `bash .github/scripts/check-lint.sh origin/master` to lint changed Kotlin files, or append `ktlintFormat` to format them. CI compares PRs with their base commit and pushes with their previous commit, so unrelated upstream formatting does not block changes.
+
+Enable the pre-commit hook once per clone with `git config --local core.hooksPath .githooks`. Use JDK 21 through `JAVA_HOME`, or set `git config --local kroog.javaHome /path/to/jdk-21` when your shell or IDE uses another JDK by default. The hook checks staged changes against `HEAD` with the same lint and affected-test scripts as CI. It can reuse local build outputs when the checkout matches the staged contents. For partial commits it checks the staged files in a temporary checkout and preserves local edits.
 
 ## Quality Gates
 
@@ -28,7 +32,7 @@ A change is NOT done until ALL of the following are true:
     - Behavior change → existing tests updated to reflect the new contract.
 2. **Tests actually run and pass locally** through the affected module-specific JVM test tasks.
    Do NOT report a task as complete based on "it compiles". Compilation ≠ tests pass.
-3. **The affected JVM JAR tasks succeed** before the change is handed back to the user. Use `jvmJar` for multiplatform modules and `jar` for JVM modules; do not run root `build` or `assemble`.
+3. **Changes to packaging are verified against the affected JVM artefact.** The stable release workflow builds and validates the complete publication inventory.
 4. **No suppressed warnings, no `@Ignore`, no `@Disabled`, no commented-out assertions** were introduced to make tests pass.
 5. **Public API changes** (new/removed/renamed public symbols) are documented with KDoc.
 
